@@ -25,9 +25,13 @@ module io
   use general
   use genetic
 
+  character*10000 :: line  !read random seed line
+  integer :: sizeSeed !pfh
+  character*12 :: presmich !label used to determine the presence of KM (mich-menten) HC 14-04-20
+
   real*8 , public, allocatable :: param(:),pparam(:,:),paramo(:)  ! to record the parameters periodically
   real*8 , public, allocatable :: varglobal_out(:),pvarglobal_out(:,:) !maybe fuse with the params
-  character*100 , public, allocatable :: names_param(:),names_varglobal_out(:),names_fu(:)
+  character*200 , public, allocatable :: names_param(:),names_varglobal_out(:),names_fu(:),names_fi(:) !!>>HC 17-2-2021
   integer, public               :: errorlec             ! it becomes 1 if there was a lecture error
   integer, public               :: freqsnap             ! frequency of saving data for movies
 
@@ -59,7 +63,7 @@ module io
   real*4,public  :: conf_anglex,conf_angley,conf_custom_max,conf_custom_min
   integer :: conf_colorselection,conf_custom_colorselection,conf_rainbow,conf_chogen
   integer :: ic_load
-  integer,dimension(40)::conf_flag !>>Miquel2-10-14
+  integer,dimension(41)::conf_flag !>>Miquel2-10-14 !!>> HC 12-3-2021
 
   real*4,public  :: conf_custom_amaxval,conf_custom_aminval,conf_custom_smaxval,conf_custom_sminval  !>>Miquel5-11-14
   real*4,public  :: conf_custom_arrowscale,conf_custom_spherescale                                   !>>Miquel5-11-14
@@ -68,6 +72,33 @@ module io
   integer::conf_select_what,conf_nki !>>Miquel5-11-14
 
 contains
+
+
+
+integer function ntokens(line) result(ntokens2) ! how big is the size of the random seed used in the current file
+character,intent(in):: line*(*)
+integer n, toks
+
+i = 1;
+n = len_trim(line)
+toks = 0
+ntokens2 = 0
+do while(i <= n)
+   do while(line(i:i) == ' ')
+     i = i + 1
+     if (n < i) return
+   enddo
+   toks = toks + 1
+   ntokens2 = toks
+   do
+     i = i + 1
+     if (n < i) return
+     if (line(i:i) == ' ') exit
+   enddo
+enddo
+end function ntokens
+
+
 
 !**************************************************************
   subroutine iniio
@@ -95,6 +126,9 @@ contains
 
     if (allocated(names_fu)) deallocate(names_fu)
     allocate(names_fu(nfu))
+
+    if (allocated(names_fi)) deallocate(names_fi)        !!>>HC 17-2-2021
+    allocate(names_fi(nfi))                              !!>>HC 17-2-2021
 
     if (allocated(nodeparams)) deallocate(nodeparams)
     allocate(nodeparams(nparam_per_node))
@@ -185,7 +219,7 @@ subroutine iniread
     deltamax=para(17)
     ncels=para(18)
     ng=para(19)
-    nodecel=para(20)
+    !nodecel=para(20)
     prop_noise=para(21)
     !khold=para(25)             !>>>Miquel9-1-14
     mnn=para(22)
@@ -197,6 +231,11 @@ subroutine iniread
     df_reqmax=para(28) !>>Miquel28-7-14
     angletor=para(29) !>>Miquel15-9-14
     ldi=para(30) !>>Miquel23-10-14
+    maxad=para(31) !>> HC 12-5-2020
+    maxbox=para(32) !!>> HC 28-1-2021
+    maxcycl=para(33) !!>> HC 11-2-2021
+    newfase=para(34) !>> HC 14-9-2021
+    maxelong=para(35) !>> TT 30-9-2021
 
 !    if (allocated(kadh)) deallocate(kadh)       !x>>>>Miquel14-11-13
 !    allocate(kadh(ntipusadh,ntipusadh))
@@ -232,7 +271,7 @@ subroutine iniread
     deltamax=para(17)
     ncels=para(18)
     ng=para(19)
-    nodecel=para(20)
+    !nodecel=para(20)
     prop_noise=para(21)
     !khold=para(25)           !>>>Miquel9-1-14
     mnn=para(22)
@@ -244,6 +283,11 @@ subroutine iniread
     df_reqmax=para(28) !>>Miquel28-7-14
     angletor=para(29) !>>Miquel15-9-14
     ldi=para(30) !>>Miquel23-10-14
+    maxad=para(31) !>> HC 12-5-2020
+    maxbox=para(32) !!>> HC 28-1-2021
+    maxcycl=para(33) !!>> HC 11-2-2021
+    newfase=para(34) !>> HC 14-9-2021
+    maxelong=para(35) !>> TT 30-9-2021
 
 !    if (allocated(kadh)) deallocate(kadh)        !x>>>>Miquel14-11-13
 !    allocate(kadh(ntipusadh,ntipusadh))          !
@@ -292,7 +336,7 @@ subroutine iniread
     para(17)=deltamax
     para(18)=ncels
     para(19)=ng
-    para(20)=nodecel
+    !para(20)=nodecel
     para(21)=prop_noise
     !para(25)=khold          !>>>Miquel9-1-14
     para(22)=mnn
@@ -304,6 +348,11 @@ subroutine iniread
     para(28)=df_reqmax  !>>Miquel28-7-14
     para(29)=angletor   !>>Miquel15-9-14
     para(30)=ldi
+    para(31)=maxad !>> HC 12-5-2020
+    para(32)=maxbox !!>> HC 28-1-2021
+    para(33)=maxcycl !!>> HC 11-2-2021
+    para(34)=newfase !!>> HC 14-9-2021
+    para(35)=maxelong !>> TT 30-9-2021
 !    do i=1,ntipusadh
 !      do j=1,ntipusadh
 !        para(25+i+j)=kadh(i,j)
@@ -318,35 +367,44 @@ subroutine iniread
     character*12 cf,cg
     names_param=" nothing"
     names_param(1)="Number of iterations run"
-    names_param(2)="M(TEM)        : Physical: temperature or 1/temperature"
+    names_param(2)="nothing"
     names_param(3)="nparti        : Mathematical: number of parititions in the 3D random number ball: TECHNICAL"
-    names_param(4)="desmax (not really a param)"
+    names_param(4)="desmax        : range of the random distance from which the father where a new node arise  &
+&    (if it is small it is NOT IMPORTANT)"
     names_param(5)="M(MAE)        : Mathematical: pEQD all nodes in a cell should have before adding a new node"  
-    names_param(6)="M(DIF)        : Numerical   : maximal distance at which to consider diffusion, in number of node radius(da)"
-    names_param(7)="rv            : Mathematical: size of the cubes in the grid: TECHNICAL(not a param since it's dynamic)"
+    names_param(6)="M(DIF)        : Numerical   : ONLY FOR ALL VERSIONS maximal distance at which to consider &
+& diffusion, in number of node radius(da)"
+    names_param(7)="nothing"
     names_param(8)="M(MCO)        : Biological : compression p node"! in a cell to allow to add new nodes: it should be negative and small"
     names_param(9)="number of adh molecules"
     names_param(10)="Total number of nodes"
-    names_param(11)="M(RMA)       : Mathematical: maximal displacement per iteration"
+    names_param(11)="M(RMA)       : Mathematical: maximal displacement per iteration, delta gets rescaled based on it"
     names_param(12)="M(MAN)       : Mathematical: maximal number of nodes allowed: it is only used in L2=1"
-    names_param(13)="real time (a variable)"
+    names_param(13)="real time (a variable) in model time units"
     names_param(14)="ttalone      : Biological  : time a node can be alone before dying" 
     names_param(15)="M(EMI) & M(MID)?   : the req a newly added node has at least" 
     names_param(16)="M(ECM)       : the amount of matter an extracel node should have before being released" 
     names_param(17)="M(DMA)       : the maximal dynamic delta allowed: no major effect" 
     names_param(18)="Total number of cells" 
     names_param(19)="Total number of genes" 
-    names_param(20)="nocedel      : Biological: initial number of nodes per cell"
+    names_param(20)="nothing"
     names_param(21)="M(NOI)       : Numerical : proportion of nodes subject to noise per dif eq iteration"
     names_param(22)="M(MNN)       : Numerical  : Maximal number of nodes that can interact with a node: if more then crash"
     names_param(23)="M(EMA)       : Numerical  : Maximal radius a node can have, we do not allow more"
     names_param(24)="M(DDA)       : mathematical: accuracy when using the adaptive step: it is only used if L19=1"
     names_param(25)="M(DMI)       : Numerical  : we do not allow a delta smaller than that"
-    names_param(26)="dif_req      : Biological : diffusion coefficient of req "
-    names_param(27)="M(GAB)       : Numerical : intensity of screening between nodes: 0 = no screening, 1 = full screening"
+    names_param(26)="dif_req      : Biological : diffusion coefficient of req, only applies if L14 is 1 "
+    names_param(27)="M(GAB)       : Numerical : only if L11=1 intensity of screening between nodes: 0 = no screening, &
+& 1 = full screening"
     names_param(28)="M(DFE)       : Numerical : maximal req value allowed by epithelial deformation"
     names_param(29)="M(AMX)       : Biological: minimum angle for surface tension forces to be applied"
-    names_param(30)="M(dummy)     : Dummy parameter, does nothing" 
+    names_param(30)="M(dummy)     : Dummy parameter, does nothing"
+    names_param(31)="M(maxad)     : Maximum adhesion force between nodes" !>> HC 12-5-2020 
+    names_param(32)="M(maxbox)    : Maximum number of nodes per box allowed (if filters are applied)" !>> HC 28-1-2021 
+    names_param(33)="M(maxcycl)   : Maximum value of the sum of cell cycle increase in all the cells per iteration" !>> HC 11-2-2021 
+    names_param(34)="M(newfase)   : Maximum value for the cell fase after division" !>> HC 15-9-2021
+    names_param(35)="M(maxelong)  : Maximum proportion by which a node is elongated when polarized" !>> TT 30-9-2021
+
  
   end subroutine
 
@@ -361,33 +419,50 @@ subroutine iniread
 
   subroutine s_names_fu
     names_fu=""
-    if (nfu>0) names_fu(1)="L1 treat each spherical node as a cell and each cylinder as a cell"
-    if (nfu>1) names_fu(2)="L2 to stop when there are too many cells"
-    if (nfu>2) names_fu(3)="L3 0 no screening, 1 screening by Gabriel method"
-    if (nfu>3) names_fu(4)="L4 torsion: scalar product between within cell ellipses"
-    if (nfu>4) names_fu(5)="nothing" !external source
-    if (nfu>5) names_fu(6)="nothing" !eggshell
-    if (nfu>6) names_fu(7)="L5 stop the simulation if a node gets to 3 times the original size of node 1:both for req and da" !>>> Is 4-2-14
-    if (nfu>7) names_fu(8)="L6 this forces apoptosis of all the nodes or cells that lose contact with others"
-    if (nfu>8) names_fu(9)="L7 0, for Euler numerical int., 1 for Runge-Kutta order 4 for movement, 2 R-K also for genetics"
-    if (nfu>9) names_fu(10)="L8 stop the simulation if all nodes are differentiated"
-    if (nfu>10) names_fu(11)="L9 epithelial node plastic deformation"
-    if (nfu>11) names_fu(12)="L10 dynamic delta (0) / fixed delta (1)"
-    if (nfu>12) names_fu(13)="L11 neighboring algorithm: exhaustive by %da sphere (0) / by 3D triangulation (1)"
-    if (nfu>13) names_fu(14)="nothing" !physical boundaries (walls)"
-    if (nfu>14) names_fu(15)="nothing"
-    if (nfu>15) names_fu(16)="L12 apical-apical interaction: 0 original, 1 new"
-    if (nfu>16) names_fu(17)="L13 volume conservation in cylinders"
-    if (nfu>17) names_fu(18)="L14 diffusion of reqcr"
-    if (nfu>18) names_fu(19)="L15 1 for adaptive size step (it uses Runge-Kutta), 2 to make for genetics too"
-    if (nfu>19) names_fu(20)="L16 this allows growth to add more than one node per cell per iteration"
-    if (nfu>20) names_fu(21)="L17 return the control in real time(1) or in real iterations(0),&
-                              & only applies if  ffu(12)=0; dynamic delta"
-    if (nfu>21) names_fu(22)="L18 random noise mode: 0 = biased random noise by energies , 1 = unbiased random noise" !>>Miquel28-7-14
-    if (nfu>22) names_fu(23)="L19 forces by diff. equations: 0 = activated, 1 = disabled (should go by energies)" !>>Miquel28-7-14
-    if (nfu>23) names_fu(24)="L20 if 0 epithelial nodes from one side do not consider as neighbors nodes from the other side" !Not in  PLOS CB version !>>> Is 18-4-15
-                             ! ffu(24)=1 is not the default but it makes the code much faster with equal realism
-    if (nfu>24) names_fu(25)="L21 if 1 makes that single node cells divide gradually by adding a small daughter cell" !Not in  PLOS CB version !>>> Is 18-4-15
+    if (nfu>0) names_fu(1)="L1 if 0 treat each spherical node as a cell and each cylinder as a cell"
+    if (nfu>1) names_fu(2)="L2 0 no screening, 1 screening by Gabriel method"
+    if (nfu>2) names_fu(3)="L3 0 there is torsion: scalar product between within cell ellipses, 1 there is no torsion"
+    if (nfu>3) names_fu(4)="L4 if 1 this forces apoptosis of all the nodes or cells that lose contact with others"
+    if (nfu>4) names_fu(5)="L5 1, for Euler numerical int., 0 for Runge-Kutta order 4 for movement, 2 R-K also for genetics"
+    if (nfu>5) names_fu(6)="L6 epithelial node plastic deformation (1=ON)"
+    if (nfu>6) names_fu(7)="L7 dynamic delta (0) / fixed delta (1)"
+    if (nfu>7) names_fu(8)="L8 neighboring algorithm: exhaustive by %add sphere (0) / by 3D triangulation (1)"
+    if (nfu>8) names_fu(9)="L9 1 for original 2016 version, 0 for 2021 version"
+    if (nfu>9) names_fu(10)="L10 if 0 volume conservation in cylinders"
+    if (nfu>10) names_fu(11)="L11 diffusion of reqcr (1=ON)"
+    if (nfu>11) names_fu(12)="L12 1 for adaptive size step (it uses Runge-Kutta), 2 to make for genetics too"
+    if (nfu>12) names_fu(13)="L13 this allows growth to add more than one node per cell per iteration"
+    if (nfu>13) names_fu(14)="L14 return the control in real time(0) or in real iterations(1), only with dynamic delta"
+    if (nfu>14) names_fu(15)="L15 random noise mode: 1 = biased random noise by energies , 0 = unbiased random noise" !>>Miquel28-7-14
+    if (nfu>15) names_fu(16)="L16 forces by diff. equations: 0 = activated, 1 = disabled (should go by energies)" !>>Miquel28-7-14
+    if (nfu>16) names_fu(17)="L17 if 0 epithelial nodes from one side do not consider as neighbors nodes from the other side" !Not in  PLOS CB version !>>> Is 18-4-15
+                             ! ffu(17)=1 is not the default but it makes the code much faster with equal realism
+    if (nfu>17) names_fu(18)="L18 if 0 makes that single node cells divide gradually by adding a small daughter cell" !Not in  PLOS CB version !>>> Is 18-4-15
+    if (nfu>18) names_fu(19)="L19 if 0 cell polarization and directed division activated by the same wa (only for single node)" !Not in  PLOS CB version !>>> HC 01-05-2020
+    if (nfu>19) names_fu(20)="L20 if 0 There is a limit in the attraction forces suffered by the nodes" !Not in  PLOS CB version !>>> HC 11-05-2020
+    if (nfu>20) names_fu(21)="L21 if 1 we apply filters" !Not in  PLOS CB version !!>> HC 17-11-2020
+    if (nfu>21) names_fu(22)="L22 if 1 silent mode: we do not print info each iteration" !Not in  PLOS CB version !!>> HC 30-11-2020
+    if (nfu>22) names_fu(23)="L23 The neighs are only the nodes in the ADD range (0) we use an extended range (1)" !Not in  PLOS CB version !!>> HC 14-1-2021
+    if (nfu>23) names_fu(24)="L24 if 0 we run the algorithm that recovers lost neighbors (assumes ffu(23)=0)"    !Not in  PLOS CB version !!>> HC 6-7-2021
+    if (nfu>24) names_fu(25)="L25 Nutrients limited. If 0 there is a limit to sum of cell cycle increase in each iteration" !Not in  PLOS CB version !!>> HC 11-2-2021
+    if (nfu>25) names_fu(26)="L26 if 0 genetic changes in node properties happen gradually " !Not in  PLOS CB version !!>> HC 15-2-2021
+    if (nfu>26) names_fu(27)="L27 if 0 we call to neighbor_build only once per iteration (assumes Rungekutta)" !Not in  PLOS CB version !!>> HC 12-7-2021
+    if (nfu>27) names_fu(28)="L28 if 0 polarized nodes are calculated as ellipsoids" !Not in  PLOS CB version !!>> TT 21-9-2021
+
+    if (nfi>0) names_fi(1)="WHICHEND 1: Over 4h of computation time"                                                !!>>HC 26-2-2021
+    if (nfi>1) names_fi(2)="WHICHEND 2: A node has too many neighbors"                                              !!>>HC 26-2-2021
+    if (nfi>2) names_fi(3)="WHICHEND 3: The total size is too big"                                                  !!>>HC 26-2-2021
+    if (nfi>3) names_fi(4)="WHICHEND 4: There are too many nodes"                                                   !!>>HC 14-7-2021
+    if (nfi>4) names_fi(5)="WHICHEND 5: No nodes"                                                                   !!>>HC 26-2-2021
+    if (nfi>5) names_fi(6)="WHICHEND 6: No movement"                                                                !!>>HC 26-2-2021
+    if (nfi>6) names_fi(7)="WHICHEND 7: Time ended (iterations)"                                                    !!>>HC 26-2-2021
+    if (nfi>7) names_fi(8)="WHICHEND 8: Time ended (real time)"                                                     !!>>HC 26-2-2021
+    if (nfi>8) names_fi(9)="WHICHEND 9: The maximum ADD value is larger than 3 times the minimum ADD value"         !!>>HC 26-2-2021
+    if (nfi>9) names_fi(10)="WHICHEND 10: The average number of boxes per box is higher than maxnbox (parameter)"   !!>>HC 26-2-2021
+    if (nfi>10) names_fi(11)="WHICHEND 11: No movement"                                                             !!>>HC 26-2-2021
+    if (nfi>11) names_fi(12)="WHICHEND 12: Broken epithelium"                                                       !!>>HC 26-2-2021
+    if (nfi>12) names_fi(13)="WHICHEND 13: Blackholes (many nodes in the same place)"                               !!>>HC 26-2-2021
+    if (nfi>13) names_fi(14)="WHICHEND 14: Check that all the values of the node properties are inside the ranges"  !!>>HC 11-11-2021
     
   end subroutine
 
@@ -438,17 +513,16 @@ subroutine iniread
   subroutine writesnap
     logical::L_EXISTS	!>>>>Miquel 25-4-13
 
-    inquire(file="./output/", EXIST=L_EXISTS)
-    if(.not. L_EXISTS)then
-!      print*,"./output/ no existeix"
-      call system("mkdir output")
-    end if
-
     if (len_trim(carg)==0.or.carg=="0") then
-      call system("mkdir output/"//caa)
-      nomfit=caa//cazero(3:)//cae//caf//cag
+       inquire(file="./output/", EXIST=L_EXISTS)
+       if (.not. L_EXISTS)then                    !!>>HC 5-10-2021
+!         print*,"./output/ no existeix"          !!>>HC 5-10-2021
+         call system("mkdir output")              !!>>HC 5-10-2021
+       end if                                     !!>>HC 5-10-2021
+       call system("mkdir output/"//caa)
+       nomfit=caa//cazero(3:)//cae//caf//cag
     else
-      nomfit(1:len(nomfit))=carg(1:len(nomfit))
+       nomfit(1:len(nomfit))=carg(1:len(nomfit))
     end if
     do i=1,len(nomfit)
       if (nomfit(i:i)==" ") nomfit(i:i)="_"
@@ -537,17 +611,16 @@ subroutine iniread
   subroutine writesnapini  !>>>>> by Miquel18-11-13  this sub only writes the output file with initial conditions
     logical::L_EXISTS	!>>>>Miquel 25-4-13
 
-    inquire(file="./output/", EXIST=L_EXISTS)
-    if(.not. L_EXISTS)then
-!      print*,"./output/ no existeix"
-      call system("mkdir output")
-    end if
-
     if (len_trim(carg)==0.or.carg=="0") then
-      call system("mkdir output/"//caa)
-      nomfit=caa//cazero(3:)//cae//caf//cag
+       inquire(file="./output/", EXIST=L_EXISTS)   !!>> HC 5-10-2021
+       if (.not. L_EXISTS)then                     !!>> HC 5-10-2021
+!         print*,"./output/ no existeix"           !!>> HC 5-10-2021
+          call system("mkdir output")              !!>> HC 5-10-2021
+       end if                                      !!>> HC 5-10-2021
+       call system("mkdir output/"//caa)
+       nomfit=caa//cazero(3:)//cae//caf//cag
     else
-      nomfit(1:len(nomfit))=carg(1:len(nomfit))
+       nomfit(1:len(nomfit))=carg(1:len(nomfit))
     end if
     do i=1,len(nomfit)
       if (nomfit(i:i)==" ") nomfit(i:i)="_"
@@ -659,9 +732,19 @@ return
     write (1,*) nfu,"functions"
     write (1,*) 
     do i=1,nfu
-      write (1,*) ffu(i),names_fu(i)
+      write (1,*) ffu(i),trim(names_fu(i))
     end do
-    write (1,*) 
+    write (1,*)     
+    if (whichend>0) then                                                !!>>HC 26-2-2021
+        write (1,*) nfi,"filters: active, lethal, how often is checked. This individual was filtered by whichend:", whichend !!>>HC 26-2-2021
+    else                                                                !!>>HC 26-2-2021
+        write (1,*) nfi,"filters: active, lethal, how often is checked" !!>>HC 26-2-2021
+    endif                                                               !!>>HC 26-2-2021
+    write (1,*)                                                         !!>>HC 17-2-2021
+    do i=1,nfi                                                          !!>>HC 17-2-2021
+      write (1,*) ffufi(i,:),trim(names_fi(i))                          !!>>HC 17-2-2021
+    end do                                                              !!>>HC 17-2-2021
+    write (1,*)                                                         !!>>HC 17-2-2021
     write (1,*) "parameters"
     write (1,*) 
     do i=1,nparam
@@ -691,7 +774,7 @@ return
       write (1,*) "W matrix: gene    1      gene 2 etc..."
       write (1,*) 
       do i=1,ng
-        write(1,fmt="(A3,I4,"//rowfmt(2:11))  "gene",i,gen(i)%w       !!!!!!!W!!!!!!!!!!!!!!
+        write(1,fmt="(A3,I4,"//rowfmt(2:11))  "gene",i,gen(i)%t       !!!!!!!W!!!!!!!!!!!!!!
       end do
       write (1,*) 
       write (1,*) "R matrix: gene"
@@ -699,10 +782,10 @@ return
       do i=1,ng
         write(1,*) i,gen(i)%nww
         if (gen(i)%nww>0) then
-          write(1,*)  gen(i)%ww(:gen(i)%nww,1) !!!!!!!WW!!!!!!!!!!!!!
-          write(1,*)  gen(i)%ww(:gen(i)%nww,2) !!!!!!!WW!!!!!!!!!!!!!
+          write(1,*)  gen(i)%r(:gen(i)%nww,1) !!!!!!!WW!!!!!!!!!!!!!
+          write(1,*)  gen(i)%r(:gen(i)%nww,2) !!!!!!!WW!!!!!!!!!!!!!
           do j=1,gen(i)%nww
-            write(1,fmt="(es24.16)",ADVANCE='NO') gen(i)%ww(j,3) !!!!!!!WW!!!!!!!!!!!!!
+            write(1,fmt="(es24.16)",ADVANCE='NO') gen(i)%r(j,3) !!!!!!!WW!!!!!!!!!!!!!
           end do
           write(1,*) ""
         end if
@@ -711,7 +794,7 @@ return
       write (1,*) "E and C matrix: node prop 1 node prop 2 etc..."
       write (1,*) 
       do i=1,ng
-        write(1,fmt="(A3,I4,"//rowfmta(2:11))  "gene",i,gen(i)%wa     !!!!!!!WA!!!!!!!!!!!!!!
+        write(1,fmt="(A3,I4,"//rowfmta(2:11))  "gene",i,gen(i)%e     !!!!!!!WA!!!!!!!!!!!!!!
       end do
       write (1,*) 
       write (1,*) "other gene characteristics"
@@ -719,6 +802,7 @@ return
       do i=1,ng
         write(1,*) "gene",i !,gen(i)%label
         write(1,'(es24.16,A12)') gen(i)%diffu," diffusivity"
+        write(1,'(es24.16,A12)') gen(i)%mich, " Mich-Menten" !>>> HC 14-04-20
         write(1,'(es24.16,A17)') gen(i)%mu,"degradation rate"
         write(1,'(es24.16,A36)') gen(i)%kindof,"type, 0 TF, 1 modofiable FT, 2 form"
         write(1,'(I4,A20)') gen(i)%npre," number of pre forms"
@@ -777,143 +861,8 @@ return
       write (1,*) cels(i)%node(:cels(i)%nunodes)
       write (1,*) 
     end do
-  end subroutine
 
-!**********************************************************************************************
-
-  subroutine writeassuchold(para,nodi) !without nodeo
-    character*30 nofi
-    integer i,j
-    real*8 para(nparam)
-    type(nod) nodi(nda)    
-
-
-    node(:)%e=0.0d0
-
-    write (1,*) "THIS FILE WAS WRITTEN IN THE FORMAT OF THE ",version," VERSION"
-    write (1,*) winame
-    write (1,*) nparam,"number of node parameters"
-    write (1,*) nvarglobal_out,"number of global variables"
-    write (1,*) 
-    write (1,*) nfu,"functions"
-    write (1,*) 
-    do i=1,nfu
-      write (1,*) ffu(i),names_fu(i)
-    end do
-    write (1,*) 
-    write (1,*) "parameters"
-    write (1,*) 
-    do i=1,nparam
-      write (1,"(I2,es24.16,A1,A100)") i,para(i)," ",names_param(i)
-    end do
-    write (1,*) 
-    write (1,*) "random seed at the first iteration"
-    write (1,*) 
-    write (1,*) idumoriginal
-    write (1,*) 
-    write (1,*) "random seed at this iteration"
-    write (1,*) 
-    call random_seed(get=idum)
-    write (1,*) idum
-    write (1,*) 
-    write (1,*) "global output variables"
-    write (1,*) 
-    do i=1,nvarglobal_out
-      write (1,"(es24.16,A100)") varglobal_out(i),names_varglobal_out(i)
-    end do
-
-    !genetic information
-    if (ng>0) then 
-      write (1,*) 
-      write (1,*) ng,"genes"
-      write (1,*) 
-      write (1,*) "w matrix: gene    1      gene 2 etc..."
-      write (1,*) 
-      do i=1,ng
-        write(1,fmt="(A3,I4,"//rowfmt(2:11))  "gene",i,gen(i)%w       !!!!!!!W!!!!!!!!!!!!!!
-      end do
-      write (1,*) 
-      write (1,*) "ww matrix: gene"
-      write (1,*) 
-      do i=1,ng
-        write(1,*) i,gen(i)%nww
-        if (gen(i)%nww>0) then
-          write(1,*)  gen(i)%ww(:gen(i)%nww,1) !!!!!!!WW!!!!!!!!!!!!!
-          write(1,*)  gen(i)%ww(:gen(i)%nww,2) !!!!!!!WW!!!!!!!!!!!!!
-          do j=1,gen(i)%nww
-            write(1,fmt="(es24.16)",ADVANCE='NO') gen(i)%ww(j,3) !!!!!!!WW!!!!!!!!!!!!!
-          end do
-          write(1,*) ""
-        end if
-      end do
-      write (1,*) 
-      write (1,*) "wa matrix: node prop 1 node prop 2 etc..."
-      write (1,*) 
-      do i=1,ng
-        write(1,fmt="(A3,I4,"//rowfmta(2:11))  "gene",i,gen(i)%wa     !!!!!!!WA!!!!!!!!!!!!!!
-      end do
-      write (1,*) 
-      write (1,*) "other gene characteristics"
-      write (1,*) 
-      do i=1,ng
-        write(1,*) "gene",i !,gen(i)%label
-        write(1,'(es24.16,A12)') gen(i)%diffu," diffusivity"
-        write(1,'(es24.16,A17)') gen(i)%mu,"degradation rate"
-        write(1,'(es24.16,A36)') gen(i)%kindof,"type, 0 TF, 1 modofiable FT, 2 form"
-        write(1,'(I4,A20)') gen(i)%npre," number of pre forms"
-        if (gen(i)%npre/=0) write(1,*) gen(i)%pre
-        write(1,'(I4,A20)') gen(i)%npost," number of post forms"
-        if (gen(i)%npost/=0) write(1,*) gen(i)%post
-        write (1,*) 
-      end do
-      if(ntipusadh>0)then                                                 !>>>>Miquel14-11-13
-        write (1,*) "adhesion molecules: kadh matrix"    !!!!!KADH!!!!!!!!!
-        do i=1,ntipusadh             
-          write(1,fmt="(A3,I4,"//rowfmt(2:11))  "adh",i,kadh(i,:ntipusadh)!>>>Is 12-1-13
-        end do                                                            !
-      end if                                                              !
-      write (1,*)
-      write (1,*) "gene expression"
-      write (1,*)
-      write (1,*) "node  gene 1                 gene 2    etc..."
-      do i=1,nd
-        write(1,fmt="(I6,"//rowfmt(2:11)) i,gex(i,:)   !gex matrix   
-      end do
-    end if
-    write (1,*) 
-    write (1,*) "node properties"
-    write (1,*) 
-    write (1,*) nodeparams
-    nodi(1:nd)%x=node(1:nd)%x ; nodi(1:nd)%y=node(1:nd)%y ; nodi(1:nd)%z=node(1:nd)%z  !>>Miquel17-9-14
-    nodi(1:nd)%icel=node(1:nd)%icel ; nodi(1:nd)%marge=node(1:nd)%marge ; nodi(1:nd)%talone=node(1:nd)%talone  !>>Miquel17-9-14
-    nodi(1:nd)%hold=node(1:nd)%hold ; nodi(1:nd)%border=node(1:nd)%border ; nodi(1:nd)%altre=node(1:nd)%altre  !>>Miquel17-9-14
-
-    do i=1,nd  !THIS PART WILL NEED TO BE CHANGED EVERY TIME WE CHANGE WHAT'S IN NODE TYPE
-       write(1,cr) nodi(i)
-    end do
-    write (1,*) 
-    write (1,*) "cell properties"
-    write (1,*) 
-    write (1,*) ncels,"number of cells"
-    write (1,*) 
-    do i=1,ncels
-      write(1,*) "cell",i
-      write(1,"(es24.16,A12)") 0.00
-      write(1,"(es24.16,A50)") cels(i)%minsize_for_div,"minimal number of nodes to be able to divide"
-      write(1,"(es24.16,A50)") cels(i)%maxsize_for_div,"max number of nodes before forced division"   !>>> Is 5-2-14
-      write(1,"(3es24.16,A31)") cels(i)%cex,cels(i)%cey,cels(i)%cez," centroid x,y and z coordinated"
-      write(1,"(3es24.16,A43)") cels(i)%polx,cels(i)%poly,cels(i)%polz,"polarization vectors x, y and z components"
-      write(1,"(es24.16,A13)") cels(i)%fase," cell's phase"
-      write(1,"(es24.16,A13)") cels(i)%temt," counter for epithelial-mesenchymal transition"
-
-      write (1,*) cels(i)%nunodes,"number of nodes in a cell"
-      write (1,*) cels(i)%nodela,"actual size of the cels(i)%node matrix"
-      write (1,*) cels(i)%ctipus,"cell type"
-      write (1,*) "list of the nodes in the cell"
-      write (1,*) cels(i)%node(:cels(i)%nunodes)
-      write (1,*) 
-    end do
-  end subroutine
+  end subroutine     
 
 
 !**********************************************************************************************
@@ -964,7 +913,7 @@ return
       write (1,*) "w matrix: gene    1      gene 2 etc..."
       write (1,*) 
       do i=1,ng
-        write(1,fmt="(A4,I4,"//rowfmt(2:11))  "gene",i,gen(i)%w       !!!!!!!W!!!!!!!!!!!!!!
+        write(1,fmt="(A4,I4,"//rowfmt(2:11))  "gene",i,gen(i)%t       !!!!!!!W!!!!!!!!!!!!!!
       end do
       write (1,*)
       write (1,*) "ww matrix: gene"
@@ -972,10 +921,10 @@ return
       do i=1,ng
         write(1,*) i,gen(i)%nww
         if (gen(i)%nww>0) then
-          write(1,*)  gen(i)%ww(:gen(i)%nww,1) !!!!!!!WW!!!!!!!!!!!!!
-          write(1,*)  gen(i)%ww(:gen(i)%nww,2) !!!!!!!WW!!!!!!!!!!!!!
+          write(1,*)  gen(i)%r(:gen(i)%nww,1) !!!!!!!WW!!!!!!!!!!!!!
+          write(1,*)  gen(i)%r(:gen(i)%nww,2) !!!!!!!WW!!!!!!!!!!!!!
           do j=1,gen(i)%nww
-            write(1,fmt="(es24.16)",ADVANCE='NO') gen(i)%ww(j,3) !!!!!!!WW!!!!!!!!!!!!!
+            write(1,fmt="(es24.16)",ADVANCE='NO') gen(i)%r(j,3) !!!!!!!WW!!!!!!!!!!!!!
           end do
           write(1,*) ""
         end if
@@ -984,7 +933,7 @@ return
       write (1,*) "wa matrix: node prop 1 node prop 2 etc..."
       write (1,*) 
       do i=1,ng
-        write(1,fmt="(A4,I4,"//rowfmta(2:11))  "gene",i,gen(i)%wa     !!!!!!!WA!!!!!!!!!!!!!!
+        write(1,fmt="(A4,I4,"//rowfmta(2:11))  "gene",i,gen(i)%e     !!!!!!!WA!!!!!!!!!!!!!!
       end do
       write (1,*) 
       write (1,*) "other gene characteristics"
@@ -1015,23 +964,65 @@ return
       end do
     end if
   end subroutine
+  
+!**********************************************************************************************
+
+  subroutine write_rang(max_elim, min_elim, max_glim, min_glim, rembeh)                      !!>>HC 20-2-2021 Write the parameters, filters and ranges for ensemble experiments
+    real*8, dimension (1:nga) :: max_elim, min_elim                        !!>>HC 20-2-2021
+    integer, dimension (1:nga) :: rembeh                                 !!>>HC 20-2-2021
+    integer, dimension (1:5) :: min_glim, max_glim                       !!>>HC 6-10-2021
+    real,  dimension(1:2) :: diffvals                                    !!>>HC 20-2-2021
+    character*30 nofi                                                    !!>>HC 20-2-2021
+    integer i,j, ich                                                     !!>>HC 20-2-2021
+    real*8 para(nparam)                                                  !!>>HC 20-2-2021
+    character*200 when                                                   !!>>HC 20-2-2021
+    
+    call fdate(when)                                                     !!>>HC 20-2-2021
+    open (2,file="used_ranges_"//trim(when)//".dat")                     !!>>HC 20-2-2021
+    write (2,*) "THIS FILE WAS WRITTEN IN THE FORMAT OF THE ",version," VERSION"   !!>>HC 20-2-2021
+    write (2,*)                                                          !!>>HC 6-10-2021
+    write (2,*) "gene properties"                                        !!>>HC 6-10-2021
+    do ich=1,5                                                           !!>>HC 6-10-2021
+       write (2,*) max_glim(ich), min_glim(ich)!, trim(gnames(ich))       !!>>HC 6-10-2021
+    enddo                                                                !!>>HC 6-10-2021
+    write (2,*)                                                          !!>>HC 20-2-2021
+    write(2,*) 52, "Cell behaviors and properties"                       !!>>HC 20-2-2021
+    write(2,*) "index      ", "maximum value      ", "minimum value      ", "used (0=nonused, 1=used)      " !!>>HC 20-2-2021
+    do ich=1,52                                                                   !!>>HC 20-2-2021
+       if(rembeh(ich)==0)then; max_elim(ich)=0.0d0; max_elim(ich)=0.0d0; endif     !!>>HC 20-2-2021
+       write(2,*) ich, max_elim(ich), min_elim(ich), rembeh(ich)!, trim(enames(ich))         !!>>HC 20-2-2021
+    enddo                                                                !!>>HC 20-2-2021
+    close(2)                                                             !!>>HC 20-2-2021
+ 
+
+  end subroutine
 
 !***************************************************************
 
-  subroutine readsnap(nofi) !with nodeo  
+ subroutine readsnap(nofi) !with nodeo            
+    integer :: sizeSeed
     character*140 nofi
-    integer io,ko,i,j,k,jj
+    integer io,ko,i,j,k,jj, jch, fch
     character*2  cd
     character*1  cu
     character*3  cax
     character*4  caq
     character*4  duh
     character*120 rversion
-    integer, allocatable :: cffu(:)  
+    integer, allocatable :: cffu(:),cffi(:,:)
+    character*8 eplab  !!>> HC 18-6-2020 
+    integer :: maxgrid !!>> HC 18-6-2020 
+    character*10 check !!>> HC 17-2-2021
+    character*6 fmch   !!>> HC 18-6-2020 
+    integer :: numdnode !!>> TT 13-7-2020
+
+!    print*,"reading ..." !!>> HC 30-11-2020 Reducing prints for optimization
+
+
     open(1,file=nofi,iostat=io)
     read(1,'(a)') rversion
     read(1,'(a)',ERR=666,END=777) winame
-    read(1,*,ERR=666,END=777) !nparam
+    read(1,*,ERR=666,END=777) jch !nparam !!! HC 12-05-2020 To read files with different number of nparam
     read(1,*,ERR=666,END=777) nvarglobal_out
     read(1,*,ERR=666,END=777)
     read(1,*,ERR=666,END=777) jj
@@ -1042,34 +1033,78 @@ return
     allocate(param(nparam))
     if (allocated(varglobal_out)) deallocate(varglobal_out)
     allocate(varglobal_out(nvarglobal_out))
+    ffu=0 !!! HC 1-05-2020 --> This initializes ffus in case we are reading a previous version with less ffus
     do i=1,jj
+      if (i>nfu)then                 !!>> HC 14-7-2021 There are more ffus in the io file than in the current version of EMaker
+         read(1,*,ERR=666,END=777)   !!>> HC 14-7-2021 We jump the extra ffus
+         cycle                       !!>> HC 14-7-2021
+      endif                          !!>> HC 14-7-2021
       read(1,*,ERR=666,END=777) ffu(i)
     end do
+    if(jj>nfu)then     !!>> HC 14-7-2021 
+      ffu=0            !!>> HC 14-7-2021 We set all ffus to 0 (default) to avoid ffu incompatibilities
+      print*, "WARNING: THIS FILE HAS MORE FFUS THAN THE PRESENT EMAKER VERSION ALL FFUS WILL BE SET TO 0" !!>> HC 14-7-2021
+    endif              !!>> HC 14-7-2021 
     allocate(cffu(nfu))
-    cffu=ffu
+    cffu=ffu 
+    read(1,*,ERR=666,END=777)                                         !!>>HC 17-2-2021
+    read(1,*,ERR=666,END=777) check                                   !!>>HC 17-2-2021 we check whether the filters are written
+    if (check.ne."parameters")then                                    !!>>HC 17-2-2021 if the filters are not written (next thin is parameters)
+        BACKSPACE(1)                                                  !!>>HC 17-2-2021 Go back and
+        read(1,*,ERR=666,END=777) jj                                  !!>>HC 17-2-2021 read the number of filters in the file
+        read(1,*,ERR=666,END=777)                                     !!>>HC 17-2-2021 
+        if (allocated(ffufi)) deallocate(ffufi)                       !!>>HC 17-2-2021 
+        allocate(ffufi(1:nfi,1:3))                                    !!>>HC 17-2-2021 
+        allocate(cffi(1:nfi,1:3))                                     !!>>HC 17-2-2021
+        do i=1,jj                                                     !!>>HC 17-2-2021
+           read(1,*,ERR=666,END=777) ffufi(i,1),ffufi(i,2),ffufi(i,3) !!>>HC 17-2-2021 Read filter values
+        end do                                                        !!>>HC 17-2-2021
+        cffi=ffufi                                                    !!>>HC 17-2-2021 Save values (it will be reallocated later)
+        read(1,*,ERR=666,END=777)                                     !!>>HC 17-2-2021 
+        read(1,*,ERR=666,END=777)                                     !!>>HC 17-2-2021 
+    else                                                              !!>>HC 17-2-2021  if the filters are not written (next thing is parameters)
+        continue                                                      !!>>HC 17-2-2021  We carry on reading parameters 
+    endif                                                             !!>>HC 17-2-2021
     read(1,*,ERR=666,END=777)
-    read(1,*,ERR=666,END=777)
-    read(1,*,ERR=666,END=777)
-    do i=1,nparam
+    do i=1,jch !>>> HC 11-05-2020 To read files with different number of nparam
       read (1,"(I2,es24.16)",ERR=666,END=777) ko,param(i)
-!print *,ko,param(i)
-    end do
+    end do 
     read(1,*) 
     read(1,*,ERR=666,END=777)
     read(1,*,ERR=666,END=777) 
+    read(1,*) line
+    sizeSeed =  ntokens(line)
+    if(allocated(idumoriginal))deallocate(idumoriginal)
+    allocate(idumoriginal(sizeSeed))
+    BACKSPACE(1)
     read(1,*,ERR=666,END=777) idumoriginal(1)
-!print *,idumoriginal
     read(1,*) 
     read(1,*) 
     read(1,*) 
-    read(1,*) idum
-!print *,idum
+    read(1,'(A)') line
+    sizeSeed =  ntokens(line)
+    !print*,"sizeSeed",sizeSeed,"minimum seed",nseed !!>> HC 30-11-2020 reducing prints makes it faster
+
+    if(allocated(idumR))deallocate(idumR)
+    allocate(idumR(sizeSeed))
+
+    if(allocated(idum))deallocate(idum)
+    allocate(idum(nseed))
+
+    BACKSPACE(1)
+    read(1,*) idumR
+    if(sizeSeed<nseed)then   
+        idum=0
+        idum(1:sizeSeed)=idumR
+    else
+        idum=0    
+        idum=idumR  
+    endif        
     call random_seed(put=idum)
     read(1,*) 
     read(1,*,ERR=666,END=777)
     read(1,*) 
     call get_param_from_matrix_read(param)
-
     do i=1,nvarglobal_out
       read (1,"(es24.16)",ERR=666,END=777) varglobal_out(i)
     end do
@@ -1089,12 +1124,12 @@ return
         allocate(kadh(ntipusadh,ntipusadh))  !
       end if                                 !
       do i=1,ng
-        if (allocated(gen(i)%w)) deallocate(gen(i)%w)
-        allocate(gen(i)%w(ng))    
-        if (allocated(gen(i)%ww)) deallocate(gen(i)%ww)
-        allocate(gen(i)%ww(ng*ng,3))    
-        if (allocated(gen(i)%wa)) deallocate(gen(i)%wa)
-        allocate(gen(i)%wa(nga))    
+        if (allocated(gen(i)%t)) deallocate(gen(i)%t)
+        allocate(gen(i)%t(ng))    
+        if (allocated(gen(i)%r)) deallocate(gen(i)%r)
+        allocate(gen(i)%r(ng*ng,3))    
+        if (allocated(gen(i)%e)) deallocate(gen(i)%e)
+        allocate(gen(i)%e(nga))    
       end do
       !now the same for ng the number of genes
       rowfmt="(10es24.16)"
@@ -1109,7 +1144,7 @@ return
       read(1,*,ERR=666,END=777)
       read(1,*,ERR=666,END=777)
       do i=1,ng
-        read(1,fmt="(A3,I4,"//rowfmt(2:11))  cax,j,gen(i)%w    
+        read(1,fmt="(A3,I4,"//rowfmt(2:11))  cax,j,gen(i)%t    
       end do
       read(1,*,ERR=666,END=777)
       read(1,*,ERR=666,END=777)
@@ -1118,10 +1153,10 @@ return
         read(1,*,ERR=666,END=777) j,k
         gen(i)%nww=k
         if (gen(i)%nww>0) then
-          read(1,*,ERR=666,END=777) gen(i)%ww(:gen(i)%nww,1)
-          read(1,*,ERR=666,END=777) gen(i)%ww(:gen(i)%nww,2)
+          read(1,*,ERR=666,END=777) gen(i)%r(:gen(i)%nww,1)
+          read(1,*,ERR=666,END=777) gen(i)%r(:gen(i)%nww,2)
           do j=1,gen(i)%nww
-            read(1,fmt="(es24.16)",ADVANCE='NO') gen(i)%ww(j,3)
+            read(1,fmt="(es24.16)",ADVANCE='NO') gen(i)%r(j,3)
           end do
           read(1,*,ERR=666,END=777)
         end if
@@ -1130,7 +1165,7 @@ return
       read(1,*,ERR=666,END=777)
       read(1,*,ERR=666,END=777)
       do i=1,ng
-        read(1,fmt="(A3,I4,"//rowfmta(2:11))  cax,j,gen(i)%wa    
+        read(1,fmt="(A3,I4,"//rowfmta(2:11))  cax,j,gen(i)%e    
       end do
       read(1,*,ERR=666,END=777)
       read(1,*,ERR=666,END=777)
@@ -1138,6 +1173,11 @@ return
       do i=1,ng
         read(1,*,ERR=666,END=777) duh,j !,gen(i)%label
         read(1,'(es24.16,A12)',ERR=666,END=777) gen(i)%diffu
+	read(1,'(es24.16,A12)',ERR=666,END=777) gen(i)%mich, presmich !!HC 14-04-2020
+	if( presmich .ne. " Mich-Menten" ) then ! If there is NOT a KM in the file HC 14-04-2020
+		BACKSPACE(1) ! GO BACK to read the degradation constant !!! HC 14-04-2020
+		gen(i)%mich = 1.0d0 ! we assume KM = 1 HC 14-04-2020
+	endif
         read(1,'(es24.16,A17)',ERR=666,END=777) gen(i)%mu
         read(1,'(es24.16,A36)',ERR=666,END=777) gen(i)%kindof
         read(1,*) gen(i)%npre !,"number of pre forms"
@@ -1175,11 +1215,9 @@ return
     allocate(node(nda))
     allocate(nodeo(nda))
     allocate(cels(ncals))
-
-    call iniarrays
-    
+    call iniarrays    
     ffu=cffu
-
+    if (allocated(cffi)) ffufi=cffi !!>>HC 17-2-2021 Save filter matrix if it has been read
     read(1,*,ERR=666,END=777)    
     read(1,*,ERR=666,END=777)    
     read(1,*,ERR=666,END=777)    
@@ -1221,6 +1259,7 @@ return
       read(1,*) 
     end do
 
+
     ! <<< Is 13-3-15 nodeo=node !>>Miquel17-9-14
 
     if (rappend/=0) close(1)
@@ -1234,7 +1273,8 @@ return
     print *,"EPS: end of file OR NOT SUCH A FILE u wanker"
     do i=1,5 ; print*,"" ;end do
     close(1) ; return
-  end subroutine
+
+  end subroutine 
 
 !***************************************************************
 
@@ -1307,12 +1347,12 @@ return
         allocate(kadh(ntipusadh,ntipusadh))  !
       end if                                 !
       do i=1,ng
-        if (allocated(gen(i)%w)) deallocate(gen(i)%w)
-        allocate(gen(i)%w(ng))    
-        if (allocated(gen(i)%ww)) deallocate(gen(i)%ww)
-        allocate(gen(i)%ww(ng*ng,3))    
-        if (allocated(gen(i)%wa)) deallocate(gen(i)%wa)
-        allocate(gen(i)%wa(nga))    
+        if (allocated(gen(i)%t)) deallocate(gen(i)%t)
+        allocate(gen(i)%t(ng))    
+        if (allocated(gen(i)%r)) deallocate(gen(i)%r)
+        allocate(gen(i)%r(ng*ng,3))    
+        if (allocated(gen(i)%e)) deallocate(gen(i)%e)
+        allocate(gen(i)%e(nga))    
       end do
       !now the same for ng the number of genes
       rowfmt="(10es24.16)"
@@ -1327,7 +1367,7 @@ return
       read(1,*,ERR=666,END=777)
       read(1,*,ERR=666,END=777)
       do i=1,ng
-        read(1,fmt="(A3,I4,"//rowfmt(2:11))  cax,j,gen(i)%w    
+        read(1,fmt="(A3,I4,"//rowfmt(2:11))  cax,j,gen(i)%t    
       end do
       read(1,*,ERR=666,END=777)
       read(1,*,ERR=666,END=777)
@@ -1336,10 +1376,10 @@ return
         read(1,*,ERR=666,END=777) j,k
         gen(i)%nww=k
         if (gen(i)%nww>0) then
-          read(1,*,ERR=666,END=777) gen(i)%ww(:gen(i)%nww,1)
-          read(1,*,ERR=666,END=777) gen(i)%ww(:gen(i)%nww,2)
+          read(1,*,ERR=666,END=777) gen(i)%r(:gen(i)%nww,1)
+          read(1,*,ERR=666,END=777) gen(i)%r(:gen(i)%nww,2)
           do j=1,gen(i)%nww
-            read(1,fmt="(es24.16)",ADVANCE='NO') gen(i)%ww(j,3)
+            read(1,fmt="(es24.16)",ADVANCE='NO') gen(i)%r(j,3)
           end do
           read(1,*,ERR=666,END=777)
         end if
@@ -1348,7 +1388,7 @@ return
       read(1,*,ERR=666,END=777)
       read(1,*,ERR=666,END=777)
       do i=1,ng
-        read(1,fmt="(A3,I4,"//rowfmta(2:11))  cax,j,gen(i)%wa    
+        read(1,fmt="(A3,I4,"//rowfmta(2:11))  cax,j,gen(i)%e    
       end do
       read(1,*,ERR=666,END=777)
       read(1,*,ERR=666,END=777)
@@ -1520,10 +1560,10 @@ return
         allocate(kadh(ntipusadh,ntipusadh))  !
       end if                                 !
       do i=1,ng
-        if (allocated(gen(i)%w)) deallocate(gen(i)%w)
-        allocate(gen(i)%w(ng))    
-        if (allocated(gen(i)%wa)) deallocate(gen(i)%wa)
-        allocate(gen(i)%wa(nga))    
+        if (allocated(gen(i)%t)) deallocate(gen(i)%t)
+        allocate(gen(i)%t(ng))    
+        if (allocated(gen(i)%e)) deallocate(gen(i)%e)
+        allocate(gen(i)%e(nga))    
       end do
       !now the same for ng the number of genes
       rowfmt="(10es24.16)"
@@ -1538,13 +1578,13 @@ return
       read(1,*,ERR=665,END=775)
       read(1,*,ERR=665,END=775)
       do i=1,ng
-        read(1,fmt="(A3,I4,"//rowfmt(2:11))  cax,j,gen(i)%w    
+        read(1,fmt="(A3,I4,"//rowfmt(2:11))  cax,j,gen(i)%t    
       end do
       read(1,*,ERR=665,END=775)
       read(1,*,ERR=665,END=775)
       read(1,*,ERR=665,END=775)
       do i=1,ng
-        read(1,fmt="(A3,I4,"//rowfmta(2:11))  cax,j,gen(i)%wa    
+        read(1,fmt="(A3,I4,"//rowfmta(2:11))  cax,j,gen(i)%e    
       end do
       read(1,*,ERR=665,END=775)
       read(1,*,ERR=665,END=775)
@@ -1597,6 +1637,40 @@ if (rappend/=0) close(1)
   end subroutine
 
 !**************************************************************************************
+
+
+  subroutine read_rang(rangfile, max_elim, min_elim, max_glim, min_glim, rembeh)  !!>>HC 20-2-2021 This reads parameters, filters, ranges for was and diffusion ranges for ensembles
+    implicit none
+    real*8, dimension (1:nga) :: max_elim, min_elim                               !!>>HC 20-2-2021
+    integer, dimension (1:nga) :: rembeh                                          !!>>HC 20-2-2021
+    real*8, dimension (1:5) :: min_glim, max_glim                                 !!>>HC 6-10-2021
+    real,  dimension(1:2) :: diffvals                                             !!>>HC 20-2-2021
+    character*30 nofi                                                             !!>>HC 20-2-2021
+    character*300 rangfile,rversion                                               !!>>HC 20-2-2021
+    integer i,j, ich, jch, jj, ko                                                 !!>>HC 20-2-2021
+    real*8 para(nparam)                                                           !!>>HC 20-2-2021
+    character*10 check !!>> HC 17-2-2021                                          !!>>HC 20-2-2021
+    integer :: ng0, ncels0, nd0, ntipusadh0,funk!!>>HC 20-2-2021
+    
+    open(2,file=rangfile)                                     !!>>HC 20-2-2021
+    read(2,'(a)') rversion                                    !!>>HC 20-2-2021
+    read(2,*)
+    read(2,*)
+    do ich=1,5
+       read(2,*) max_glim(ich), min_glim(ich)
+    enddo
+    read(2,*)                                                 !!>>HC 20-2-2021
+    read(2,*) jch                                             !!>>HC 20-2-2021
+    read(2,*)                                                 !!>>HC 20-2-2021
+    do ich=1,jch                                              !!>>HC 20-2-2021
+       if(rembeh(ich)==0)then; max_elim(ich)=0.0d0; max_elim(ich)=0.0d0; endif  !!>>HC 20-2-2021
+       read(2,*) funk, max_elim(ich), min_elim(ich), rembeh(ich)                !!>>HC 20-2-2021
+    enddo                                                     !!>>HC 20-2-2021   
+    close(2)                                                  !!>>HC 20-2-2021 
+
+  end subroutine
+
+!***************************************************************
 
 subroutine get_its(tti,tfi)
   integer tti,tfi
@@ -1662,7 +1736,7 @@ subroutine read_config_file !config file will set some general environmental var
    read(7,*)
    read(7,*)
 
-   do i=1,40
+   do i=1,41              !!>> HC 12-3-2021
      read(7,*)conf_flag(i)
    end do
 
@@ -1723,8 +1797,8 @@ subroutine no_config_file !>>Miquel2-1-14
    conf_flag(2)=0   !3D box grid for neighboring
    conf_flag(3)=0   !nothing
    conf_flag(4)=0   !nothing
-   conf_flag(5)=1   !nodes as spheres: radius is p^EQD
-   conf_flag(6)=0   !nodes as spheres: radius is p^ADD
+   conf_flag(5)=0   !nodes as spheres: radius is p^EQD
+   conf_flag(6)=1   !nodes as spheres: radius is p^ADD
    conf_flag(7)=0   !nothing
    conf_flag(8)=0   !no spheres
    conf_flag(9)=1   !epithelial apical nodes
@@ -1754,11 +1828,12 @@ subroutine no_config_file !>>Miquel2-1-14
    conf_flag(33)=0   !nothing
    conf_flag(34)=0   !nothing
    conf_flag(35)=0   !nothing
-   conf_flag(36)=1   !fixed nodes (node()%hold=1)
+   conf_flag(36)=1   !fixed nodes (node()%fix=1)
    conf_flag(37)=0   !plot cell contour
    conf_flag(38)=0   !plot intercellular contour
    conf_flag(39)=0   !plot displacement of nodes respect initial conditions
    conf_flag(40)=0   !nothing
+   conf_flag(41)=0   !EPIGRID !!>> HC 12-3-2021
    !conf_flag(41)=0   !0=dynamic display box,1=fixed display box
 
 end subroutine no_config_file

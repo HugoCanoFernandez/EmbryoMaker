@@ -32,6 +32,7 @@ integer::i,j,k,ii,jj,kk,iii,jjj,kkk,l,nnod ! RZ 17-11-14 added nnod
 real*8::grate,c
 real*8::minreq,maxreq !these should be implementation parameters, it's the minimum size of the node at birth and death, and max size for growth
 integer,dimension(:)::discel(ncels+1)
+integer::tipi, naltre !>>> TT 14-05-2020 added tipi to check cell type 
 
   minreq=0.0001d0;   !this is an arbitrary value that should not matter much
   maxreq=mmae
@@ -39,29 +40,40 @@ integer,dimension(:)::discel(ncels+1)
   discel=0
 
   do i=1,ncels
-    if(node(cels(i)%node(1))%hold==1) cycle !we don't want the border cells to perform behaviours because that would alter and possibly break the border  !>>>>Miquel9-1-14
+    if(node(cels(i)%node(1))%fix==1) cycle !we don't want the border cells to perform behaviours because that would alter and possibly break the border  !>>>>Miquel9-1-14
     nnod=cels(i)%nunodes
     jjj=0
+    tipi=cels(i)%ctipus !>>> TT 14-05-2020
     do ii=1,nnod
       j=cels(i)%node(ii)
       grate=0d0
-      c=1-node(j)%diffe
+      c=1-node(j)%dif
       do jj=1,npag(nparam_per_node+3)  !number of genes affecting req
         k=whonpag(nparam_per_node+3,jj)  !which are those genes
-        grate=grate+gex(j,k)*gen(k)%wa(nparam_per_node+3)*c !this is the differential of death for the node !wa in space-req units, kind of
+        grate=grate+gex(j,k)*gen(k)%e(nparam_per_node+3)*c !this is the differential of death for the node !wa in space-req units, kind of
       end do
       grate=grate*delta
       if(grate==0) cycle
-      if(node(j)%reqcr>=maxreq)then  !>>> Is 17-3-14
+      if(node(j)%grd>=maxreq)then  !>>> Is 17-3-14
         !grac=grac+grate
       else
-        a=node(j)%reqcr ; !b=node(j)%reqcel
-        !c=node(j)%da-a
-        node(j)%reqcr=a-grate
-        if(node(j)%reqcr<minreq)then   !this is the maximal req when growing (the same as for invagination: recycling)
-          d=minreq-node(j)%reqcr
+        a=node(j)%grd ; !b=node(j)%codel
+        !c=node(j)%add-a
+        node(j)%grd=a-grate
+        if(node(j)%grd<minreq)then   !this is the maximal req when growing (the same as for invagination: recycling)
+          d=minreq-node(j)%grd
           !grac=grac+d   !if the node is "full" we save the growth to apply it to another node
+          if(tipi<3) naltre = node(j)%altre  !!>> HC 11-6-2020 !>>> TT 14-05-2020 
           call apoptosis(j)
+          if (ffu(24)==0)then                                       !!>> HC 6-7-2021
+             if (tipi<3) then                                       !!>> HC 30-6-2021
+                call neighbor_build                                 !!>> HC 6-10-2021
+                call fill_co_griders                                !!>> HC 30-6-2021
+             else                                                   !!>> HC 30-6-2021
+                call neighbor_build                                 !!>> HC 6-10-2021
+                call fill_co_griders                                !!>> HC 6-10-2021
+             end if                                                 !!>> HC 30-6-2021
+          endif                                                     !!>> HC 6-7-2021
           if (nd<0) then 
             print *,"THIS IS THE END MY FRIEND: NO NODES LEFT"; 
             open(23,file=trim(carg)//"e")
@@ -76,18 +88,18 @@ integer,dimension(:)::discel(ncels+1)
           end if ! this means we have to delete this cell i 
           cycle
         end if
-        !node(j)%da=node(j)%req+c
-        nodeo(j)%reqcr=node(j)%reqcr       ! when req and da are irreversively modified by growth or apoptosis, the nodeo  !>>>>Miquel16-12-13
-        !nodeo(j)%da=nodeo(j)%da-grate     !values have to be updated, otherwise it will create a conflict with nexus
+        !node(j)%add=node(j)%eqd+c
+        nodeo(j)%grd=node(j)%grd       ! when req and da are irreversively modified by growth or apoptosis, the nodeo  !>>>>Miquel16-12-13
+        !nodeo(j)%add=nodeo(j)%add-grate     !values have to be updated, otherwise it will create a conflict with nexus
         jjj=jjj+1
         if(node(j)%tipus<3)then
           k=node(j)%altre
-          a=node(k)%reqcr
-          !c=node(k)%da-a
-          node(k)%reqcr=a-grate
-          !node(k)%da=node(k)%req+c
-          nodeo(k)%reqcr=node(k)%reqcr  !when req and da are irreversively modified by growth or apoptosis, the nodeo  !>>>>Miquel16-12-13
-          !nodeo(k)%da=nodeo(k)%da-grate    !values have to be updated, otherwise it will create a conflict with nexus
+          a=node(k)%grd
+          !c=node(k)%add-a
+          node(k)%grd=a-grate
+          !node(k)%add=node(k)%eqd+c
+          nodeo(k)%grd=node(k)%grd  !when req and da are irreversively modified by growth or apoptosis, the nodeo  !>>>>Miquel16-12-13
+          !nodeo(k)%add=nodeo(k)%add-grate    !values have to be updated, otherwise it will create a conflict with nexus
         end if
 !        nodsmall(iii)=j
       end if
@@ -96,12 +108,12 @@ integer,dimension(:)::discel(ncels+1)
       call random_number(a)
       k=int(a*nnod)+1
       j=cels(i)%node(k)
-      a=node(j)%reqcr 
-      !c=node(j)%da-a
-      node(j)%reqcr=a-grate
-      !node(j)%da=node(j)%req+c
-      nodeo(j)%reqcr=node(j)%reqcr      !when req and da are irreversively modified by growth or apoptosis, the nodeo  !>>>>Miquel16-12-13
-      !nodeo(j)%da=nodeo(j)%da-grate        !values have to be updated, otherwise it will create a conflict with nexus
+      a=node(j)%grd 
+      !c=node(j)%add-a
+      node(j)%grd=a-grate
+      !node(j)%add=node(j)%eqd+c
+      nodeo(j)%grd=node(j)%grd      !when req and da are irreversively modified by growth or apoptosis, the nodeo  !>>>>Miquel16-12-13
+      !nodeo(j)%add=nodeo(j)%add-grate        !values have to be updated, otherwise it will create a conflict with nexus
     end if
   end do
 
@@ -153,26 +165,30 @@ integer,dimension(:)::discel(ncels+1)
     do j=1,nd    !***************************this could be highly optimizable if we kept a list of the ECM nodes**************************
       if(node(j)%tipus==4)then
         grate=0d0
-        c=1-node(j)%diffe
+        c=1-node(j)%dif
         do jj=1,npag(nparam_per_node+14)  !number of genes affecting req
           k=whonpag(nparam_per_node+14,jj)  !which are those genes
-          grate=grate+gex(j,k)*gen(k)%wa(nparam_per_node+14)*c !this is the differential of death for the node
+          grate=grate+gex(j,k)*gen(k)%e(nparam_per_node+14)*c !this is the differential of death for the node
         end do                                                 ! wa in units of space-req
         grate=grate*delta
         if(grate==0) cycle
-        a=node(j)%reqcr ;
-        !c=node(j)%da-a
-        node(j)%reqcr=a-grate
-        if(node(j)%req<minreq)then   !this is the maximal req when growing (the same as for invagination: recycling)
-          d=minreq-node(j)%reqcr
+        a=node(j)%grd ;
+        !c=node(j)%add-a
+        node(j)%grd=a-grate
+        if(node(j)%grd<minreq)then   !!>> HC 17-6-2020 its grd not eqd here !this is the maximal req when growing (the same as for invagination: recycling)
+          d=minreq-node(j)%grd
           !grac=grac+d   !if the node is "full" we save the growth to apply it to another node
           call apoptosis(j)
+          if (ffu(24)==0)then                                    !!>> HC 6-7-2021
+             call neighbor_build                                 !!>> HC 6-10-2021
+             call fill_co_griders                                !!>> HC 6-10-2021         
+          endif                                                  !!>> HC 6-10-2021
           cycle
         end if
-        !node(j)%da=node(j)%req+c
+        !node(j)%add=node(j)%eqd+c
 
-        nodeo(j)%reqcr=node(j)%reqcr   !when req and da are irreversively modified by growth or apoptosis, the nodeo  !>>>>Miquel16-12-13
-        !nodeo(j)%da=nodeo(j)%da-grate    !values have to be updated, otherwise it will create a conflict with nexus
+        nodeo(j)%grd=node(j)%grd   !when req and da are irreversively modified by growth or apoptosis, the nodeo  !>>>>Miquel16-12-13
+        !nodeo(j)%add=nodeo(j)%add-grate    !values have to be updated, otherwise it will create a conflict with nexus
       end if
     end do
   end if
@@ -222,6 +238,7 @@ end subroutine
 subroutine apoptosis(i)
 
 integer:: j,jj,j1,j2,ic,icc,toggle,togglea,i1,i2,i3 ! toggle: epithelium/mesenchyma distinction
+integer:: plych                                     !!>> HC 17-6-2020
     if (nd==0) then 
       print *,"no nodes left: I quit"  
       open(23,file=trim(carg)//"t")
@@ -231,16 +248,18 @@ integer:: j,jj,j1,j2,ic,icc,toggle,togglea,i1,i2,i3 ! toggle: epithelium/mesench
       call exit(status)
     end if
 
-    if (node(i)%tipus==4) return
+    !if (node(i)%tipus==4) return !!>> HC 17-6-2020 Proteolysis implemented
 
     if(node(i)%tipus<3) then;
       toggle=2 !epi
+      plych=0  !!>> HC 18-6-2020 Proteolysis flag OFF
     else
       toggle=1 !non-epi
+      if (node(i)%tipus==4)then; plych=1; else; plych=0; endif !!>> HC 17-6-2020 Proteolysis flag
     endif 
 
     ! >>> Is 11-6-14 
-    if (ffu(13)==0) then
+    if (ffu(8)==0) then
       do ic=1,nd
         if(list(ic).eq.i)then
           list(ic)=list(i);
@@ -276,7 +295,7 @@ integer:: j,jj,j1,j2,ic,icc,toggle,togglea,i1,i2,i3 ! toggle: epithelium/mesench
         if (node(j)%altre>j2-1) node(j)%altre=node(j)%altre-1 ! Is 4-1-4
       end do
 
-      if (ffu(13)==0) then ! >>> Is 15-6-14
+      if (ffu(8)==0) then ! >>> Is 15-6-14
         do j=1,nd+1    
           if(j.lt.j2)then
             if(list(j).lt.j2)then;list(j)=list(j)
@@ -312,7 +331,7 @@ integer:: j,jj,j1,j2,ic,icc,toggle,togglea,i1,i2,i3 ! toggle: epithelium/mesench
       if (node(j)%altre>j1-1) node(j)%altre=node(j)%altre-1  ! Is 4-1-4
     end do
  
-    if (ffu(13)==0) then ! >>> Is 15-6-14
+    if (ffu(8)==0) then ! >>> Is 15-6-14
     do j=1,nd+1 
       if(j.lt.j1)then
         if(list(j).lt.j1)then;list(j)=list(j)
@@ -336,7 +355,7 @@ integer:: j,jj,j1,j2,ic,icc,toggle,togglea,i1,i2,i3 ! toggle: epithelium/mesench
 
 ! here was the major problem. The number of boxes actualized wasn't dynamical, so i1,2,3 ran only from -2 to 2.
 
-    if(ffu(13)==0)then
+    if(ffu(8)==0)then
       do i1=-nboxes,nboxes,1 ! the boxes matrix Roland 25-9-13
         do i2=-nboxes,nboxes,1 ! Roland 25-9-13
           do i3=-nboxes,nboxes,1 ! Roland 25-9-13
@@ -362,42 +381,44 @@ integer:: j,jj,j1,j2,ic,icc,toggle,togglea,i1,i2,i3 ! toggle: epithelium/mesench
       end do
     end if
 
-    ii=k      ! >>> just the comment :: Is 14-4-14 k=node(i)%icel
-    togglea=0
-    do jj=1,cels(ii)%nunodes-1
-      if(cels(ii)%node(jj).eq.j1)then;togglea=1;endif
-      if(togglea.eq.0)then
-        if(cels(ii)%node(jj).gt.j1)then
-          cels(ii)%node(jj)=cels(ii)%node(jj)-1
-        endif
-      else
-        if(cels(ii)%node(jj+1).gt.j1)then
-          cels(ii)%node(jj)=cels(ii)%node(jj+1)-1
-        else
-          cels(ii)%node(jj)=cels(ii)%node(jj+1)
-        endif
-      endif
-    enddo
+    if (plych==0)then !!>> HC 17-6-2020 We do not do this if the node is ecm because it is not in a cell
+       ii=k      ! >>> just the comment :: Is 14-4-14 k=node(i)%icel
+       togglea=0
+       do jj=1,cels(ii)%nunodes-1
+         if(cels(ii)%node(jj).eq.j1)then;togglea=1;endif
+         if(togglea.eq.0)then
+           if(cels(ii)%node(jj).gt.j1)then
+             cels(ii)%node(jj)=cels(ii)%node(jj)-1
+           endif
+         else
+           if(cels(ii)%node(jj+1).gt.j1)then
+             cels(ii)%node(jj)=cels(ii)%node(jj+1)-1
+           else
+             cels(ii)%node(jj)=cels(ii)%node(jj+1)
+           endif
+         endif
+       enddo
+    endif             !!>> HC 17-6-2020
 
     do jj=1,toggle
       j=nd+jj
-      node(j)%reqs=0
-      node(j)%ke=0
+      node(j)%eqs=0
+      node(j)%hoo=0
       node(j)%you=0
       node(j)%rep=0
-      node(j)%req=0
+      node(j)%eqd=0
       node(j)%adh=0
-      node(j)%repcel=0
-      node(j)%da=0.25
-      node(j)%tor=0
-      node(j)%stor=0				
+      node(j)%rec=0
+      node(j)%add=0.25
+      node(j)%erp=0
+      node(j)%est=0				
       node(j)%tipus=0
       node(j)%altre=j  ! this one may be troublesome, as it defines a value of %altre in unpaired nodes
 
       gex(j,:)=0   !>>>>Miquel18-7-13
       agex(j,:)=0  !>>> Is 13-5-14
 
-      if (ffu(13)==0)then
+      if (ffu(8)==0)then
 
         call iniboxes
 
@@ -407,39 +428,41 @@ integer:: j,jj,j1,j2,ic,icc,toggle,togglea,i1,i2,i3 ! toggle: epithelium/mesench
       end if
     end do
 
-    togglea=0
-    if(toggle.eq.2)then
-      do jj=1,cels(ii)%nunodes-1
-        if(cels(ii)%node(jj).eq.j2-1)then;togglea=1;endif
-        if(togglea.eq.0)then
-          if(cels(ii)%node(jj).gt.j2-1)then
-            cels(ii)%node(jj)=cels(ii)%node(jj)-1
-          endif
-        else
-          if(cels(ii)%node(jj+1).gt.j2-1)then
-            cels(ii)%node(jj)=cels(ii)%node(jj+1)-1
-          else
-            cels(ii)%node(jj)=cels(ii)%node(jj+1)
-          endif
-        endif
-      enddo
-    end if  ! >>> Is 14-4-14
-
-    if (cels(k)%nunodes>0) then
-      cels(k)%nunodes=cels(k)%nunodes-toggle
-      do ii=1,ncels
-        if (ii.ne.k) then
-          do jj=1,cels(ii)%nunodes
-            if(cels(ii)%node(jj).ge.j1) then
-              cels(ii)%node(jj)=cels(ii)%node(jj)-1
-            end if
-            if(cels(ii)%node(jj).ge.j2)then
-              cels(ii)%node(jj)=cels(ii)%node(jj)-(toggle-1)
-            end if
-          end do
-        end if
-      end do
-    end if
+    if (plych==0)then !!>> HC 17-6-2020 We do not do this if the node is ecm because it is not in a cell
+       togglea=0
+       if(toggle.eq.2)then
+         do jj=1,cels(ii)%nunodes-1
+           if(cels(ii)%node(jj).eq.j2-1)then;togglea=1;endif
+           if(togglea.eq.0)then
+             if(cels(ii)%node(jj).gt.j2-1)then
+               cels(ii)%node(jj)=cels(ii)%node(jj)-1
+             endif
+           else
+             if(cels(ii)%node(jj+1).gt.j2-1)then
+               cels(ii)%node(jj)=cels(ii)%node(jj+1)-1
+             else
+               cels(ii)%node(jj)=cels(ii)%node(jj+1)
+             endif
+           endif
+         enddo
+       end if  ! >>> Is 14-4-14
+ 
+       if (cels(k)%nunodes>0) then
+         cels(k)%nunodes=cels(k)%nunodes-toggle
+         do ii=1,ncels
+           if (ii.ne.k) then
+             do jj=1,cels(ii)%nunodes
+               if(cels(ii)%node(jj).ge.j1) then
+                 cels(ii)%node(jj)=cels(ii)%node(jj)-1
+               end if
+               if(cels(ii)%node(jj).ge.j2)then
+                 cels(ii)%node(jj)=cels(ii)%node(jj)-(toggle-1)
+               end if
+             end do
+           end if
+         end do
+       end if
+    endif       !!>> HC 17-6-2020
     !!!!end if  ! <<< Is 14-4-14
 end subroutine apoptosis
 

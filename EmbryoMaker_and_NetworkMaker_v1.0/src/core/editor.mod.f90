@@ -196,7 +196,6 @@ print *,nd,nda,"nd nda",nd-1,ubound(node)
   call remade
   if(nd>1) call neighbor_build
 
-
 end subroutine
 
 !***********************************************************************************************************************
@@ -927,10 +926,15 @@ end subroutine pastecell !>>>>11.9.2013
 
 subroutine deletenode !<<<<<20.9.2013
 integer laltre,icel
+!integer tipi, altre !>>> TT 15-6-2020
 
 icel=node(nodeindex)%icel
 
+
+
 call apoptosis(nodeindex)
+
+
 
 if(cels(icel)%nunodes==0)then
   !print*,"ncels",ncels
@@ -960,9 +964,7 @@ integer :: cell, nodes,ii,jj
 
  call eliminate_cell(cell)
 
- if(nd>1) call neighbor_build
-
-
+if(nd>1) call neighbor_build
 
 end subroutine
 

@@ -32,8 +32,8 @@ use general
 
 real*8,  public, allocatable  :: gex(:,:)  ! expression level: x is node id, y is the gene
 				           ! we put it in a matrix to be faster
-real*8,  private, allocatable :: dgex(:,:) ! the increment: only for calculations
-integer, private, allocatable :: checkn(:)
+real*8,  public, allocatable :: dgex(:,:) ! the increment: only for calculations
+integer, public, allocatable :: checkn(:)
 real*8 , public, allocatable  :: agex(:,:) !gex matrix used to store updated results !>>Miquel11-3-14
 real*8,  public, allocatable  :: kadh(:,:) ! adhesions between adhesion molecules
 integer, public               :: ntipusadh ! it is the same than npag(1), it is just an alias for the number of different adhesion molecules
@@ -48,12 +48,13 @@ integer,allocatable  ::wkindof(:,:) ! which are those for each kindof
 type, public :: genes
 
   !of genes on genes
-  real*8, allocatable  ::w(:)      ! interaction strenghts of the genes regulating the transcription of gene i
+  real*8, allocatable  ::t(:)      ! interaction strenghts of the genes regulating the transcription of gene i
   integer              ::nww       ! number of reactions catalyzed by i
-  real*8,allocatable   ::ww(:,:)   ! which reactions i regulates, dim1 index of the reaction(as in nww), dim2(1) the pre form, dim2(2) the post reaction, dim2(3) the w strength
+  real*8,allocatable   ::r(:,:)   ! which reactions i regulates, dim1 index of the reaction(as in nww), dim2(1) the pre form, dim2(2) the post reaction, dim2(3) the w strength
   real*8               ::diffu     ! extracellular diffusivity of gene proteins or protein forms
   real*8               ::idiffu    ! intracellular diffusivity of gene proteins or protein forms
   real*8               ::mu        ! degradation of gene proteins or protein forms
+  real*8               ::mich      ! Constant of Michaelis-Menten HC 31-3-20
   integer              ::npre      ! the number of pre form that gives rise to this form 
   integer,allocatable  ::pre(:)    ! the pre forms of a gene: the forms that give rise to it, NOTICE the reverse reaction only occurs if the post of a gene is its pre
                                    ! if that does not occur it means that the reaction is effectivelly irreversible
@@ -72,11 +73,11 @@ type, public :: genes
 				   !          extracellular signals are automatically secreted and can only affect genes in a node through receptors
 				   !
 
-!  character*100        ::label      !this is intended to be used as a label to identify and track the gene (trhough evolution for example) !>>Miquel8-8-14
+  character*40        ::label      !this is intended to be used as a label to identify and track the gene (trhough evolution for example) !>>Miquel8-8-14 !!>> HC 30-6-2020
 
 
   !of genes on cell behaviours or properties
-  real*8, allocatable  ::wa(:)    ! effect of a gene on each node parameter. These are ordered by number; after the number of the node parameter
+  real*8, allocatable  ::e(:)    ! effect of a gene on each node parameter. These are ordered by number; after the number of the node parameter
                                   ! come each of the cell behaviours
                                   ! nparam_per_node+1 = cell growth
                                   ! nparam_per_node+2 = cell cycle increase, when 1 the cell can divide if it has the right size
@@ -97,6 +98,7 @@ type, public :: genes
                                   ! nparam_per_node+14= ECM proteolisis (like apoptosis for ECM nodes)
                                   ! nparam_per_node+15= changes maxsize_for_div the max number of nodes that allows division
                                   ! nparam_per_node+16= noise is biased by polarization vector
+                                  ! nparam_per_node+17= polarization creates ellipsoid deformation of cell
 end type
                                              !these two variables are to make things faster since it can be done only once
 integer, public, allocatable :: npag(:)      !number of genes that have an effect in that cellular parameter
@@ -106,15 +108,16 @@ type(genes),public,allocatable :: gen(:)
 
 
 ! derived matrices that do not change and are just for making the code run faster
-real*8 , private, allocatable :: nw(:),w(:,:)
-integer, private, allocatable :: nwpre(:,:)    ! number of forms catalyzing the reaction pre j of i 
-real*8 , private, allocatable :: wpre(:,:,:,:) ! dim1 the form i, dim2 index of the reactions leading to i from its pres (as in npre)
+real*8 , public, allocatable :: nw(:),w(:,:)
+integer, public, allocatable :: nwpre(:,:)    ! number of forms catalyzing the reaction pre j of i 
+real*8 , public, allocatable :: wpre(:,:,:,:) ! dim1 the form i, dim2 index of the reactions leading to i from its pres (as in npre)
                                                ! dim3(1) the list of enzymes, dim4(1) their gene indices dim4(2) their ws  
-integer, private, allocatable :: nwpost(:,:)   ! number of forms catalyzing the reaction post j of i 
-real*8 , private, allocatable :: wpost(:,:,:,:)! dim1 the form i, dim2 index of the reactions leading to i from its posts (as in npost)
+integer, public, allocatable :: nwpost(:,:)   ! number of forms catalyzing the reaction post j of i 
+real*8 , public, allocatable :: wpost(:,:,:,:)! dim1 the form i, dim2 index of the reactions leading to i from its posts (as in npost)
                                                ! dim3(1) the list of enzymes, dim4(1) their gene indices dim4(2) their ws
 
 real*8 , private :: nbh
+real*8 , public, allocatable :: geoch(:) !!>>HC 18-9-2020 This is to store total gene expression, used in nexe for filtering no changes in gene expression.
 
 contains
 
@@ -136,22 +139,22 @@ subroutine initiate_gene  ! allocates the matrices and fills npag and whonpag
   do i=1,ng
 
     !w
-    if (allocated(gen(i)%w)) deallocate(gen(i)%w)
-    allocate(gen(i)%w(ng))
-    gen(i)%w=0.0d0
+    if (allocated(gen(i)%t)) deallocate(gen(i)%t)
+    allocate(gen(i)%t(ng))
+    gen(i)%t=0.0d0
 
     gen(i)%nww=0
 
     !ww 
-    if (allocated(gen(i)%ww)) deallocate(gen(i)%ww)
-    allocate(gen(i)%ww(ng*ng,3))
-    gen(i)%ww=0.0d0
+    if (allocated(gen(i)%r)) deallocate(gen(i)%r)
+    allocate(gen(i)%r(ng*ng,3))
+    gen(i)%r=0.0d0
 
 
     !wa
-    if (allocated(gen(i)%wa)) deallocate(gen(i)%wa)
-    allocate(gen(i)%wa(nga))
-    gen(i)%wa=0.0d0
+    if (allocated(gen(i)%e)) deallocate(gen(i)%e)
+    allocate(gen(i)%e(nga))
+    gen(i)%e=0.0d0
 
   end do
 
@@ -172,6 +175,7 @@ subroutine initiate_gene  ! allocates the matrices and fills npag and whonpag
   gen(:)%npost=0
   gen(:)%diffu=0.0d0
   gen(:)%idiffu=0.0d0
+  gen(:)%mich = 1.0d0 !!!!! Michaelis Menten constant initialize HC 3-31-20
   gen(:)%kindof=1
   gen(:)%mu=0.0d0
 
@@ -189,7 +193,7 @@ subroutine update_npag   ! fils the npag and whonpag once wa is filled: this nee
   do i=1,nga
     npag(i)=0
     do j=1,ng
-      if (gen(j)%wa(i)/=0.0d0) then
+      if (gen(j)%e(i)/=0.0d0) then
         npag(i)=npag(i)+1
         whonpag(i,npag(i))=j
       end if
@@ -201,7 +205,6 @@ subroutine update_npag   ! fils the npag and whonpag once wa is filled: this nee
   allocate(wkindof(8,ng))
   do i=1,ng
     if (gen(i)%kindof==0) gen(i)%kindof=1  !every gene should have a kindof, if not we give the 1 value, for transcripts
-!print *,i,"i",gen(i)%kindof,int(gen(i)%kindof)
     nkindof(int(gen(i)%kindof))=nkindof(int(gen(i)%kindof))+1   ! >>> Is 7-6-14   
     wkindof(int(gen(i)%kindof),nkindof(int(gen(i)%kindof)))=i   ! >>> Is 7-6-14 
   end do
@@ -223,10 +226,10 @@ subroutine update_npag   ! fils the npag and whonpag once wa is filled: this nee
     do j=1,gen(i)%nww
 rt:   do k=1,ng
         do kk=1,gen(k)%npre
-          if (gen(i)%ww(j,1)==gen(k)%pre(kk).and.gen(i)%ww(j,2)==k) then ! these are the reaction from the pre to k catalyzed by i
+          if (gen(i)%r(j,1)==gen(k)%pre(kk).and.gen(i)%r(j,2)==k) then ! these are the reaction from the pre to k catalyzed by i
             nwpre(k,kk)=nwpre(k,kk)+1                ! this is the number of enzymes catalyzing the reaction from k to pre(kk)
             wpre(k,kk,nwpre(k,kk),1)=i               ! this is the enzyme catalyzing that reaction
-            wpre(k,kk,nwpre(k,kk),2)=gen(i)%ww(j,3)  ! this is the activity 
+            wpre(k,kk,nwpre(k,kk),2)=gen(i)%r(j,3)  ! this is the activity 
           end if
         end do
       end do rt
@@ -238,10 +241,10 @@ rt:   do k=1,ng
     do j=1,gen(i)%nww
 rtd:  do k=1,ng
         do kk=1,gen(k)%npost
-          if (gen(i)%ww(j,1)==k.and.gen(i)%ww(j,2)==gen(k)%post(kk)) then  ! those are the reactions from k to its post catalyzed by i
+          if (gen(i)%r(j,1)==k.and.gen(i)%r(j,2)==gen(k)%post(kk)) then  ! those are the reactions from k to its post catalyzed by i
             nwpost(k,kk)=nwpost(k,kk)+1              ! this is the number of enzymes catalyzing the reaction from k to post(kk)
             wpost(k,kk,nwpost(k,kk),1)=i             ! this is the enzyme catalyzing that reaction
-            wpost(k,kk,nwpost(k,kk),2)=gen(i)%ww(j,3)! this is the activity
+            wpost(k,kk,nwpost(k,kk),2)=gen(i)%r(j,3)! this is the activity
           end if
         end do
       end do rtd
@@ -259,7 +262,7 @@ rtd:  do k=1,ng
 
   do i=1,ng
     do j=1,ng
-      if (gen(i)%w(j)/=0.0d0) then
+      if (gen(i)%t(j)/=0.0d0) then
         nw(i)=nw(i)+1
         w(i,int(nw(i)))=j  ! >>> Is 7-6-14
       end if
@@ -273,11 +276,10 @@ end subroutine update_npag
 
 subroutine gene_stuff ! gene interactions and gene diffusion
 
-  !ldi=epsilod !!!!!!!!!!!!!!!!!!!!!!!!!!! ACHTUNG
 
   call genestep
 
-  if (ffu(9)/=2.and.ffu(19)/=2) then
+  if (ffu(5)/=2.and.ffu(12)/=2) then
     agex(:nd,1:ng) = gex(:nd,1:ng) + delta*dgex(:nd,1:ng) ;        
   else
     call rungekutta4gex
@@ -285,7 +287,7 @@ subroutine gene_stuff ! gene interactions and gene diffusion
 
   do i=1,nd
     do j=1,ng
-     if (abs(agex(i,j))<ldi) gex(i,j)=0
+       if (abs(agex(i,j))<epsilod) gex(i,j)=0.0d0
     end do
   end do
 
@@ -327,12 +329,12 @@ real*8  ::krev,kbound
        allocate(checkn(nd))
        checkn=0.0d0
 
-!      rdiffmax=2*maxval(node(:nd)%da)*dmax !now it's in the iteracio subroutine !>>Miquel27-2-14
+!      rdiffmax=2*maxval(node(:nd)%add)*dmax !now it's in the iteracio subroutine !>>Miquel27-2-14
       do i=1,nd
         did=0.0d0
         tipi=node(i)%tipus
         celi=node(i)%icel !>>Miquel31-3-14
-        !if (rdiffmax<2*node(i)%da)   then ;print *,"RRRRRRRRRRRRR"; nbh=2*node(i)%da   ; else ; nbh=rdiffmax ; end if  ! this may make nbh different for different nodes 
+        !if (rdiffmax<2*node(i)%add)   then ;print *,"RRRRRRRRRRRRR"; nbh=2*node(i)%add   ; else ; nbh=rdiffmax ; end if  ! this may make nbh different for different nodes 
         !!! and then non-symmetric diffusion 
         nbh=rdiffmax          
         nv=0
@@ -346,6 +348,51 @@ real*8  ::krev,kbound
         gext=0d0  !>>Miquel22-8-14
         ! ************************* STANDARD MINIMAL LOOP (1,2,3,4) **********************************
         ! DIFFUSION
+        ! DIFFUSION WITH ALTRE                                                       !!>> TT 21-11-25
+        if(tipi < 3) then                                                            !!>> TT 21-11-25
+          ie = ivv                                                                   !!>> TT 21-11-25
+          dist = sqrt((ix-node(ie)%x)**2+(iy-node(ie)%y)**2+(iz-node(ie)%z)**2)      !!>> TT 21-11-25
+          udist=1.0d0/(1d0+dist)                                                     !!>> TT 21-11-25
+          do jj=1,3                                                                  !!>> TT 21-11-25
+            if (nkindof(jj)>0) then                                                  !!>> TT 21-11-25
+              do jjj=1,nkindof(jj)                                                   !!>> TT 21-11-25
+                j=wkindof(jj,jjj)                                                    !!>> TT 21-11-25
+                did(j)=did(j)+gen(j)%diffu*(gex(ie,j)-gex(i,j))*udist                !!>> TT 21-11-25
+              end do                                                                 !!>> TT 21-11-25
+            end if                                                                   !!>> TT 21-11-25
+          end do                                                                     !!>> TT 21-11-25
+          ! kindof 4                                                                 !!>> TT 21-11-25
+          if (nkindof(4)>0) then                                                     !!>> TT 21-11-25
+!            if (dist<nbh) then                                                      !!>> HC 26-11-2021 we do not check the diffusion limit for one cell and its altre
+              do jjj=1,nkindof(4) !!>> TT 21-11-25 kindof 4 diffuses within the cell but it is only in its surface (so it is not within the cell really) 
+                j=wkindof(4,jjj)                                                     !!>> TT 21-11-25
+                did(j)=did(j)+gen(j)%diffu*(gex(ie,j)-gex(i,j))*udist                !!>> TT 21-11-25
+              end do                                                                 !!>> TT 21-11-25
+!            end if                                                                  !!>> HC 26-11-2021 
+          end if                                                                     !!>> TT 21-11-25
+          ! kindof 5                                                                 !!>> TT 21-11-25
+          if (nkindof(5)>0) then                                                     !!>> TT 21-11-25
+            do jjj=1,nkindof(5)                                                      !!>> TT 21-11-25 active apical-basal diffusion due to microtubule transport
+              j=wkindof(5,jjj)                                                       !!>> TT 21-11-25
+              if (tipi==2) then                                                      !!>> TT 21-11-25
+                did(j)=did(j)-gen(j)%diffu*gex(i,j)*udist  !!>> TT 21-11-25 loss due to kinesin transport, here diffu is like the transport rate by kinesin !>>>Miquel16-12-13
+              else if(tipi==1)then                         !!>> TT 21-11-25
+                did(j)=did(j)+gen(j)%diffu*gex(ie,j)*udist !!>> TT 21-11-25 gain due to kinesin transport, here diffu is like the transport rate by kinesin !>>>Miquel16-12-13
+              end if                                                                 !!>> TT 21-11-25
+            end do                                                                   !!>> TT 21-11-25
+          end if                                                                     !!>> TT 21-11-25
+          if (nkindof(6)>0) then                                                     !!>> TT 21-11-25
+            do jjj=1,nkindof(6)                                                      !!>> TT 21-11-25 active apical-basal diffusion due to microtubule transport
+              j=wkindof(6,jjj)                                                       !!>> TT 21-11-25
+              if(tipi==2)then                                                        !!>> TT 21-11-25
+                did(j)=did(j)-gen(j)%diffu*gex(i,j)*udist  !!>> TT 21-11-25 loss due to kinesin transport, here diffu is like the transport rate by kinesin !>>>Miquel16-12-13
+              else if(tipi==1)then                         !!>> TT 21-11-25
+                did(j)=did(j)+gen(j)%diffu*gex(ie,j)*udist !!>> TT 21-11-25 gain due to kinesin transport, here diffu is like the transport rate by kinesin !>>>Miquel16-12-13
+              end if                                                                 !!>> TT 21-11-25
+            end do                                                                   !!>> TT 21-11-25
+          end if                                                                     !!>> TT 21-11-25
+        end if                                                                       !!>> TT 21-11-25
+        ! DIFFUSION WITH NEIGHBORS  !!>> TT 21-11-25
         do i1=1,nneigh(i)
           ie=neigh(i,i1)
           dist=dneigh(i,i1)
@@ -438,8 +485,8 @@ real*8  ::krev,kbound
             if(tipi<4) then ! there is no reason to exclude mesenchymal cells RZ 4-3-14
               if (node(ie)%icel.ne.celi) then   ! ONLY from different cells
                 if(tipi==node(ie)%tipus)then !>>Miquel2-10-14
-                  if(dist.le.(node(i)%da+node(ie)%da)) then     !new kinetics !>>Miquel22-8-14
-                    udistn=(node(i)%da+node(ie)%da)/(node(i)%da+node(ie)%da+dist) !notice this is the inverse Is
+                  if(dist.le.(node(i)%add+node(ie)%add)) then     !new kinetics !>>Miquel22-8-14
+                    udistn=(node(i)%add+node(ie)%add)/(node(i)%add+node(ie)%add+dist) !notice this is the inverse Is
                     checkn(i)=1 !nodes close enough for binding
                     do jj=1,nkindof(7)
                       j=wkindof(7,jj)
@@ -498,14 +545,6 @@ real*8  ::krev,kbound
           end if
         end do
 
-        !loss by diffusion when there are borders
-        if(node(i)%border==1.and.nkindof(4)>0)then
-          do jjj=1,nkindof(4) ! kindof 4 diffuses within the cell but it is only in its surface (so it is not within the cell really)
-            j=wkindof(4,jjj)
-            did(j)=did(j)-gen(j)%diffu*gex(i,j)
-          end do
-        end if
-
 
 
 
@@ -522,10 +561,10 @@ real*8  ::krev,kbound
             sm=0.0d0
             do k=1,int(nw(j))
               kk=w(j,k)
-              sm = sm + gen(j)%w(kk)*gex(i,kk)  !the amount of TFs
+              sm = sm + gen(j)%t(kk)*gex(i,kk)  !the amount of TFs
             end do
             if (sm<0.0) sm=0.0
-            gext(j) = sm/(1+sm) - gen(j)%mu*a + did(j) !gain of product by transcription (Michaelis-Menten) !>>>> Miquel 20-12-13
+            gext(j) = sm/(gen(j)%mich+sm) - gen(j)%mu*a + did(j) !gain of product by transcription (Michaelis-Menten) !>>>> Miquel 20-12-13 !!!!! Michaelis Menten constant can be different in each gene HC 31-3-20
           end do 
           do jjj=1,nkindof(4)           !*****************PRODUCTION OF PRIMARY FORMS (WITHOUT FURTHER FORMS)
             j=wkindof(4,jjj)     
@@ -533,10 +572,10 @@ real*8  ::krev,kbound
             sm=0.0d0
             do k=1,int(nw(j))
               kk=w(j,k)
-              sm = sm + gen(j)%w(kk)*gex(i,kk)  !the amount of TFs
+              sm = sm + gen(j)%t(kk)*gex(i,kk)  !the amount of TFs
             end do
             if (sm<0.0) sm=0.0
-            gext(j) = gext(j) + sm/(1+sm) - gen(j)%mu*a + did(j) !gain of product by transcription (Michaelis-Menten) !>>>> Miquel 20-12-13
+            gext(j) = gext(j) + sm/(gen(j)%mich+sm) ! - gen(j)%mu*a + did(j) !gain of product by transcription (Michaelis-Menten) !>>>> Miquel 20-12-13 !!!!! Michaelis Menten constant can be different in each gene HC 31-3-20 !!! Diffusion must be added later
           end do 
           do jjj=1,nkindof(2)           !*****************PRODUCTION OF PRIMARY FORMS (WITH FURTHER FORMS)
             j=wkindof(2,jjj)
@@ -544,7 +583,7 @@ real*8  ::krev,kbound
             sm=0.0d0
             do k=1,int(nw(j))
               kk=w(j,k)
-              sm = sm + gen(j)%w(kk)*gex(i,kk)  !the amount of TFs
+              sm = sm + gen(j)%t(kk)*gex(i,kk)  !the amount of TFs
             end do
             if (sm<0.0) sm=0.0
             if (gen(j)%npost>0) then 
@@ -556,13 +595,13 @@ real*8  ::krev,kbound
                   smd=smd + wpost(j,kki,k,2)*gex(i,kk)   !loss of product by transforming into another form !>>> Miquel20-12-13
                 end do
                 if (smd<0.0) smd=0.0   ! Is 9-2-14
-                b=smd*a/(1+a)         ! Michaelis-Menten
+                b=smd*a/(gen(j)%mich+a)   ! Michaelis-Menten !!Made variable between genes HC 31-3-20
                 gext(kkk) = gext(kkk) + b ! that is the gain by the post due to its transformation from j
                 gext(j)   = gext(j)   - b ! that is the lost j has due to its transformation to j
               end do
-              gext(j) = gext(j) + sm/(1+sm) - gen(j)%mu*a + did(j) !>>> Is 9-2-14
+              gext(j) = gext(j) + sm/(gen(j)%mich+sm) - gen(j)%mu*a + did(j) !>>> Is 9-2-14 !!Made variable between genes HC 31-3-20
             else
-              gext(j) = sm/(1+sm) - gen(j)%mu*a + did(j)  !>>> Miquel20-12-13
+              gext(j) = sm/(gen(j)%mich+sm) - gen(j)%mu*a + did(j)  !>>> Miquel20-12-13 !!Made variable between genes HC 31-3-20
             end if
           end do
         else  !****************** NOT IN THE NUCLEUS (NO TRANSCRIPTION)
@@ -583,7 +622,7 @@ real*8  ::krev,kbound
                   smd=smd + wpost(j,kki,k,2)*gex(i,kk)   !loss of product by transforming into another form !>>> Miquel20-12-13
                 end do                           
                 if (smd<0.0) smd=0.0   ! Is 9-2-14
-                b=smd*a/(1+a)         ! Michaelis-Menten
+                b=smd*a/(gen(j)%mich+a)   ! Michaelis-Menten !!Made variable between genes HC 31-3-20
                 gext(kkk) = gext(kkk) + b ! that is the gain by the post due to its transformation from j
                 gext(j)   = gext(j)   - b ! that is the lost j has due to its transformation to j
               end do
@@ -607,7 +646,7 @@ real*8  ::krev,kbound
                 smd=smd + wpost(j,kki,k,2)*gex(i,kk)   !loss of product by transforming into another form !>>> Miquel20-12-13
               end do                           
               if (smd<0.0) smd=0.0   ! Is 9-2-14
-              b=smd*a/(1+a)         ! Michaelis-Menten
+              b=smd*a/(gen(j)%mich+a)   ! Michaelis-Menten !!Made variable between genes HC 31-3-20
               gext(kkk) = gext(kkk) + b ! that is the gain by the post due to its transformation from j
               gext(j)   = gext(j)   - b ! that is the lost j has due to its transformation to j
             end do
@@ -629,7 +668,7 @@ real*8  ::krev,kbound
                 smd=smd + wpost(j,kki,k,2)*gex(i,kk)   !loss of product by transforming into another form !>>> Miquel20-12-13
               end do                           
               if (smd<0.0) smd=0.0   ! Is 9-2-14
-              b=smd*a/(1+a)         ! Michaelis-Menten
+              b=smd*a/(gen(j)%mich+a)   ! Michaelis-Menten !!Made variable between genes HC 31-3-20
               gext(kkk) = gext(kkk) + b ! that is the gain by the post due to its transformation from j
               gext(j)   = gext(j)   - b ! that is the lost j has due to its transformation to j
             end do
@@ -662,7 +701,7 @@ real*8  ::krev,kbound
                     smd=smd + wpost(j,kki,k,2)*gex(i,kk)   !loss of product by transforming into another form !>>> Miquel20-12-13
                   end do                           
                   if (smd<0.0) smd=0.0   ! Is 9-2-14
-                  b=smd*a/(1+a)         ! Michaelis-Menten
+                  b=smd*a/(gen(j)%mich+a)   ! Michaelis-Menten !!Made variable between genes HC 31-3-20
                   gext(kkk) = gext(kkk) + b ! that is the gain by the post due to its transformation from j
                   gext(j)   = gext(j)   - b ! that is the lost j has due to its transformation to j
                 end do

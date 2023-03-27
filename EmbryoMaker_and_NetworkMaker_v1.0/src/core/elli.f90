@@ -49,8 +49,8 @@ use inicial
 use automaticon
 
 implicit none
-character*260 caordre,ordre
-character*200 precarg
+character*400 caordre,ordre !!>>HC 18-11-2020 these should be a bit longer for evolution
+character*200 precarg       !!>>HC 18-11-2020 (evolve calls with complete paths)
 character*80 cu
 character*10 pgm,xcad
 
@@ -61,11 +61,28 @@ integer*4 iu,id
 integer*8 iv
 type(c_ptr) point
 
+!this is necessary to accomadate to different versions of linux
+call random_seed(size = nseed)
+print*,nseed
+call getarg(2,cu)
+if (len_trim(cu)==1) then
+  read (cu,*) aut
+else
+  if(allocated(idum))deallocate(idum)
+  allocate(idum(nseed))
+  if(allocated(idumoriginal))deallocate(idumoriginal)
+  allocate(idumoriginal(nseed))  
+end if
+
+
 !print *,"1st commandline input: name of the input file, 0 if no input file"
 !print *,"2nd commandline input: 1 automatic, 2 automatic and saving, "
 !print *,"3 the same but showing the images, 4 to just make a gif of the file, 5 if called from reva.f90" !>>> Is 22-1-14
 !print *,"3th commandline input: iteration step (only for automatics)"
 !print *,"4th commandline input: number of snapshots (only for automatics)"
+
+call cpu_time(start_time) !;print*,"start",start_time !!>>HC 17-11-2020 This is necessary for filtering
+whichend=0 !!>>HC 26-2-2021 means it has not been filtered (yet)
 
 call getarg(2,cu)
 if (len_trim(cu)==1) then
@@ -80,8 +97,8 @@ end if
 do i=1,len(precarg)
   if (precarg(i:i)==" ") precarg(i:i)="_"
 end do
-ordre="rm -f *kk 2> kok"
-call system(ordre)
+ordre="rm -f *kk " !2> kok" 4-3-2020
+!call system(ordre) !!>> HC 18-11-2020 This gives problems with evolution
 call getarg(0,cazero)
 caordre="cksum "//cazero//" > "//precarg//"kk"
 call system(caordre) !assumes this file is called elli.e
@@ -204,7 +221,7 @@ end if
 
 !<<< Is 13-3-15 nodeo=node   !Is 25-5-13 this is just to save the initial conditions
 
-nodeoo=nodeo  !>>> Is 14-3-15 this is non-sense but without it the whole thing crushes, I think it has to do with a point pointer
+!nodeoo=nodeo  !>>> Is 14-3-15 this is non-sense but without it the whole thing crushes, I think it has to do with a point pointer !!>> HC 4-12-2020
 
 select case(aut)
 case(1)
@@ -214,16 +231,16 @@ case(5) !evolution
   call auto
 case default
 
-  print*,
-  print*,
+  print*, "      " !!>> HC 16-11-2020 new versions of gfortran require some output here
+  print*, "      " !!>> HC 16-11-2020
   print*,"EmbryoMaker software (General Node Model)"
   print*,"Computational model to simulate morphogenetic processes in living organs and tissues."
   print*,"Copyright (C) 2014 Miquel Marin-Riera, Miguel Brun-Usan, Roland Zimm, Tommi Välikangas & Isaac Salazar-Ciudad"
   print*,"This program comes with ABSOLUTELY NO WARRANTY"
   print*,"This is free software, and you are welcome to redistribute it under certain conditions;"
   print*,"read the LICENSE.txt file for details."
-  print*,
-  print*,
+  print*, "      " !!>> HC 16-11-2020
+  print*, "      " !!>> HC 16-11-2020
 
   call glutMainLoop
 end select

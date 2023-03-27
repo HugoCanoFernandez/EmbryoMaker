@@ -38,7 +38,7 @@ contains
 
 !******************************************************************
 
-subroutine should_I_grow !>>>>>>>> Miquel21-10-13   only one node per cell grows at a time. The amount of %req gained by this node depends on the expression genes among the entire cell
+subroutine should_I_grow !>>>>>>>> Miquel21-10-13   only one node per cell grows at a time. The amount of %eqd gained by this node depends on the expression genes among the entire cell
 integer::i,j,k,ii,jj,kk,iii,jjj,kkk,ci
 real*8::grate,grac
 integer nnod
@@ -58,7 +58,7 @@ el: do ci=1,ncels
 !print*,ci,ii,"a",a,"mincomp",min_comp
       if (a<-epsilod.and.abs(a)>abs(min_comp)) cycle ! if the compresion per node in the cell is too large (in negative) then we do not add nodes
 
-      if(node(cels(ci)%node(1))%hold>0) cycle !we don't want the border cells to perform behaviours because that would alter and possibly break the border  !>>>>Miquel9-1-14
+      if(node(cels(ci)%node(1))%fix>0) cycle !we don't want the border cells to perform behaviours because that would alter and possibly break the border  !>>>>Miquel9-1-14
       grac=0d0
       if(cels(ci)%ctipus<3)then  !>>Miquel23-1-14
         maxreq=2*mmae !
@@ -67,15 +67,15 @@ el: do ci=1,ncels
         grate=0d0 ; grac=0d0
         do ii=1,nnod
           j=cels(ci)%node(ii)
-          differ=1-node(j)%diffe
+          differ=1-node(j)%dif
           if(node(j)%tipus==2) cycle   !>>Miquel23-1-14
           jjj=node(j)%altre             !>>Miquel23-1-14
           do jj=1,npag(nparam_per_node+1)    !number of genes affecting growth
             k=whonpag(nparam_per_node+1,jj)  !which are those genes
-            grate=grate+(gex(j,k)+gex(jjj,k))*gen(k)%wa(nparam_per_node+1)*differ !this is the differential of growth for the node !>>Miquel23-1-13
+            grate=grate+(gex(j,k)+gex(jjj,k))*gen(k)%e(nparam_per_node+1)*differ !this is the differential of growth for the node !>>Miquel23-1-13
           end do                                                                  ! wa in space-req units
           grate=grate*delta
-          a=node(j)%reqcr+node(jjj)%reqcr !;print*,"req",node(j)%req !>>Miquel28-1-14
+          a=node(j)%grd+node(jjj)%grd !;print*,"req",node(j)%eqd !>>Miquel28-1-14
           if(a<maxreq) iii=j  !this is the node that has to grow
         end do
       else                       !
@@ -85,13 +85,13 @@ el: do ci=1,ncels
         grate=0d0 ; grac=0d0
         do ii=1,nnod
           j=cels(ci)%node(ii)
-          differ=1-node(j)%diffe
+          differ=1-node(j)%dif
           do jj=1,npag(nparam_per_node+1)    !number of genes affecting growth
             k=whonpag(nparam_per_node+1,jj)  !which are those genes
-            grate=grate+gex(j,k)*gen(k)%wa(nparam_per_node+1)*differ !this is the differential of growth for the node !>>Miquel23-1-13
+            grate=grate+gex(j,k)*gen(k)%e(nparam_per_node+1)*differ !this is the differential of growth for the node !>>Miquel23-1-13
           end do
           grate=grate*delta
-          a=node(j)%reqcr !;print*,"req",node(j)%req !>>Miquel23-1-14
+          a=node(j)%grd !;print*,"req",node(j)%eqd !>>Miquel23-1-14
           if(a<maxreq) iii=j  !this is the node that has to grow
         end do
       end if                     
@@ -103,56 +103,56 @@ el: do ci=1,ncels
 
       if(node(iii)%tipus<3) grate=0.5d0*grate  !since there are two nodes growing, the rate per node is half
 
-      a=node(iii)%reqcr ; !b=node(iii)%reqcel-a !the node increases in size
-      !c=node(iii)%da-a
+      a=node(iii)%grd ; !b=node(iii)%codel-a !the node increases in size
+      !c=node(iii)%add-a
       aa=a+grate          !this is a growth in node's "radius"
-      node(iii)%reqcr=aa
-      !node(iii)%da=aa+c  !%da is also growing in the same amount (but not in the same proportion) than req
+      node(iii)%grd=aa
+      !node(iii)%add=aa+c  !%add is also growing in the same amount (but not in the same proportion) than req
 
       
-      nodeo(iii)%reqcr=nodeo(iii)%reqcr+grate   !?????????
+      nodeo(iii)%grd=nodeo(iii)%grd+grate   !?????????
 !when req and da are irreversively modified by growth or apoptosis, the nodeo  !>>>>Miquel16-12-13
-      !nodeo(iii)%da=nodeo(iii)%da+grate    !values have to be updated, otherwise it will create a conflict with nexus
+      !nodeo(iii)%add=nodeo(iii)%add+grate    !values have to be updated, otherwise it will create a conflict with nexus
 
       if (node(iii)%tipus<3) then  !epithelial: the node beneath also grows in the same amount
         jj=node(iii)%altre
-        ja=node(jj)%reqcr ; !jb=node(jj)%reqcel-a
-        !jc=node(jj)%da-a
+        ja=node(jj)%grd ; !jb=node(jj)%codel-a
+        !jc=node(jj)%add-a
         jaa=ja+grate
-        node(jj)%reqcr=jaa
-        !node(jj)%da=jaa+jc
+        node(jj)%grd=jaa
+        !node(jj)%add=jaa+jc
 
-        nodeo(jj)%reqcr=nodeo(jj)%reqcr+grate   
+        nodeo(jj)%grd=nodeo(jj)%grd+grate   
 !???????????????????????????????????????
 !when req and da are irreversively modified by growth or apoptosis, the nodeo  !>>>>Miquel16-12-13
-        !nodeo(jj)%da=nodeo(jj)%da+grate    !values have to be updated, otherwise it will create a conflict with nexus
+        !nodeo(jj)%add=nodeo(jj)%add+grate    !values have to be updated, otherwise it will create a conflict with nexus
       end if
 
       if(aa>maxreq)then   !if the node has reax max size, we add a new node
         d=aa-maxreq
-        node(iii)%reqcr=maxreq
-        !node(iii)%da=maxreq+c
+        node(iii)%grd=maxreq
+        !node(iii)%add=maxreq+c
         grac=grac+d   !if the node is "full" we save the growth to apply it to another node
 
-        nodeo(iii)%reqcr=maxreq    !???????????????????????????????????????
+        nodeo(iii)%grd=maxreq    !???????????????????????????????????????
 !when req and da are irreversively modified by growth or apoptosis, the nodeo  !>>>>Miquel16-12-13
-        !nodeo(iii)%da=maxreq+c    !values have to be updated, otherwise it will create a conflict with nexus
+        !nodeo(iii)%add=maxreq+c    !values have to be updated, otherwise it will create a conflict with nexus
 
         if (node(iii)%tipus<3) then  !epithelial: the node below
           jd=jaa-maxreq
-          node(jj)%reqcr=maxreq
-          !node(jj)%da=maxreq+jc
+          node(jj)%grd=maxreq
+          !node(jj)%add=maxreq+jc
           grac=grac+jd   !if the node is "full" we save the growth to apply it to another node
 
-          nodeo(jj)%req=maxreq   !?????????????????????????????????????
+          nodeo(jj)%eqd=maxreq   !?????????????????????????????????????
 !when req and da are irreversively modified by growth or apoptosis, the nodeo  !>>>>Miquel16-12-13
-          nodeo(jj)%da=maxreq+jc  !?????????????????????????????????????????????????????????  
+          nodeo(jj)%add=maxreq+jc  !?????????????????????????????????????????????????????????  
 !values have to be updated, otherwise it will create a conflict with nexus
         end if
 
 
         !Adding a new node
-123     if (ffu(1)==0) then !ACHTUNG
+123     if (ffu(1)==1) then !ACHTUNG
         if(cels(ci)%ctipus<3)then             ! We add at most a node per cell per iteration
           !epithelial
           a=0 ; ii=0
@@ -161,7 +161,7 @@ el: do ci=1,ncels
             do jj=1,npag(nparam_per_node+9)
               k=whonpag(nparam_per_node+9,jj)   !IT'S IMPORTANT THAT THIS GENE DIFFUSES WITHIN THE CELL
               if (gex(j,k)>0) then      !POLAR GROWTH FORBIDS NON_POLAR GROWTH (makes the algorithm not to work) 
-               a=a+gen(k)%wa(nparam_per_node+9)*gex(j,k) ; ii=ii+1 !>> Miquel6-8-14
+               a=a+gen(k)%e(nparam_per_node+9)*gex(j,k) ; ii=ii+1 !>> Miquel6-8-14
               end if
             end do
           end do
@@ -180,12 +180,12 @@ el: do ci=1,ncels
           else
             if (grac>2*maxreq) then ; a=maxreq ; else ; a=grac*0.5d0 ; end if
           end if
-          !c=node(cels(ci)%node(1))%da-node(cels(ci)%node(1))%req
-          node(nd)%reqcr=a ; nodeo(nd)%reqcr=a
-          !node(nd)%da=a+c   
+          !c=node(cels(ci)%node(1))%add-node(cels(ci)%node(1))%eqd
+          node(nd)%grd=a ; nodeo(nd)%grd=a
+          !node(nd)%add=a+c   
           k=node(nd)%altre
-          node(k)%reqcr=a ; nodeo(k)%reqcr=a
-          !node(k)%da=a+c   
+          node(k)%grd=a ; nodeo(k)%grd=a
+          !node(k)%add=a+c   
           grac=grac-a
         else
           !mesenchymal
@@ -197,7 +197,7 @@ el: do ci=1,ncels
             do jj=1,npag(nparam_per_node+9)
               k=whonpag(nparam_per_node+9,jj)   !IT'S IMPORTANT THAT THIS GENE DIFFUSES WITHIN THE CELL
               if (gex(j,k)>0) then      !POLAR GROWTH FORBIDS NON_POLAR GROWTH (makes the algorithm not to work) 
-               a=a+gen(k)%wa(nparam_per_node+9); ii=ii+1 !>> Miquel6-8-14
+               a=a+gen(k)%e(nparam_per_node+9); ii=ii+1 !>> Miquel6-8-14
               end if
             end do
           end do
@@ -213,18 +213,18 @@ el: do ci=1,ncels
             goto 15
           end if
 15        call creixement(ci)   ! we add a node (it does not matter which since the subroutine choses)
-!14        c=node(cels(ci)%node(1))%da-node(cels(ci)%node(1))%req
+!14        c=node(cels(ci)%node(1))%add-node(cels(ci)%node(1))%eqd
 14        if(grac<reqmin) then !;print*,"grac pre",grac
             a=reqmin
             grac=0.0d0
           else
             if (grac>maxreq) then ; a=maxreq ; else ; a=grac ; end if
           end if
-          node(nd)%reqcr=a ; nodeo(nd)%reqcr=a !??????????????????????????????!;print*,"grac",grac,"a",a
-          !node(nd)%da=a+c
+          node(nd)%grd=a ; nodeo(nd)%grd=a !??????????????????????????????!;print*,"grac",grac,"a",a
+          !node(nd)%add=a+c
           grac=grac-a
         end if
-        if (ffu(20)==1.and.grate>0.and.grate>reqmin) then
+        if (ffu(13)==1.and.grate>0.and.grate>reqmin) then
 
           ! we first check if the nodes of the cell are too compressed
           a=0.0d0
@@ -244,38 +244,6 @@ end if
     end do el 
 end subroutine
 
-!************************************************************************************************************
-
-!subroutine creixement_old(ce)
-!  integer nods,ce
-!  real*8 :: px,py,pz ! miguel4-11-13
-  
-!!  j=node(nods)%icel       !miguel 14-10-13
-!  if (cels(ce)%ctipus<3) then
-!    ndepi=ndepi+2
-!    nd=nd+2
-!    call findepixyz(ce)
-!    nods=cels(ce)%node(1)
-!  else
-!    ndmes=ndmes+1
-!    nd=nd+1
-!    
-!    call random_number(a)
-!    call random_number(b)!miguel 14-10-13
-!    ii=1+int(b*real(cels(ce)%nunodes))!miguel 14-10-13
-!    nods=cels(ce)%node(ii)!miguel 14-10-13
-!
-!
-!    k=int(a*nvaloq)+1 
-!    px=node(nods)%x ; py=node(nods)%y ; pz=node(nods)%z ! miguel4-11-13
-!    a=node(nods)%req
-!    node(nd)%x=node(nods)%x+particions_esfera(k,1)*a!node(nods)%dmo
-!    node(nd)%y=node(nods)%y+particions_esfera(k,2)*a!node(nods)%dmo
-!    node(nd)%z=node(nods)%z+particions_esfera(k,3)*a!node(nods)%dmo 
-!    if(ffu(6).eq.1)then;call eggshell_forces(nd,px,py,pz);endif! miguel4-11-13
-!  end if
-!  call addanode(nods)
-!end subroutine
 
 !************************************************************************************************************
 ! Is >>> 17-6-14
@@ -286,7 +254,7 @@ subroutine creixement(ce)
     ndepi=ndepi+2
     nd=nd+2
     nods=cels(ce)%node(1)
-if (ffu(1)==0)  call addanode(nods) !ACHTUNG
+if (ffu(1)==1)  call addanode(nods) !ACHTUNG
 
     if (cels(ce)%nunodes==4) then
       call findepixyz_single(ce)
@@ -294,31 +262,19 @@ if (ffu(1)==0)  call addanode(nods) !ACHTUNG
       if (cels(ce)%nunodes==6) then
         call findepixyz_double(ce)
       else
-        if (ffu(19)==0) then 
-          call findepixyz_nodel(ce)
-          !call findepixyz(ce)
-        else
-!          call findepixyz_out(ce)
-          call findepixyz_nodel(ce)
-        end if
+        call findepixyz_nodel(ce)   !!>> HC 10-8-2021 redundant code removed here
       end if
     end if
   else
     ndmes=ndmes+1
     nd=nd+1
     nods=cels(ce)%node(1)
-if (ffu(1)==0)  call addanode(nods) !ACHTUNG
+if (ffu(1)==1)  call addanode(nods) !ACHTUNG
 !    call addanode(nods)
     if (cels(ce)%nunodes==2) then
       call findmesxyz_single(ce)
     else
-      if (ffu(19)==0) then 
-        call findepixyz_nodel(ce)
-        !call findmesxyz(ce)
-      else
-!        call findepixyz_out(ce)
-        call findepixyz_nodel(ce)
-      end if
+      call findepixyz_nodel(ce)     !!>> HC 10-8-2021 redundant code removed here
     end if
   end if
 end subroutine
@@ -354,7 +310,7 @@ subroutine creixement_polar(ce)
     end if
   end if
   nods=cels(ce)%node(1)
-if (ffu(1)==0)  call addanode(nods) !ACHTUNG
+if (ffu(1)==1)  call addanode(nods) !ACHTUNG
 !  call addanode(nods)
 end subroutine
 
@@ -459,7 +415,6 @@ subroutine findepixyz_single_polar(ce)  ! >>> Is 25-6-14
   node(nd)%x=node(i)%x+cels(ce)%polx*1d-4  
   node(nd)%y=node(i)%y+cels(ce)%poly*1d-4
   node(nd)%z=node(i)%z+cels(ce)%polz*1d-4 
-
 end subroutine
 
 
@@ -489,7 +444,6 @@ subroutine findepixyz_double(ce) ! >>> Is 17-6-14
   node(nd)%x=node(i)%x+particions_esfera(k,1)*1d-4  
   node(nd)%y=node(i)%y+particions_esfera(k,2)*1d-4
   node(nd)%z=node(i)%z+particions_esfera(k,3)*1d-4 
-
 end subroutine
 
 !*******************************************
@@ -516,7 +470,6 @@ subroutine findepixyz_double_polar(ce) ! >>> Is 25-6-14
   node(nd)%x=node(i)%x+cels(ce)%polx*1d-4  
   node(nd)%y=node(i)%y+cels(ce)%poly*1d-4
   node(nd)%z=node(i)%z+cels(ce)%polz*1d-4 
-
 end subroutine
 
 
@@ -668,7 +621,7 @@ subroutine findepixyz_polar(iik)  !AQUI CAL MIRAR QUE PASA QUAN NUNODES==1 !!!!!
   else             ! the cell was apolar so we take the direction from the center to a random node in the cell
     if (cels(iik)%nunodes==1) then
       call random_number(a)
-      a=a*node(cels(iik)%node(1))%da
+      a=a*node(cels(iik)%node(1))%add
       aa=cels(iik)%cex+a    !it is not spherically aleatory but this should happen very rarely
       bb=cels(iik)%cey+a
       cc=cels(iik)%cez+a
@@ -940,10 +893,11 @@ subroutine findepixyz_out(iik)   ! it is like findepixyz but putting the new nod
         node(nd)%x=aa                 
         node(nd)%y=bb 
         node(nd)%z=cc 
-        node(nd)%req=node(jj)%req
-        node(nd)%da=node(jj)%da
-        node(nd)%reqcr=node(jj)%reqcr
+        node(nd)%eqd=node(jj)%eqd
+        node(nd)%add=node(jj)%add
+        node(nd)%grd=node(jj)%grd
         if(nd>1) call neighbor_build
+
         call energia(nd)
         enepos(sol)=node(nd)%e
         pos(sol,1,1)=aa ; pos(sol,1,2)=bb ; pos(sol,1,3)=cc
@@ -958,9 +912,9 @@ subroutine findepixyz_out(iik)   ! it is like findepixyz but putting the new nod
       !node(nd-1)%y=bb+1d-7 ! >>> Is 15-6-14 soon we give the proper values to that                
       !node(nd-1)%z=cc+1d-7 ! >>> Is 15-6-14                 
 
-      node(nd)%req=node(jj)%req
-      node(nd)%da=node(jj)%da
-      node(nd)%reqcr=node(jj)%reqcr
+      node(nd)%eqd=node(jj)%eqd
+      node(nd)%add=node(jj)%add
+      node(nd)%grd=node(jj)%grd
       pos(sol,1,1)=aa ; pos(sol,1,2)=bb ; pos(sol,1,3)=cc
 
       ! now we have to find the position of the altre node
@@ -975,9 +929,9 @@ subroutine findepixyz_out(iik)   ! it is like findepixyz but putting the new nod
       node(nd-1)%y=bb+b 
       node(nd-1)%z=cc+c
 
-      node(nd-1)%req=node(node(jj)%altre)%req
-      node(nd-1)%da=node(node(jj)%altre)%da
-      node(nd-1)%reqcr=node(node(jj)%altre)%req
+      node(nd-1)%eqd=node(node(jj)%altre)%eqd
+      node(nd-1)%add=node(node(jj)%altre)%add
+      node(nd-1)%grd=node(node(jj)%altre)%eqd
 
       if(nd>1) call neighbor_build
 
@@ -1081,7 +1035,7 @@ subroutine findepixyz_out_no_energy(iik)   ! it is like findepixyz but putting t
 
     if (cels(iik)%nunodes==1) then
       call random_number(a)
-      a=a*node(cels(iik)%node(1))%da
+      a=a*node(cels(iik)%node(1))%add
       aa=cels(iik)%cex+a    !it is not spherically aleatory but this should happen very rarely
       bb=cels(iik)%cey+a
       cc=cels(iik)%cez+a
@@ -1142,7 +1096,7 @@ real*8,allocatable::cfmeanv(:),cfmeanl(:),cdidpol(:,:)
   iik=node(i)%icel
   tipi=node(i)%tipus
 
-  !if(ffu(13)==0)then
+  !if(ffu(8)==0)then
   !  ! now we have to put the new nodes in the boxes
   !  ic=boxes(nint(node(nd)%x*urv),nint(node(nd)%y*urv),nint(node(nd)%z*urv))!position in boxes
   !  if(ic==0)then
@@ -1185,7 +1139,7 @@ real*8,allocatable::cfmeanv(:),cfmeanl(:),cdidpol(:,:)
     !gex(nd,:)=0d0                                                       !>>>>> Miquel 9-10-13
   !end if
 
-  if(ffu(1)==0)then
+  if(ffu(1)==1)then
     !agex(nd,:)=0d0
     !gex(nd,:)=0d0  !>>> Is 13-5-14 THIS IS TRICKY since this gex values is used for the rest of the nexus module 
     agex(nd,:)=agex(i,:)
@@ -1212,7 +1166,7 @@ real*8,allocatable::cfmeanv(:),cfmeanl(:),cdidpol(:,:)
   
   if(tipi<3)then													!>>>>>>>>>>>>>>>>>>>MIQUEL 4-3-13
 
-    !if(ffu(13)==0)then
+    !if(ffu(8)==0)then
     !  ic=boxes(nint(node(nd-1)%x*urv),nint(node(nd-1)%y*urv),nint(node(nd-1)%z*urv))!position in boxes
     !  if(ic==0)then
     !    !the cube was empty
@@ -1261,7 +1215,8 @@ real*8,allocatable::cfmeanv(:),cfmeanl(:),cdidpol(:,:)
       !gex(nd-1,:)=(gex(iii,:)+gex(jjj,:)+gex(kkk,:))*third
       !gex(nd-1,:)=0d0                                                       !>>>>> Miquel 9-10-13
     !end if
-    if(ffu(1)==0)then
+    j=node(i)%altre    !!>>HC 4-10-2022 We are going to copy the gene concentration from the mother node j to the daughter nd-1
+    if(ffu(1)==1)then
       !agex(nd-1,:)=0d0
       !gex(nd-1,:)=0d0   !>>> Is 13-5-14 THIS IS TRICKY since this gex values is used for the rest of the nexus module      
       agex(nd-1,:)=agex(j,:) !>>> Is 10-10-14
@@ -1358,7 +1313,7 @@ real*8,allocatable::cfmeanv(:),cfmeanl(:),cdidpol(:,:)
     nneigh(1:nd)=cnneigh(1:nd)
     deallocate(cnneigh)
 
-    if(ffu(13)==0)then
+    if(ffu(8)==0)then
       !allocate(cnneigh(nd))
       !cnneigh(1:nd)=dif_nneigh(1:nd)
       !deallocate(dif_nneigh)
@@ -1427,15 +1382,15 @@ real*8,allocatable::cfmeanv(:),cfmeanl(:),cdidpol(:,:)
     deallocate(nodeo)
     allocate(nodeo(nda))
     nodeo(:nd)=cnodeo(:nd)
-    nodeo(:nd+1:nda)%acecm=0.0d0
-    node(:nd+1:nda)%acecm=0.0d0
-    nodeo(:nd+1:nda)%hold=0.0d0
-    node(:nd+1:nda)%hold=0.0d0
+    nodeo(:nd+1:nda)%ecm=0.0d0
+    node(:nd+1:nda)%ecm=0.0d0
+    nodeo(:nd+1:nda)%fix=0.0d0
+    node(:nd+1:nda)%fix=0.0d0
   end if		
 
   !for nodeo
   if (tipi<3) then
-    if (ffu(1)==1) node(nd)%marge=0 ! >>> Is 6-10-14 it is necessary if each mesenchymal cell is a single node
+    if (ffu(1)==0) node(nd)%marge=0 ! >>> Is 6-10-14 it is necessary if each mesenchymal cell is a single node
   end if
 
 end subroutine

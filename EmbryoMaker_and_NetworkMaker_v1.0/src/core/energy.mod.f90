@@ -54,13 +54,13 @@ real*8   ::r(nd),er(nd)
 real*8   ::dotp,ddd
 real*8   ::ad,fd  !>>Miquel28-1-14
 
-  if (node(nod)%hold==2) then  ! >>> Is 30-6-14
+  if (node(nod)%fix==2) then  ! >>> Is 30-6-14
     node(nod)%e=huge(a)        ! >>> Is 30-6-14
     return                     ! >>> Is 30-6-14
   end if                       ! >>> Is 30-6-14
 
   nuve=0
-  nodda=node(nod)%da
+  nodda=node(nod)%add
   ix=node(nod)%x      ; iy=node(nod)%y     ; iz=node(nod)%z
   tipi=node(nod)%tipus											!>>>>>>>>>>>>>>>>>>>MIQUEL 4-3-13
   !iii=nint(ix*urv)    ; jjj=nint(iy*urv)   ; kkk=nint(iz*urv)
@@ -69,10 +69,10 @@ real*8   ::ad,fd  !>>Miquel28-1-14
   younod=node(nod)%you																			
   repnod=node(nod)%rep																			
   adhnod=node(nod)%adh   !default inespecific adhesion of node nodmo																			
-  repcelnod=node(nod)%repcel
-  tornod=node(nod)%tor                                            !
-  stornod=node(nod)%stor                                          !
-  reqnod=node(nod)%req
+  repcelnod=node(nod)%rec
+  tornod=node(nod)%erp                                            !
+  stornod=node(nod)%est                                          !
+  reqnod=node(nod)%eqd
 
   if(tipi<3)then	!Springs is only for epithelia										!>>>>>>>>>>>>>>>>>>>MIQUEL 4-3-13
    !SPRINGS calculem primer l'energia per a les molles
@@ -82,7 +82,7 @@ real*8   ::ad,fd  !>>Miquel28-1-14
     dd=sqrt(cx**2+cy**2+cz**2)
     udd=1d0/dd
     !ENERGY COMING FROM SPRINGS BETWEEN EVERY LOWER AND UPPER NODE
-    enes=node(nod)%ke*abs(dd-node(nod)%reqs)**2
+    enes=node(nod)%hoo*abs(dd-node(nod)%eqs)**2
     ie=enes
   end if
 
@@ -117,50 +117,41 @@ real*8   ::ad,fd  !>>Miquel28-1-14
             ddd=abs(mcx*ccx+mcy*ccy+mcz*ccz)*md
             ad=d**2-ddd**2 ; if(ad<epsilod) ad=epsilod
             ad=sqrt(ad)
-            if (ad-nodda-node(ic)%da>epsilod) cycle
+            if (ad-nodda-node(ic)%add>epsilod) cycle
             fd=ad
             twoep=1
           else
             ! apical/basal contact, two epithelia from the same side
-            if(ffu(16)==0)then
-              mcx=icx+cx; mcy=icy+cy; mcz=icz+cz; md=sqrt(mcx**2+mcy**2+mcz**2)  !we take as spring vector the sum of ic's and nod's spring vectors
-              if(md<epsilod)then !the two cylinders are parallel, the vector used is the spring !>>Miquel20-8-14
-                dotp=(cx*ccx+cy*ccy+cz*ccz)
-                if (dotp<epsilod) then         ! projection of the vector from nod to ic into the vector from nod to iv
+            mcx=icx+cx; mcy=icy+cy; mcz=icz+cz; md=sqrt(mcx**2+mcy**2+mcz**2)  !we take as spring vector the sum of ic's and nod's spring vectors
+            if (md<epsilod)then !the two cylinders are parallel, the vector used is the spring !>>Miquel20-8-14
+               dotp=(cx*ccx+cy*ccy+cz*ccz)
+               if (dotp<epsilod) then         ! projection of the vector from nod to ic into the vector from nod to iv
                   ddd=-dotp*udd                 ! that is the distance UP in the direction of altre
-                  a=nodda+node(ic)%da
+                  a=nodda+node(ic)%add
                   if (ddd-a<epsilod) then
-                    ddd=d**2-ad**2 ;if(ddd<epsilod) ddd=epsilod
-                    ddd=sqrt(ddd)              !lateral component
-                    if (ad-a>epsilod) cycle
-                    fd=ddd     !distance used, vertical component
-                    twoep=2
-                    goto 301
+                     ddd=d**2-ad**2 ;if(ddd<epsilod) ddd=epsilod
+                     ddd=sqrt(ddd)              !lateral component
+                     if (ad-a>epsilod) cycle
+                     fd=ddd     !distance used, vertical component
+                     twoep=2
+                     goto 301
                   end if
                   cycle
-                end if
-              else  !proper apical cylindric interface applied !>>Miquel20-8-14
-                md=1d0/md
-                dotp=(mcx*ccx+mcy*ccy+mcz*ccz)
-                ad=abs(dotp)*md  !vertical component
-                a=nodda+node(ic)%da
-                if(ad-a<epsilod)then
+               end if
+            else  !proper apical cylindric interface applied !>>Miquel20-8-14
+               md=1d0/md
+               dotp=(mcx*ccx+mcy*ccy+mcz*ccz)
+               ad=abs(dotp)*md  !vertical component
+               a=nodda+node(ic)%add
+               if (ad-a<epsilod)then
                   ddd=d**2-ad**2 ;if(ddd<epsilod) ddd=epsilod
                   ddd=sqrt(ddd)              !lateral component
                   if (ddd-a>epsilod) cycle
                   fd=ddd     !distance used, vertical component
                   twoep=2
                   goto 301
-                end if
-                cycle
-              end if
-            else  !apical-apical contact from the same face, sphere-sphere interface used !>>Miquel20-8-14
-              if(d-nodda-node(ic)%da<epsilod)then
-                fd=d
-                twoep=2
-                goto 301
-              end if
-              cycle
+               end if
+               cycle
             end if
           end if
         else
@@ -168,7 +159,7 @@ real*8   ::ad,fd  !>>Miquel28-1-14
             dotp=(cx*ccx+cy*ccy+cz*ccz)                     
             if (dotp<epsilod) then         ! projection of the vector from nod to ic into the vector from nod to iv
               ddd=-dotp*udd                 ! that is the distance UP in the direction of altre
-              a=nodda+node(ic)%da
+              a=nodda+node(ic)%add
               if (ddd-a<epsilod) then
                 ad=d**2-ddd**2 ; if(ad<epsilod) ad=epsilod
                 ad=sqrt(ad)
@@ -187,7 +178,7 @@ real*8   ::ad,fd  !>>Miquel28-1-14
         dotp=(cx*ccx+cy*ccy+cz*ccz) !hi ha un vector del revés, per tant això està al revés també
         if (dotp<0.0) then
           ddd=abs(dotp)*udd
-          a=nodda+node(ic)%da
+          a=nodda+node(ic)%add
           if (ddd-a<epsilod) then
             ad=d**2-ddd**2 ; if(ad<epsilod) ad=epsilod
             ad=sqrt(ad)
@@ -209,7 +200,7 @@ real*8   ::ad,fd  !>>Miquel28-1-14
         dotp=(icx*ccx+icy*ccy+icz*ccz)              ! projection of the vector from nod to ic into the vector from ic to ivv
         if (dotp>0.0) then  ! >>> Is 29-6-14 there was a bug here, a serious typo
           ddd=dotp*idd
-          a=nodda+node(ic)%da
+          a=nodda+node(ic)%add
           if (ddd-a<0.0) then
             ad=d**2-ddd**2 ; if(ad<epsilod) ad=epsilod
             ad=sqrt(ad)
@@ -224,7 +215,7 @@ real*8   ::ad,fd  !>>Miquel28-1-14
         end if
       else
         fd=d !BOTH NODES ARE NON-EPITHELIAL: we just consider the interactions between nodes as such
-        if (fd-nodda-node(ic)%da>epsilod) cycle
+        if (fd-nodda-node(ic)%add>epsilod) cycle
       end if
     end if
 
@@ -235,42 +226,42 @@ real*8   ::ad,fd  !>>Miquel28-1-14
     if(node(nod)%icel==node(ic)%icel)then
       youe=0.5*(younod+node(ic)%you)
       repe=0.5*(repnod+node(ic)%rep)
-      deqe=reqnod+node(ic)%req
-      ideqe=((nodda+node(ic)%da-deqe)/deqe)**2
+      deqe=reqnod+node(ic)%eqd
+      ideqe=((nodda+node(ic)%add-deqe)/deqe)**2
       if(fd-deqe<-epsilod)then 				
-        ener(nuve)=ener(nuve)+repe*((fd-deqe)/deqe)**2-youe*ideqe !((node(nod)%da-deqe)/deqe)**2 !this is the repulsion energy for entering the cilinder
+        ener(nuve)=ener(nuve)+repe*((fd-deqe)/deqe)**2-youe*ideqe !((node(nod)%add-deqe)/deqe)**2 !this is the repulsion energy for entering the cilinder
       else
-        enea(nuve)=enea(nuve)+youe*((fd-deqe)/deqe)**2-youe*ideqe !((node(nod)%da-deqe)/deqe)**2 !this is the adhesion or you 
+        enea(nuve)=enea(nuve)+youe*((fd-deqe)/deqe)**2-youe*ideqe !((node(nod)%add-deqe)/deqe)**2 !this is the adhesion or you 
       end if
     else																							
       adhe=0.5d0*(adhnod+node(ic)%adh) !adhesion is necessarily symmetric
-      repcele=0.5*(repcelnod+node(ic)%repcel)
-      deqe=reqnod+node(ic)%req
-      ideqe=((nodda+node(ic)%da-deqe)/deqe)**2
+      repcele=0.5*(repcelnod+node(ic)%rec)
+      deqe=reqnod+node(ic)%eqd
+      ideqe=((nodda+node(ic)%add-deqe)/deqe)**2
       if (npag(1)>0) then ! we have adhesion molecules
         do j=1,npag(1)
           kj=whonpag(1,j)
           do kjjj=1,npag(1)
             kkkk=whonpag(1,kjjj)
             if (gex(nod,kj)>0.0d0.and.gex(ic,kkkk)>0.0d0) then     
-     adhe=adhe+gex(nod,kj)*gex(ic,kkkk)*kadh(int(gen(kj)%wa(1)),int(gen(kkkk)%wa(1)))    !this is specific adhesion
+     adhe=adhe+gex(nod,kj)*gex(ic,kkkk)*kadh(int(gen(kj)%e(1)),int(gen(kkkk)%e(1)))    !this is specific adhesion
             end if
           end do
         end do
       end if
 
       if(fd-deqe<-epsilod)then 
-        iener(nuve)=iener(nuve)+repcele*((fd-deqe)/deqe)**2-adhe*ideqe !((node(nod)%da-deqe)/deqe)**2!this is the repulsion energy for entering the cilinder
+        iener(nuve)=iener(nuve)+repcele*((fd-deqe)/deqe)**2-adhe*ideqe !((node(nod)%add-deqe)/deqe)**2!this is the repulsion energy for entering the cilinder
                                                             !this is because energy needs to be smaller(negative) 
                                                             !this is from f(x)=ax**2-c we need to make it that 
-                                                            !the function crosses the x axis at node(i)%da
+                                                            !the function crosses the x axis at node(i)%add
                                                             !where the x axis is the distance between two nodes
                                                             !then c=a*da**2
       else
-        ienea(nuve)=ienea(nuve)+adhe*((fd-deqe)/deqe)**2-adhe*ideqe !((node(nod)%da-deqe)/deqe)**2 !this is the adhesion or you 
+        ienea(nuve)=ienea(nuve)+adhe*((fd-deqe)/deqe)**2-adhe*ideqe !((node(nod)%add-deqe)/deqe)**2 !this is the adhesion or you 
                                                             !this is because energy needs to be smaller(negative) 
                                                             !this is from f(x)=ax**2-c we need to make it that 
-                                                            !the function crosses the x axis at node(i)%da
+                                                            !the function crosses the x axis at node(i)%add
                                                             !where the x axis is the distance between two nodes
                                                             !then c=a*da**2
       end if																							
@@ -278,7 +269,7 @@ real*8   ::ad,fd  !>>Miquel28-1-14
     er(nuve)=ener(nuve)+enea(nuve)+iener(nuve)+ienea(nuve)
   
     !TORSION																								
-    if(ffu(4)==0 .and. twoep==1) then !it is only between epithelial nodes
+    if(ffu(3)==0 .and. twoep==1) then !it is only between epithelial nodes
       !ivv=node(ic)%altre
       !icx=node(ivv)%x-bx ; icy=node(ivv)%y-by ; icz=node(ivv)%z-bz; 
       !idd=sqrt(icx**2+icy**2+icz**2)      ; iudd=1d0/idd	!ic's spring vector	
@@ -288,15 +279,15 @@ real*8   ::ad,fd  !>>Miquel28-1-14
       dotp=((mcx*ccx+mcy*ccy+mcz*ccz)/md)**2											!>>>>Miquel 30-4-13
       if(abs(dotp)-angletor*d>epsilod)then
 
-        enet(nuve)=enet(nuve)+dotp*(stornod+node(ic)%stor)
+        enet(nuve)=enet(nuve)+dotp*(stornod+node(ic)%est)
 
 
         dotp=((cx*ccx+cy*ccy+cz*ccz)*udd)**2 !vertical projection, more stable than the angle
-        enet(nuve)=enet(nuve)+dotp*(tornod+node(ic)%tor) !tor torsion
+        enet(nuve)=enet(nuve)+dotp*(tornod+node(ic)%erp) !tor torsion
       end if
 
       !dotp=((cx*ccx+cy*ccy+cz*ccz)*udd)**2 !vertical projection, more stable than the angle
-      !enet(nuve)=enet(nuve)+(1-abs(cx*icx+cy*icy+cz*icz)*udd*iudd)*node(nod)%tor !making the springs in paralel
+      !enet(nuve)=enet(nuve)+(1-abs(cx*icx+cy*icy+cz*icz)*udd*iudd)*node(nod)%erp !making the springs in paralel
      
       !surface tension-like torsion (original)
       !mcx=icx+cx; mcy=icy+cy; mcz=icz+cz; md=sqrt(mcx**2+mcy**2+mcz**2)  !we take as spring vector the sum of ic's and nod's spring vectors		!>>>>Miquel 30-4-13

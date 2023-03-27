@@ -660,38 +660,38 @@ case (COLORMIN)
   if(custom_minval<epsilod) custom_minval=1d-4
   custom_minval=custom_minval- 0.1*custom_minval*(y - begin%y)
   print*,"minimum color value",custom_minval
-  print*,
+  print*, "     " !!>> HC 16-11-2020
 
 case (COLORMAX)
   custom_maxval=custom_maxval- 0.1*custom_maxval*(y - begin%y)
   print*,"maximum color value",custom_maxval
-  print*,
+  print*, "     " !!>> HC 16-11-2020
 case (ARROWSCALE)
   amax_scale=amax_scale - 0.1*amax_scale*(y - begin%y)
   print*,"maximum arrow scale",amax_scale
-  print*,
+  print*, "     " !!>> HC 16-11-2020
 case (SPHERESCALE)
   smax_scale=smax_scale - 0.1*smax_scale*(y - begin%y)
   print*,"maximum sphere scale",smax_scale
-  print*,
+  print*, "     " !!>> HC 16-11-2020
 case (ARROWMIN)
   if(custom_aminval<epsilod) custom_aminval=1d-4
   custom_aminval=custom_aminval- 0.1*custom_aminval*(y - begin%y)
   print*,"minimum arrow value",custom_aminval
-  print*,
+  print*, "     " !!>> HC 16-11-2020
 case (ARROWMAX)
   custom_amaxval=custom_amaxval- 0.1*custom_amaxval*(y - begin%y)
   print*,"maximum arrow value",custom_amaxval
-  print*,
+  print*, "     " !!>> HC 16-11-2020
 case (SPHEREMIN)
   if(custom_sminval<epsilod) custom_sminval=1d-4
   custom_sminval=custom_sminval- 0.1*custom_sminval*(y - begin%y)
   print*,"minimum sphere value",custom_sminval
-  print*,
+  print*, "     " !!>> HC 16-11-2020
 case (SPHEREMAX)
   custom_smaxval=custom_smaxval- 0.1*custom_smaxval*(y - begin%y)
   print*,"maximum sphere value",custom_smaxval
-  print*,
+  print*, "     " !!>> HC 16-11-2020
 case (SCALEX)
    if (y < begin%y) then
       factor = 1.0_gldouble + .002_gldouble*(begin%y-y)
@@ -1394,7 +1394,7 @@ real(GLDOUBLE), allocatable :: actual_contours(:)
 
 !variables de control de visualitzacio
 !flags 
-integer,private                ::flag(40)
+integer,private                ::flag(41)
                                !dim 1=elipse lines; 2=boxes ; 3=cell polygons ; 4=polygon sides
                                !5=balls req ; 6=balls da
 integer,private                ::kii   !>>>Miguel 8-10-14 
@@ -1452,10 +1452,10 @@ subroutine inivisualitzacio
   flag(30)=conf_flag(30)!epithelium
   flag(31)=conf_flag(31)!mesenchyme
   flag(32)=conf_flag(32)!ecm
-  !flag(33)=0!full polygons
+!  flag(33)=conf_flag(33)!epigrid
   !flag(34)=0
   flag(35)=conf_flag(35)!eggshell !miguel4-11-13
-  flag(36)=conf_flag(36)!plot the "hold" nodes (node()%hold=1) !>>>>Miquel15-1-14
+  flag(36)=conf_flag(36)!plot the "hold" nodes (node()%fix=1) !>>>>Miquel15-1-14
   flag(37)=conf_flag(37)!plot cell contour  !>>Miquel29-8-14
   flag(38)=conf_flag(38)!plot intercellular contour  !>>Miquel29-8-14
   flag(39)=conf_flag(39)!plot displacement of nodes respect i.c.  >>>>Miquel26-3-14
@@ -1478,7 +1478,7 @@ subroutine inivisualitzacio
 
   custom_colorselection=conf_custom_colorselection
   custom_minval=conf_custom_min ;custom_maxval=conf_custom_max
-  chogen=colorselection-42
+  chogen=colorselection-43
 
   amax_scale=conf_custom_arrowscale
   custom_arrowselection=conf_custom_arrowselection
@@ -1696,12 +1696,12 @@ integer:: npt !number of points
 integer:: sizht !size of hash table
 integer:: maxbf,maxfc
 integer::nbf,nfc,nface,ntetra,ierr   !size of arrays
-integer,allocatable :: vecinod(:,:),vecic(:)!miguel
-real*8,allocatable :: dvecinod(:,:)
 real*8,dimension(:,:) :: vcl(3,nd) !point coordinates
-integer,dimension(:) :: vm(nd),ht(0:3/2*nd-1)
-integer,dimension(:,:) :: bf(1:3,nd**2),fc(1:7,nd**2) !point indices (the algorithm reorders)
 real(GLDOUBLE)::al,bl,cl,as,bs,cs,ax,bx,cx
+real(GLDOUBLE):: cpolx,cpoly,cpolz,myfactor,umyfactor
+real(GLFLOAT)  :: anglech,  rvecx,rvecy,rvecz
+real*8 :: mpol
+integer :: eloch, ich, jch
 
 esca=0.1d0
 call reset_view
@@ -1766,16 +1766,7 @@ call glNewList(1_gluint,gl_compile_and_execute)
 !      miy=set_miy ; my=set_my
 !      mz=set_mz
 !    end select
-
-    if(ffu(6).eq.1)then !! miguel4-11-13   ! eggshell  
-      !call shellplot	     			                        ! miguel4-11-13       			
-      if(maxval(shellp(:,1)).gt.mx)then ;mx=maxval(shellp(:,1));endif  ! miguel4-11-13
-      if(maxval(shellp(:,2)).gt.my)then ;my=maxval(shellp(:,2));endif  ! miguel4-11-13
-      if(maxval(shellp(:,3)).gt.mz)then ;mz=maxval(shellp(:,3));endif  ! miguel4-11-13
-      if(minval(shellp(:,1)).lt.mix)then;mix=minval(shellp(:,1));endif ! miguel4-11-13
-      if(minval(shellp(:,2)).lt.miy)then;miy=minval(shellp(:,2));endif ! miguel4-11-13
-      if(minval(shellp(:,3)).lt.miz)then;miz=minval(shellp(:,3));endif ! miguel4-11-13
-    end if           
+         
 
     call glMaterialfv(gl_front_and_back,gl_ambient_and_diffuse,verd)
     call glvertex3d(mix*esca,miy*esca,miz*esca) ; call glvertex3d(mx*esca,miy*esca,miz*esca)
@@ -1801,7 +1792,7 @@ call glNewList(1_gluint,gl_compile_and_execute)
   if (flag(19)==1) then			!>>>>>>>>>>>>>>>>>>>>>>>>>> Miquel 3-6-13
     do i=1,ncels
       k=cels(i)%node(1)
-      if(node(k)%hold==1 .and. flag(36)==0) cycle !>>Miquel22-1-14
+      if(node(k)%fix==1 .and. flag(36)==0) cycle !>>Miquel22-1-14
       if(node(k)%tipus==1.and.flag(9)==0) cycle
       if(node(k)%tipus==2.and.flag(10)==0) cycle
       if(node(k)%tipus<3.and.flag(30)==0) cycle
@@ -1826,7 +1817,7 @@ call glNewList(1_gluint,gl_compile_and_execute)
     end do
     aaa=20d1*esca/a !this way the vectors escalate so the greatest force is plotted with a constant length
     do i=1,nd
-      if (node(i)%hold==1 .and. flag(36)==0) cycle !>>Miquel22-1-14
+      if (node(i)%fix==1 .and. flag(36)==0) cycle !>>Miquel22-1-14
       if (flag(30)==0.and.node(i)%tipus<3) cycle
       if (flag(31)==0.and.node(i)%tipus==3) cycle
       if (flag(32)==0.and.node(i)%tipus>3) cycle
@@ -1861,7 +1852,7 @@ call glNewList(1_gluint,gl_compile_and_execute)
       if(node(i)%tipus<3.and.flag(30)==0) cycle
       if(node(i)%tipus==3.and.flag(31)==0) cycle
       if(node(i)%tipus>3.and.flag(32)==0) cycle
-      if(node(i)%hold==1 .and. flag(36)==0) cycle !>>Miquel22-1-14
+      if(node(i)%fix==1 .and. flag(36)==0) cycle !>>Miquel22-1-14
       a=node(i)%x ; b=node(i)%y ; c=node(i)%z
       aa=a+vcilx(i)*aaa ; bb=b+vcily(i)*aaa ; cc=c+vcilz(i)*aaa
       if (a>=mix.and.a<=mx.and.b>=miy.and.b<=my.and.c>=miz.and.c<=mz) then
@@ -1888,7 +1879,7 @@ call glNewList(1_gluint,gl_compile_and_execute)
       if(node(i)%tipus<3.and.flag(30)==0) cycle
       if(node(i)%tipus==3.and.flag(31)==0) cycle
       if(node(i)%tipus>3.and.flag(32)==0) cycle
-      if(node(i)%hold==1 .and. flag(36)==0) cycle !>>Miquel22-1-14
+      if(node(i)%fix==1 .and. flag(36)==0) cycle !>>Miquel22-1-14
       a=node(i)%x ; b=node(i)%y ; c=node(i)%z
       aa=a+vtorx(i)*aaa ; bb=b+vtory(i)*aaa ; cc=c+vtorz(i)*aaa
       if (a>=mix.and.a<=mx.and.b>=miy.and.b<=my.and.c>=miz.and.c<=mz) then
@@ -1915,7 +1906,7 @@ call glNewList(1_gluint,gl_compile_and_execute)
       if(node(i)%tipus<3.and.flag(30)==0) cycle
       if(node(i)%tipus==3.and.flag(31)==0) cycle
       if(node(i)%tipus>3.and.flag(32)==0) cycle
-      if(node(i)%hold==1 .and. flag(36)==0) cycle !>>Miquel22-1-14
+      if(node(i)%fix==1 .and. flag(36)==0) cycle !>>Miquel22-1-14
       a=node(i)%x ; b=node(i)%y ; c=node(i)%z
       aa=a+vstorx(i)*aaa ; bb=b+vstory(i)*aaa ; cc=c+vstorz(i)*aaa
       if (a>=mix.and.a<=mx.and.b>=miy.and.b<=my.and.c>=miz.and.c<=mz) then
@@ -1926,7 +1917,7 @@ call glNewList(1_gluint,gl_compile_and_execute)
     end do
   end if
   
-  !%hold nodes' spring
+  !%fix nodes' spring
   color=0 ; color(1)=1
   do i=1,nd
     if(node(i)%tipus==1.and.flag(9)==0) cycle
@@ -1934,7 +1925,7 @@ call glNewList(1_gluint,gl_compile_and_execute)
     if(node(i)%tipus<3.and.flag(30)==0) cycle
     if(node(i)%tipus==3.and.flag(31)==0) cycle
     if(node(i)%tipus>3.and.flag(32)==0) cycle
-    if((flag(36)==1.and.node(i)%hold==1).or.(flag(39)==1.and.node(i)%hold==0))then
+    if((flag(36)==1.and.node(i)%fix==1).or.(flag(39)==1.and.node(i)%fix==0))then
       a=node(i)%x ; b=node(i)%y ; c=node(i)%z
       if (a>=mix.and.a<=mx.and.b>=miy.and.b<=my.and.c>=miz.and.c<=mz) then
         aa=node(i)%orix ; bb=node(i)%oriy ; cc=node(i)%oriz
@@ -1991,7 +1982,7 @@ call glNewList(1_gluint,gl_compile_and_execute)
   if (flag(1)==1) then  !drawing epithelial springs
     do i=1,nd
       if(node(i)%tipus<3.and.flag(30)==0) cycle
-      if(node(i)%hold==1 .and. flag(36)==0) cycle !>>>Miquel17-1-14
+      if(node(i)%fix==1 .and. flag(36)==0) cycle !>>>Miquel17-1-14
       call glBegin(gl_lines)
       if(node(i)%tipus<3)then						!>>>>>>>>>>>>>>>>>>>MIQUEL 4-3-13
 !!print *,i,node(i)%altre,node(i)%tipus
@@ -2060,38 +2051,37 @@ call glNewList(1_gluint,gl_compile_and_execute)
     case(2) ; mine=minval(node(:nd)%y) ; maxe=maxval(node(:nd)%y)
     case(3) ; mine=minval(node(:nd)%z) ; maxe=maxval(node(:nd)%z)
     case(4) ; mine=minval(node(:nd)%e) ; maxe=maxval(node(:nd)%e)
-    case(5) ; mine=minval(node(:nd)%req) ; maxe=maxval(node(:nd)%req) 
-    case(6) ; mine=minval(node(:nd)%da)  ; maxe=maxval(node(:nd)%da)
+    case(5) ; mine=minval(node(:nd)%eqd) ; maxe=maxval(node(:nd)%eqd) 
+    case(6) ; mine=minval(node(:nd)%add)  ; maxe=maxval(node(:nd)%add)
     case(7) ; mine=minval(node(:nd)%you) ; maxe=maxval(node(:nd)%you)
     case(8) ; mine=minval(node(:nd)%adh) ; maxe=maxval(node(:nd)%adh)
     case(9) ; mine=minval(node(:nd)%rep) ; maxe=maxval(node(:nd)%rep)	
-    case(10) ; mine=minval(node(:nd)%repcel) ; maxe=maxval(node(:nd)%repcel)
-    case(11) ; mine=minval(node(:nd)%tor) ; maxe=maxval(node(:nd)%tor)
-    case(12) ; mine=minval(node(:nd)%stor) ; maxe=maxval(node(:nd)%stor)	
-    case(13) ; mine=minval(node(:nd)%reqs) ; maxe=maxval(node(:nd)%reqs)
-    case(14) ; mine=minval(node(:nd)%ke) ; maxe=maxval(node(:nd)%ke) 
-    case(15) ; mine=minval(node(:nd)%mo) ; maxe=maxval(node(:nd)%mo)
+    case(10) ; mine=minval(node(:nd)%rec) ; maxe=maxval(node(:nd)%rec)
+    case(11) ; mine=minval(node(:nd)%erp) ; maxe=maxval(node(:nd)%erp)
+    case(12) ; mine=minval(node(:nd)%est) ; maxe=maxval(node(:nd)%est)	
+    case(13) ; mine=minval(node(:nd)%eqs) ; maxe=maxval(node(:nd)%eqs)
+    case(14) ; mine=minval(node(:nd)%hoo) ; maxe=maxval(node(:nd)%hoo) 
+    case(15) ; mine=minval(node(:nd)%mov) ; maxe=maxval(node(:nd)%mov)
     case(16) ; mine=minval(node(:nd)%dmo) ; maxe=maxval(node(:nd)%dmo)
     case(17) ; mine=minval(node(:nd)%orix) ; maxe=maxval(node(:nd)%orix) 
     case(18) ; mine=minval(node(:nd)%oriy) ; maxe=maxval(node(:nd)%oriy)
     case(19) ; mine=minval(node(:nd)%oriz) ; maxe=maxval(node(:nd)%oriz)
-    case(20) ; mine=minval(node(:nd)%acecm) ; maxe=maxval(node(:nd)%acecm)
-    case(21) ; mine=minval(node(:nd)%reqc) ; maxe=maxval(node(:nd)%reqc)
-    case(22) ; mine=minval(node(:nd)%reqcr) ; maxe=maxval(node(:nd)%reqcr)
-    case(23) ; mine=minval(node(:nd)%reqp) ; maxe=maxval(node(:nd)%reqp)
-    case(24) ; mine=minval(node(:nd)%reqv) ; maxe=maxval(node(:nd)%reqv)
-    case(25) ; mine=minval(node(:nd)%diffe) ; maxe=maxval(node(:nd)%diffe)
-    case(26) ; mine=minval(node(:nd)%khold) ; maxe=maxval(node(:nd)%khold)
-    case(27) ; mine=minval(node(:nd)%kplast) ; maxe=maxval(node(:nd)%kplast)
+    case(20) ; mine=minval(node(:nd)%ecm) ; maxe=maxval(node(:nd)%ecm)
+    case(21) ; mine=minval(node(:nd)%cod) ; maxe=maxval(node(:nd)%cod)
+    case(22) ; mine=minval(node(:nd)%grd) ; maxe=maxval(node(:nd)%grd)
+    case(23) ; mine=minval(node(:nd)%pld) ; maxe=maxval(node(:nd)%pld)
+    case(24) ; mine=minval(node(:nd)%vod) ; maxe=maxval(node(:nd)%vod)
+    case(25) ; mine=minval(node(:nd)%dif) ; maxe=maxval(node(:nd)%dif)
+    case(26) ; mine=minval(node(:nd)%kfi) ; maxe=maxval(node(:nd)%kfi)
+    case(27) ; mine=minval(node(:nd)%pla) ; maxe=maxval(node(:nd)%pla)
     case(28) ; mine=minval(node(:nd)%kvol) ; maxe=maxval(node(:nd)%kvol)
     case(29) ; mine=1 ;maxe=7 !mine=minval(node(:nd)%tipus) ; maxe=maxval(node(:nd)%tipus) !this is tipus
     case(30) ; mine=minval(node(:nd)%icel) ; maxe=maxval(node(:nd)%icel)
     case(31) ; mine=minval(node(:nd)%altre) ; maxe=maxval(node(:nd)%altre)
     case(32) ; mine=minval(node(:nd)%marge) ; maxe=maxval(node(:nd)%marge) 
     case(33) ; mine=minval(node(:nd)%talone) ; maxe=maxval(node(:nd)%talone) 
-    case(34) ; mine=0;maxe=1!minval(node(:nd)%hold) ; maxe=maxval(node(:nd)%hold) 
-    case(35) ; mine=0;maxe=1
-               !mine=minval(node(:nd)%border) ; maxe=maxval(node(:nd)%border) 
+    case(34) ; mine=0;maxe=1!minval(node(:nd)%fix) ; maxe=maxval(node(:nd)%fix) 
+    case(35) ; mine=minval(node(:nd)%ndiv) ; maxe=maxval(node(:nd)%ndiv)        !!>> HC 16-3-2022
 
     !case(36) ; if (chogen==0) then
     !           chogen=1
@@ -2138,10 +2128,11 @@ call glNewList(1_gluint,gl_compile_and_execute)
 
     case(41) ; mine=1 ; maxe=nd
     case(42) ; mine=1 ; maxe=nd
+    case(43) ; mine=1; maxe=maxval(nodeo(:nd)%icel)  !!>> HC 15-12-2021
     end select
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!        !>>>Miguel30-10-14 
-    if(colorselection.gt.42)then
-      chogen=colorselection-42 
+    if(colorselection.gt.43)then
+      chogen=colorselection-43 
       mine=minval(gex(:nd,chogen)) ; maxe=maxval(gex(:nd,chogen))
       !print*,"chosen gene",chogen,"maxim",maxe,"minim",mine
     end if
@@ -2158,38 +2149,37 @@ call glNewList(1_gluint,gl_compile_and_execute)
     case(2) ; amine=minval(node(:nd)%y) ; amaxe=maxval(node(:nd)%y)
     case(3) ; amine=minval(node(:nd)%z) ; amaxe=maxval(node(:nd)%z)
     case(4) ; amine=minval(node(:nd)%e) ; amaxe=maxval(node(:nd)%e)
-    case(5) ; amine=minval(node(:nd)%req) ; amaxe=maxval(node(:nd)%req) 
-    case(6) ; amine=minval(node(:nd)%da)  ; amaxe=maxval(node(:nd)%da)
+    case(5) ; amine=minval(node(:nd)%eqd) ; amaxe=maxval(node(:nd)%eqd) 
+    case(6) ; amine=minval(node(:nd)%add)  ; amaxe=maxval(node(:nd)%add)
     case(7) ; amine=minval(node(:nd)%you) ; amaxe=maxval(node(:nd)%you)
     case(8) ; amine=minval(node(:nd)%adh) ; amaxe=maxval(node(:nd)%adh)
     case(9) ; amine=minval(node(:nd)%rep) ; amaxe=maxval(node(:nd)%rep)	
-    case(10) ; amine=minval(node(:nd)%repcel) ; amaxe=maxval(node(:nd)%repcel)
-    case(11) ; amine=minval(node(:nd)%tor) ; amaxe=maxval(node(:nd)%tor)
-    case(12) ; amine=minval(node(:nd)%stor) ; amaxe=maxval(node(:nd)%stor)	
-    case(13) ; amine=minval(node(:nd)%reqs) ; amaxe=maxval(node(:nd)%reqs)
-    case(14) ; amine=minval(node(:nd)%ke) ; amaxe=maxval(node(:nd)%ke) 
-    case(15) ; amine=minval(node(:nd)%mo) ; amaxe=maxval(node(:nd)%mo)
+    case(10) ; amine=minval(node(:nd)%rec) ; amaxe=maxval(node(:nd)%rec)
+    case(11) ; amine=minval(node(:nd)%erp) ; amaxe=maxval(node(:nd)%erp)
+    case(12) ; amine=minval(node(:nd)%est) ; amaxe=maxval(node(:nd)%est)	
+    case(13) ; amine=minval(node(:nd)%eqs) ; amaxe=maxval(node(:nd)%eqs)
+    case(14) ; amine=minval(node(:nd)%hoo) ; amaxe=maxval(node(:nd)%hoo) 
+    case(15) ; amine=minval(node(:nd)%mov) ; amaxe=maxval(node(:nd)%mov)
     case(16) ; amine=minval(node(:nd)%dmo) ; amaxe=maxval(node(:nd)%dmo)
     case(17) ; amine=minval(node(:nd)%orix) ; amaxe=maxval(node(:nd)%orix) 
     case(18) ; amine=minval(node(:nd)%oriy) ; amaxe=maxval(node(:nd)%oriy)
     case(19) ; amine=minval(node(:nd)%oriz) ; amaxe=maxval(node(:nd)%oriz)
-    case(20) ; amine=minval(node(:nd)%acecm) ; amaxe=maxval(node(:nd)%acecm)
-    case(21) ; amine=minval(node(:nd)%reqc) ; amaxe=maxval(node(:nd)%reqc)
-    case(22) ; amine=minval(node(:nd)%reqcr) ; amaxe=maxval(node(:nd)%reqcr)
-    case(23) ; amine=minval(node(:nd)%reqp) ; amaxe=maxval(node(:nd)%reqp)
-    case(24) ; amine=minval(node(:nd)%reqv) ; amaxe=maxval(node(:nd)%reqv)
-    case(25) ; amine=minval(node(:nd)%diffe) ; amaxe=maxval(node(:nd)%diffe)
-    case(26) ; amine=minval(node(:nd)%khold) ; amaxe=maxval(node(:nd)%khold)
-    case(27) ; amine=minval(node(:nd)%kplast) ; amaxe=maxval(node(:nd)%kplast)
+    case(20) ; amine=minval(node(:nd)%ecm) ; amaxe=maxval(node(:nd)%ecm)
+    case(21) ; amine=minval(node(:nd)%cod) ; amaxe=maxval(node(:nd)%cod)
+    case(22) ; amine=minval(node(:nd)%grd) ; amaxe=maxval(node(:nd)%grd)
+    case(23) ; amine=minval(node(:nd)%pld) ; amaxe=maxval(node(:nd)%pld)
+    case(24) ; amine=minval(node(:nd)%vod) ; amaxe=maxval(node(:nd)%vod)
+    case(25) ; amine=minval(node(:nd)%dif) ; amaxe=maxval(node(:nd)%dif)
+    case(26) ; amine=minval(node(:nd)%kfi) ; amaxe=maxval(node(:nd)%kfi)
+    case(27) ; amine=minval(node(:nd)%pla) ; amaxe=maxval(node(:nd)%pla)
     case(28) ; amine=minval(node(:nd)%kvol) ; amaxe=maxval(node(:nd)%kvol)
     case(29) ; amine=1 ;amaxe=7 !amine=minval(node(:nd)%tipus) ; amaxe=maxval(node(:nd)%tipus) !this is tipus
     case(30) ; amine=minval(node(:nd)%icel) ; amaxe=maxval(node(:nd)%icel)
     case(31) ; amine=minval(node(:nd)%altre) ; amaxe=maxval(node(:nd)%altre)
     case(32) ; amine=minval(node(:nd)%marge) ; amaxe=maxval(node(:nd)%marge) 
     case(33) ; amine=minval(node(:nd)%talone) ; amaxe=maxval(node(:nd)%talone) 
-    case(34) ; amine=0;amaxe=1!minval(node(:nd)%hold) ; amaxe=maxval(node(:nd)%hold) 
-    case(35) ; amine=0;amaxe=1
-               !amine=minval(node(:nd)%border) ; amaxe=maxval(node(:nd)%border) 
+    case(34) ; amine=0;amaxe=1!minval(node(:nd)%fix) ; amaxe=maxval(node(:nd)%fix) 
+    case(35) ; amine=minval(node(:nd)%ndiv) ; amaxe=maxval(node(:nd)%ndiv)   !!>> HC 16-3-2022
     !case(36) ; if (chogen==0) then
     !           chogen=1
     !           amine=minval(gex(:nd,chogen)) ; amaxe=maxval(gex(:nd,chogen))
@@ -2249,38 +2239,37 @@ call glNewList(1_gluint,gl_compile_and_execute)
     case(2) ; smine=minval(node(:nd)%y) ; smaxe=maxval(node(:nd)%y)
     case(3) ; smine=minval(node(:nd)%z) ; smaxe=maxval(node(:nd)%z)
     case(4) ; smine=minval(node(:nd)%e) ; smaxe=maxval(node(:nd)%e)
-    case(5) ; smine=minval(node(:nd)%req) ; smaxe=maxval(node(:nd)%req) 
-    case(6) ; smine=minval(node(:nd)%da)  ; smaxe=maxval(node(:nd)%da)
+    case(5) ; smine=minval(node(:nd)%eqd) ; smaxe=maxval(node(:nd)%eqd) 
+    case(6) ; smine=minval(node(:nd)%add)  ; smaxe=maxval(node(:nd)%add)
     case(7) ; smine=minval(node(:nd)%you) ; smaxe=maxval(node(:nd)%you)
     case(8) ; smine=minval(node(:nd)%adh) ; smaxe=maxval(node(:nd)%adh)
     case(9) ; smine=minval(node(:nd)%rep) ; smaxe=maxval(node(:nd)%rep)	
-    case(10) ; smine=minval(node(:nd)%repcel) ; smaxe=maxval(node(:nd)%repcel)
-    case(11) ; smine=minval(node(:nd)%tor) ; smaxe=maxval(node(:nd)%tor)
-    case(12) ; smine=minval(node(:nd)%stor) ; smaxe=maxval(node(:nd)%stor)	
-    case(13) ; smine=minval(node(:nd)%reqs) ; smaxe=maxval(node(:nd)%reqs)
-    case(14) ; smine=minval(node(:nd)%ke) ; smaxe=maxval(node(:nd)%ke) 
-    case(15) ; smine=minval(node(:nd)%mo) ; smaxe=maxval(node(:nd)%mo)
+    case(10) ; smine=minval(node(:nd)%rec) ; smaxe=maxval(node(:nd)%rec)
+    case(11) ; smine=minval(node(:nd)%erp) ; smaxe=maxval(node(:nd)%erp)
+    case(12) ; smine=minval(node(:nd)%est) ; smaxe=maxval(node(:nd)%est)	
+    case(13) ; smine=minval(node(:nd)%eqs) ; smaxe=maxval(node(:nd)%eqs)
+    case(14) ; smine=minval(node(:nd)%hoo) ; smaxe=maxval(node(:nd)%hoo) 
+    case(15) ; smine=minval(node(:nd)%mov) ; smaxe=maxval(node(:nd)%mov)
     case(16) ; smine=minval(node(:nd)%dmo) ; smaxe=maxval(node(:nd)%dmo)
     case(17) ; smine=minval(node(:nd)%orix) ; smaxe=maxval(node(:nd)%orix) 
     case(18) ; smine=minval(node(:nd)%oriy) ; smaxe=maxval(node(:nd)%oriy)
     case(19) ; smine=minval(node(:nd)%oriz) ; smaxe=maxval(node(:nd)%oriz)
-    case(20) ; smine=minval(node(:nd)%acecm) ; smaxe=maxval(node(:nd)%acecm)
-    case(21) ; smine=minval(node(:nd)%reqc) ; smaxe=maxval(node(:nd)%reqc)
-    case(22) ; smine=minval(node(:nd)%reqcr) ; smaxe=maxval(node(:nd)%reqcr)
-    case(23) ; smine=minval(node(:nd)%reqp) ; smaxe=maxval(node(:nd)%reqp)
-    case(24) ; smine=minval(node(:nd)%reqv) ; smaxe=maxval(node(:nd)%reqv)
-    case(25) ; smine=minval(node(:nd)%diffe) ; smaxe=maxval(node(:nd)%diffe)
-    case(26) ; smine=minval(node(:nd)%khold) ; smaxe=maxval(node(:nd)%khold)
-    case(27) ; smine=minval(node(:nd)%kplast) ; smaxe=maxval(node(:nd)%kplast)
+    case(20) ; smine=minval(node(:nd)%ecm) ; smaxe=maxval(node(:nd)%ecm)
+    case(21) ; smine=minval(node(:nd)%cod) ; smaxe=maxval(node(:nd)%cod)
+    case(22) ; smine=minval(node(:nd)%grd) ; smaxe=maxval(node(:nd)%grd)
+    case(23) ; smine=minval(node(:nd)%pld) ; smaxe=maxval(node(:nd)%pld)
+    case(24) ; smine=minval(node(:nd)%vod) ; smaxe=maxval(node(:nd)%vod)
+    case(25) ; smine=minval(node(:nd)%dif) ; smaxe=maxval(node(:nd)%dif)
+    case(26) ; smine=minval(node(:nd)%kfi) ; smaxe=maxval(node(:nd)%kfi)
+    case(27) ; smine=minval(node(:nd)%pla) ; smaxe=maxval(node(:nd)%pla)
     case(28) ; smine=minval(node(:nd)%kvol) ; smaxe=maxval(node(:nd)%kvol)
     case(29) ; smine=1 ;smaxe=7 !smine=minval(node(:nd)%tipus) ; smaxe=maxval(node(:nd)%tipus) !this is tipus
     case(30) ; smine=minval(node(:nd)%icel) ; smaxe=maxval(node(:nd)%icel)
     case(31) ; smine=minval(node(:nd)%altre) ; smaxe=maxval(node(:nd)%altre)
     case(32) ; smine=minval(node(:nd)%marge) ; smaxe=maxval(node(:nd)%marge) 
     case(33) ; smine=minval(node(:nd)%talone) ; smaxe=maxval(node(:nd)%talone) 
-    case(34) ; smine=0;smaxe=1!minval(node(:nd)%hold) ; smaxe=maxval(node(:nd)%hold) 
-    case(35) ; smine=0;smaxe=1
-               !smine=minval(node(:nd)%border) ; smaxe=maxval(node(:nd)%border) 
+    case(34) ; smine=0;smaxe=1!minval(node(:nd)%fix) ; smaxe=maxval(node(:nd)%fix) 
+    case(35) ; smine=minval(node(:nd)%ndiv) ; smaxe=maxval(node(:nd)%ndiv)   !!>> HC 16-3-2022
     !case(36) ; if (chogen==0) then
     !           chogen=1
     !           smine=minval(gex(:nd,chogen)) ; smaxe=maxval(gex(:nd,chogen))
@@ -2339,37 +2328,37 @@ call glNewList(1_gluint,gl_compile_and_execute)
     case(2) ; a=node(i)%y
     case(3) ; a=node(i)%z
     case(4) ; a=node(i)%e
-    case(5) ; a=node(i)%req
-    case(6) ; a=node(i)%da
+    case(5) ; a=node(i)%eqd
+    case(6) ; a=node(i)%add
     case(7) ; a=node(i)%you
     case(8) ; a=node(i)%adh
     case(9) ; a=node(i)%rep
-    case(10) ; a=node(i)%repcel
-    case(11) ; a=node(i)%tor
-    case(12) ; a=node(i)%stor
-    case(13) ; a=node(i)%reqs
-    case(14) ; a=node(i)%ke
-    case(15) ; a=node(i)%mo
+    case(10) ; a=node(i)%rec
+    case(11) ; a=node(i)%erp
+    case(12) ; a=node(i)%est
+    case(13) ; a=node(i)%eqs
+    case(14) ; a=node(i)%hoo
+    case(15) ; a=node(i)%mov
     case(16) ; a=node(i)%dmo
     case(17) ; a=node(i)%orix
     case(18) ; a=node(i)%oriy
     case(19) ; a=node(i)%oriz
-    case(20) ; a=node(i)%acecm
-    case(21) ; a=node(i)%reqc
-    case(22) ; a=node(i)%reqcr
-    case(23) ; a=node(i)%reqp
-    case(24) ; a=node(i)%reqv
-    case(25) ; a=node(i)%diffe
-    case(26) ; a=node(i)%khold
-    case(27) ; a=node(i)%kplast
+    case(20) ; a=node(i)%ecm
+    case(21) ; a=node(i)%cod
+    case(22) ; a=node(i)%grd
+    case(23) ; a=node(i)%pld
+    case(24) ; a=node(i)%vod
+    case(25) ; a=node(i)%dif
+    case(26) ; a=node(i)%kfi
+    case(27) ; a=node(i)%pla
     case(28) ; a=node(i)%kvol
     case(29) ; a=node(i)%tipus 
     case(30) ; a=node(i)%icel
     case(31) ; a=node(i)%altre
     case(32) ; a=node(i)%marge
     case(33) ; a=node(i)%talone
-    case(34) ; a=node(i)%hold
-    case(35) ; a=node(i)%border
+    case(34) ; a=node(i)%fix
+    case(35) ; a=node(i)%ndiv
     !case(36) ; a=gex(i,1)
     !case(37) ; a=gex(i,2)
     !case(38) ; a=gex(i,chogen)
@@ -2380,8 +2369,9 @@ call glNewList(1_gluint,gl_compile_and_execute)
     case(40) ; a=distot(i)
     case(41) ; a=real(boxes(nint(node(i)%x*urv),nint(node(i)%y*urv),nint(node(i)%z*urv)))	     
     case(42) ; a=i 
+    case(43) ; a=nodeo(i)%icel                          !!>> HC 15-12-2021
     end select
-    if(colorselection.gt.42)then  !>>>Miguel30-10-14
+    if(colorselection.gt.43)then  !>>>Miguel30-10-14    !!>> HC 15-12-2021
        a=gex(i,chogen)            !>>>Miguel30-10-14
     end if                        !>>>Miguel30-10-14
     !MOD!!!!!!!!!!!!!!!!!!!!!!11
@@ -2427,37 +2417,37 @@ call glNewList(1_gluint,gl_compile_and_execute)
     case(2) ; a=node(i)%y
     case(3) ; a=node(i)%z
     case(4) ; a=node(i)%e
-    case(5) ; a=node(i)%req
-    case(6) ; a=node(i)%da
+    case(5) ; a=node(i)%eqd
+    case(6) ; a=node(i)%add
     case(7) ; a=node(i)%you
     case(8) ; a=node(i)%adh
     case(9) ; a=node(i)%rep
-    case(10) ; a=node(i)%repcel
-    case(11) ; a=node(i)%tor
-    case(12) ; a=node(i)%stor
-    case(13) ; a=node(i)%reqs
-    case(14) ; a=node(i)%ke
-    case(15) ; a=node(i)%mo
+    case(10) ; a=node(i)%rec
+    case(11) ; a=node(i)%erp
+    case(12) ; a=node(i)%est
+    case(13) ; a=node(i)%eqs
+    case(14) ; a=node(i)%hoo
+    case(15) ; a=node(i)%mov
     case(16) ; a=node(i)%dmo
     case(17) ; a=node(i)%orix
     case(18) ; a=node(i)%oriy
     case(19) ; a=node(i)%oriz
-    case(20) ; a=node(i)%acecm
-    case(21) ; a=node(i)%reqc
-    case(22) ; a=node(i)%reqcr
-    case(23) ; a=node(i)%reqp
-    case(24) ; a=node(i)%reqv
-    case(25) ; a=node(i)%diffe
-    case(26) ; a=node(i)%khold
-    case(27) ; a=node(i)%kplast
+    case(20) ; a=node(i)%ecm
+    case(21) ; a=node(i)%cod
+    case(22) ; a=node(i)%grd
+    case(23) ; a=node(i)%pld
+    case(24) ; a=node(i)%vod
+    case(25) ; a=node(i)%dif
+    case(26) ; a=node(i)%kfi
+    case(27) ; a=node(i)%pla
     case(28) ; a=node(i)%kvol
     case(29) ; a=node(i)%tipus 
     case(30) ; a=node(i)%icel
     case(31) ; a=node(i)%altre
     case(32) ; a=node(i)%marge
     case(33) ; a=node(i)%talone
-    case(34) ; a=node(i)%hold
-    case(35) ; a=node(i)%border
+    case(34) ; a=node(i)%fix
+    case(35) ; a=node(i)%ndiv  !!>> HC 16-3-2022
     !case(36) ; a=gex(i,1)
     !case(37) ; a=gex(i,2)
     !case(38) ; a=gex(i,chogen)
@@ -2483,37 +2473,37 @@ call glNewList(1_gluint,gl_compile_and_execute)
     case(2) ; a=node(i)%y
     case(3) ; a=node(i)%z
     case(4) ; a=node(i)%e
-    case(5) ; a=node(i)%req
-    case(6) ; a=node(i)%da
+    case(5) ; a=node(i)%eqd
+    case(6) ; a=node(i)%add
     case(7) ; a=node(i)%you
     case(8) ; a=node(i)%adh
     case(9) ; a=node(i)%rep
-    case(10) ; a=node(i)%repcel
-    case(11) ; a=node(i)%tor
-    case(12) ; a=node(i)%stor
-    case(13) ; a=node(i)%reqs
-    case(14) ; a=node(i)%ke
-    case(15) ; a=node(i)%mo
+    case(10) ; a=node(i)%rec
+    case(11) ; a=node(i)%erp
+    case(12) ; a=node(i)%est
+    case(13) ; a=node(i)%eqs
+    case(14) ; a=node(i)%hoo
+    case(15) ; a=node(i)%mov
     case(16) ; a=node(i)%dmo
     case(17) ; a=node(i)%orix
     case(18) ; a=node(i)%oriy
     case(19) ; a=node(i)%oriz
-    case(20) ; a=node(i)%acecm
-    case(21) ; a=node(i)%reqc
-    case(22) ; a=node(i)%reqcr
-    case(23) ; a=node(i)%reqp
-    case(24) ; a=node(i)%reqv
-    case(25) ; a=node(i)%diffe
-    case(26) ; a=node(i)%khold
-    case(27) ; a=node(i)%kplast
+    case(20) ; a=node(i)%ecm
+    case(21) ; a=node(i)%cod
+    case(22) ; a=node(i)%grd
+    case(23) ; a=node(i)%pld
+    case(24) ; a=node(i)%vod
+    case(25) ; a=node(i)%dif
+    case(26) ; a=node(i)%kfi
+    case(27) ; a=node(i)%pla
     case(28) ; a=node(i)%kvol
     case(29) ; a=node(i)%tipus 
     case(30) ; a=node(i)%icel
     case(31) ; a=node(i)%altre
     case(32) ; a=node(i)%marge
     case(33) ; a=node(i)%talone
-    case(34) ; a=node(i)%hold
-    case(35) ; a=node(i)%border
+    case(34) ; a=node(i)%fix
+    case(35) ; a=node(i)%ndiv  !!>> HC 16-3-2022
     !case(36) ; a=gex(i,1)
     !case(37) ; a=gex(i,2)
     !case(38) ; a=gex(i,chogen)
@@ -2542,7 +2532,7 @@ call glNewList(1_gluint,gl_compile_and_execute)
             if(i==nodeindex)then
               color=1 ; color(3)=0
             end if
-            r=node(i)%da*0.5d0*esca
+            r=node(i)%add*0.5d0*esca
           end if
         enddo
       end if
@@ -2554,7 +2544,7 @@ call glNewList(1_gluint,gl_compile_and_execute)
             if(node(i)%icel==cellid)then
               color=1 ; color(3)=0
             end if
-            r=node(i)%da*0.5d0*esca
+            r=node(i)%add*0.5d0*esca
           end if
         enddo
       end if
@@ -2562,14 +2552,14 @@ call glNewList(1_gluint,gl_compile_and_execute)
 
     !DETERMINING SIZE OF NODE
     if(flag(5)==1)then
-      r=node(i)%req*esca				!>>>>>>>>>>>>>>>>>>>MIQUEL 4-3-13
+      r=node(i)%eqd*esca				!>>>>>>>>>>>>>>>>>>>MIQUEL 4-3-13
     else
       if (flag(6)==1)then
-        r=node(i)%da*esca
+        r=node(i)%add*esca
       end if
     end if
     if (flag(8)==1) r=0
-    if (flag(11)==1) r=node(i)%da*esca*1d-1
+    if (flag(11)==1) r=node(i)%add*esca*1d-1
 
   ! cursor for the editor
   if (flag(40)==1) then
@@ -2583,7 +2573,7 @@ call glNewList(1_gluint,gl_compile_and_execute)
 
 
     !DRAWING THE NODES
-    if(flag(36)==0.and.node(i)%hold==1) cycle  !>>>>Miquel15-1-14
+    if(flag(36)==0.and.node(i)%fix==1) cycle  !>>>>Miquel15-1-14
     if ((flag(30)==1.and.node(i)%tipus<3).or.(flag(31)==1.and.node(i)%tipus==3).or.(flag(32)==1.and.node(i)%tipus==4)) then
       if ((flag(9)==1.and.node(i)%tipus==1).or.(flag(10)==1.and.node(i)%tipus==2) .or.(node(i)%tipus>=3)) then      
         a=node(i)%x ; b=node(i)%y ;  c=node(i)%z      
@@ -2591,13 +2581,57 @@ call glNewList(1_gluint,gl_compile_and_execute)
           if (flag(22)==1.and.node(i)%tipus<3)then
             call cylinder(i,10,color)   !>>>>>>>>>> Miquel 11-6-13
           else
+            if (flag(22)==1)then                 !!>> HC 15-12-2021 This precludes the spheres from turning black when we have cylinders
+               normal=0.010d0                    !!>> HC 15-12-2021  I put the same normal to all spheres
+               call glnormal3fv(normal)          !!>> HC 15-12-2021  The right normals should be calculated depending on the viewpoint
+            endif                                !!>> HC 15-12-2021
             call glMaterialfv(gl_front_and_back,gl_ambient_and_diffuse,color)
-            call glTranslated(a*esca,b*esca,c*esca)
-            call glutsolidsphere(r, 10, 10)
-            call glTranslated(-a*esca,-b*esca,-c*esca)
+            
+            if (flag(33)==1)then                                                     !!>> HC 8-4-2022  ELONGATED CELLS AS ELLIPSES
+               eloch=0                                                               !!>> HC 8-4-2022 
+               if (npag(nparam_per_node+17) > 0) then                                !!>> HC 8-4-2022               
+                  myfactor=1.0d0                                                     !!>> HC 8-4-2022  Compute the factor by which ADD and EQD are modified
+                  do jch=1, npag(nparam_per_node+17)                                 !!>> HC 8-4-2022  Genes affecting elongation
+                     kk=whonpag(nparam_per_node+17,jch)                              !!>> HC 8-4-2022 
+                     if (gex(i,kk)>0.0d0) then                                       !!>> HC 8-4-2022 
+                        myfactor=myfactor+gex(i,kk)*gen(kk)%e(nparam_per_node+17)    !!>> HC 8-4-2022  expresion of those in node i times the strength of activation
+                     end if                                                          !!>> HC 8-4-2022 
+                  enddo                                                              !!>> HC 8-4-2022 
+                  if(myfactor > maxelong)myfactor=maxelong                           !!>> HC 8-4-2022  there is a maximum elongation value (free parameter)
+                  umyfactor=1.0d0/myfactor                                           !!>> HC 8-4-2022 
+                  cpolx=cels(node(i)%icel)%polx                                      !!>> HC 8-4-2022  Polarization vector of the cell
+                  cpoly=cels(node(i)%icel)%poly                                      !!>> HC 8-4-2022 
+                  cpolz=cels(node(i)%icel)%polz                                      !!>> HC 8-4-2022 
+                  if (cpolx.ne.0.0d0.or.cpoly.ne.0.0d0.or.cpolz.ne.0.0d0)then        !!>> HC 8-4-2022  If there is a polarization vector (any of these .ne. 0)
+                     mpol=sqrt(cpolx**2+cpoly**2+cpolz**2)                           !!>> HC 8-4-2022  module of the polarization vector
+                     anglech=acos(cpolx/mpol)                                        !!>> HC 8-4-2022  angle between the polarization vector and vector (1,0,0)
+                     anglech=anglech*180.0d0/pi                                      !!>> HC 8-4-2022  angle in degrees
+                     rvecy=-cpolz                                                    !!>> HC 8-4-2022  Cross product between the polarization vector and vector (1,0,0)
+                     rvecz=cpoly                                                     !!>> HC 8-4-2022  (x coordinate will always be =0.0d0)
+                     eloch=1                                                         !!>> HC 8-4-2022  This node is elongated
+                  endif                                                              !!>> HC 8-4-2022 
+               endif                                                                 !!>> HC 8-4-2022 
+               call glTranslated(a*esca,b*esca,c*esca)                               !!>> HC 8-4-2022  Move to the scaled position of the node
+               if (eloch==1)then                                                     !!>> HC 8-4-2022 
+                  call glRotatef(anglech,0.0000, rvecy, rvecz)                       !!>> HC 8-4-2022  rotate the node so that the x axis has the same direction of the polarization vector
+                  call glScaled(myfactor, umyfactor, umyfactor)                      !!>> HC 8-4-2022  elongate in the new x axis (=direction of the polarization vector)
+               endif                                                                 !!>> HC 8-4-2022 
+               call glutsolidsphere(r, 10, 10)                                       !!>> HC 8-4-2022  make the elongated sphere
+               if (eloch==1)then                                                     !!>> HC 8-4-2022 
+                  anglech=360-anglech                                                !!>> HC 8-4-2022  new rotation angle to go back to the initial orientation
+                  call glScaled(umyfactor, myfactor, myfactor)                       !!>> HC 8-4-2022  rescale to make round spheres again
+                  call glRotatef(anglech,0.0000, rvecy, rvecz)                       !!>> HC 8-4-2022  recover old orientation
+               endif                                                                 !!>> HC 8-4-2022 
+                call glTranslated(-a*esca,-b*esca,-c*esca)                           !!>> HC 8-4-2022  move back to the origin
+            else                                                                     !!>> HC 8-4-2022 
+               call glTranslated(a*esca,b*esca,c*esca)                               !!>> HC 8-4-2022  NORMAL SPHERICAL NODES
+               call glutsolidsphere(r, 10, 10)                                       !!>> HC 8-4-2022 
+               call glTranslated(-a*esca,-b*esca,-c*esca)                            !!>> HC 8-4-2022 
+            endif                                                                    !!>> HC 8-4-2022 
+                
+
           end if
           !!!!!!!!!!!!!!!!!!!
-          if((flag(33).eq.1).and.(flag(28).eq.0).and.(flag(29).eq.0))then;flag(33)=0;endif   !!>>>Miguel20-10-14 made flag 
           if((flag(28)==0).and.(flag(29)==1))then ; flag(29)=2 ; endif   ! initial switcher
           if((flag(29)==0).and.(flag(28)==1))then ; flag(28)=2 ; endif   ! initial switcher
           if((flag(28)==2).and.(flag(29)==1))then ; flag(28)=0 ; endif   ! second  switcher
@@ -2626,18 +2660,18 @@ call glNewList(1_gluint,gl_compile_and_execute)
           end if
           !DRAWING THE SEMITRANSPARENT BALLS
           if(sphereselection==0)then
-            !smax_scale=nodeo(1)%da  !this resets the scale in case it has changed      !!>>>Miguel20-10-14 made flag        
+            !smax_scale=nodeo(1)%add  !this resets the scale in case it has changed      !!>>>Miguel20-10-14 made flag        
           else                                       !  SEMITRANSPARENT BALLS   !!>>>Miguel20-10-14 made flag  
             if(node(i)%tipus.le.2)then                
               !if(flag(33).eq.1)then              ! change scaling           
               !  write(*,*)'Enter new value for the sphere radius corresponding to the maximum value of the property being printed'
-              !  write(*,*)'Actual maximum value=,',smaxe,'Actual radius=',smax_scale,'-1 to reset default value (nodeo(1)%da)'
+              !  write(*,*)'Actual maximum value=,',smaxe,'Actual radius=',smax_scale,'-1 to reset default value (nodeo(1)%add)'
               !  read(*,*)smax_scale ; flag(33)=0
               !end if        
               !dd=maxe
               r=smax_scale*(memsphere(i)-smine)/(smaxe-smine)
               r=esca*r
-              !if(fff.eq.-1)then;fff=nodeo(1)%da;endif       
+              !if(fff.eq.-1)then;fff=nodeo(1)%add;endif       
               color(1:3)=memcolor(i,1:3)
               color(4)=0.25   
               call glMaterialfv(gl_front_and_back,gl_ambient_and_diffuse,color)   
@@ -2657,7 +2691,7 @@ call glNewList(1_gluint,gl_compile_and_execute)
     end if
   end do
 
-  !we draw the intercellular connexions with lines (nodes further than node()%da won't be connected)
+  !we draw the intercellular connexions with lines (nodes further than node()%add won't be connected)
   call glBegin(gl_lines)
    !>>>>>>>>>>>>BEGIN Miquel 6-5-13 modified Is 15-5-13
   if(flag(12)==1.or.flag(13)==1)then   
@@ -2667,7 +2701,7 @@ call glNewList(1_gluint,gl_compile_and_execute)
       if(node(i)%tipus<3.and.flag(30)==0) cycle
       if(node(i)%tipus==3.and.flag(31)==0) cycle
       if(node(i)%tipus>3.and.flag(32)==0) cycle
-      if(flag(36)==0.and.node(i)%hold==1) cycle  !>>>>Miquel15-1-14
+      if(flag(36)==0.and.node(i)%fix==1) cycle  !>>>>Miquel15-1-14
       if((flag(30)==1.and.node(i)%tipus<3).or.(flag(31)==1.and.node(i)%tipus==3).or.(flag(32)==1.and.node(i)%tipus==4))then
         a=node(i)%x ; b=node(i)%y ; c=node(i)%z
         if (a>=mix.and.a<=mx.and.b>=miy.and.b<=my.and.c>=miz.and.c<=mz) then
@@ -2679,7 +2713,7 @@ call glNewList(1_gluint,gl_compile_and_execute)
                                                          &(flag(32)==1.and.node(ic)%tipus==4))then
                 if (aa>=mix.and.aa<=mx.and.bb>=miy.and.bb<=my.and.cc>=miz.and.cc<=mz) then
                   d=dneigh(i,j)
-                  if(d<node(i)%da+node(ic)%da)then     !>>>>>> Is 9-5-13
+                  if(d<node(i)%add+node(ic)%add)then     !>>>>>> Is 9-5-13
                     if (flag(12)==1) then
                       if(node(i)%tipus==1)then;color=0;color(1)=1
                       else;color=0;color(2)=1;end if
@@ -2701,88 +2735,11 @@ call glNewList(1_gluint,gl_compile_and_execute)
   end if
   !>>>>>>>>>>>>END Miquel 6-5-13
   call glEnd
+
+
   
   if(flag(37)==1)then !drawing the cell contours !>>Miquel29-8-14
-    npt=nd
-    sizht=3/2*npt
-    maxfc=npt**2
-    maxbf=npt**2
-    !allocate(vcl(3,npt),vm(npt))
-    !allocate(bf(1:3,maxbf),fc(1:7,maxfc))
-    !allocate(ht(0:sizht-1))
-    
-    do i=1,npt  !building the input arrays for the triangualtion function
-      vcl(1,i)=node(i)%x ; vcl(2,i)=node(i)%y ; vcl(3,i)=node(i)%z
-      vm(i)=i
-    end do
-    !calling the triangulation subroutine
-    call dtriw3(npt, sizht, maxbf, maxfc, vcl, vm, nbf, nfc, nface, ntetra, bf, fc, ht, ierr)
-    if(ierr/=0)then; print*,"error in the triangulation, avort or something"; return ; end if
-   !print*,"npt,nbf,nfc,nface,ntetra",npt,nbf,nfc,nface,ntetra
-    do i=1,nfc
-  !print*,i,"fc",fc(:,i)
-      if(fc(1,i)>0.and.fc(2,i)>0.and.fc(3,i)>0)then !a valid triangle
-        ii=vm(fc(1,i))
-        if(node(ii)%tipus==1.and.flag(9)==0) cycle
-        if(node(ii)%tipus==2.and.flag(10)==0) cycle
-        if(node(ii)%tipus<3.and.flag(30)==0) cycle
-        if(node(ii)%tipus==3.and.flag(31)==0) cycle
-        if(node(ii)%tipus>3.and.flag(32)==0) cycle
-        if(flag(36)==0.and.node(ii)%hold==1) cycle
-        a=node(ii)%x ; b=node(ii)%y ; c=node(ii)%z
-        jj=vm(fc(2,i))
-        if(node(jj)%tipus==1.and.flag(9)==0) cycle
-        if(node(jj)%tipus==2.and.flag(10)==0) cycle
-        if(node(jj)%tipus<3.and.flag(30)==0) cycle
-        if(node(jj)%tipus==3.and.flag(31)==0) cycle
-        if(node(jj)%tipus>3.and.flag(32)==0) cycle
-        if(flag(36)==0.and.node(jj)%hold==1) cycle
-        aa=node(jj)%x ; bb=node(jj)%y ; cc=node(jj)%z
-        kk=vm(fc(3,i))
-        if(node(kk)%tipus==1.and.flag(9)==0) cycle
-        if(node(kk)%tipus==2.and.flag(10)==0) cycle
-        if(node(kk)%tipus<3.and.flag(30)==0) cycle
-        if(node(kk)%tipus==3.and.flag(31)==0) cycle
-        if(node(kk)%tipus>3.and.flag(32)==0) cycle
-        if(flag(36)==0.and.node(kk)%hold==1) cycle
-        aaa=node(kk)%x ; bbb=node(kk)%y ; ccc=node(kk)%z
-
-        d=sqrt((a-aa)**2+(b-bb)**2+(c-cc)**2)
-        if(d-node(ii)%da-node(jj)%da>epsilod) cycle !there is no neighboring
-        dd=sqrt((a-aaa)**2+(b-bbb)**2+(c-ccc)**2)
-        if(dd-node(ii)%da-node(kk)%da>epsilod) cycle !there is no neighboring
-        ddd=sqrt((aa-aaa)**2+(bb-bbb)**2+(cc-ccc)**2)
-        if(ddd-node(jj)%da-node(kk)%da>epsilod) cycle !there is no neighboring
-        if(node(ii)%icel==node(jj)%icel.and.node(ii)%icel==node(kk)%icel)then !three vertices are from the same cell
-          goto 785
-        else
-          if(flag(38)==1)then !flag for intercellular contour
-            goto 785
-          end if
-        end if
-        cycle
-785     if (a>=mix.and.a<=mx.and.b>=miy.and.b<=my.and.c>=miz.and.c<=mz) then
-          if (aa>=mix.and.aa<=mx.and.bb>=miy.and.bb<=my.and.cc>=miz.and.cc<=mz) then
-            if (aaa>=mix.and.aaa<=mx.and.bbb>=miy.and.bbb<=my.and.ccc>=miz.and.ccc<=mz) then
-              call glBegin(gl_triangles)
-              normal=normcrossprod((/aaa,a,aa/),(/bbb,b,bb/),(/ccc,c,cc/)) !we've got a triangle, let's draw it
-              normal=abs(normal)
-              call glnormal3fv(normal)
-              color=memcolor(ii,:)
-              call glMaterialfv(gl_front_and_back,gl_ambient_and_diffuse,color)
-              call glvertex3d(esca*a,esca*b,esca*c)
-              color=memcolor(jj,:)
-              call glMaterialfv(gl_front_and_back,gl_ambient_and_diffuse,color)
-              call glvertex3d(esca*aa,esca*bb,esca*cc)
-              color=memcolor(kk,:)
-              call glMaterialfv(gl_front_and_back,gl_ambient_and_diffuse,color)
-              call glvertex3d(esca*aaa,esca*bbb,esca*ccc)
-              call glEnd
-            end if
-          end if
-        end if
-      end if
-    end do
+    print*, "SORRY THIS FLAG IS DISABLED IN THIS VERSION DUE TO RAM MEMORY ISSUES" !!>> HC 18-8-21
   end if
 
   if (flag(14)==1) then  !2D plot x plane
@@ -3245,9 +3202,9 @@ real(GLFLOAT)::color(4),calor(4)
   iv=node(nod)%altre
 
   if(flag(5)==1)then
-    r=node(nod)%req;riv=node(iv)%req
+    r=node(nod)%eqd;riv=node(iv)%eqd
   else
-    r=node(nod)%da;riv=node(iv)%da
+    r=node(nod)%add;riv=node(iv)%add
   end if
 
   ix=node(nod)%x ; iy=node(nod)%y ; iz=node(nod)%z
@@ -3268,7 +3225,7 @@ real(GLFLOAT)::color(4),calor(4)
 !  print*,"U",ux,uy,uz,"A",ax,ay,az
 
 
-!  if(flag(6)==1)then  !the form of the cylinder encloses the volume above and below it corresponding to node()%da
+!  if(flag(6)==1)then  !the form of the cylinder encloses the volume above and below it corresponding to node()%add
     ix=ix-ux*r ; iy=iy-uy*r ; iz=iz-uz*r
 !    vx=vx+ux*riv ; vy=vy+uy*riv ; vz=vz+uz*riv
 !  end if
@@ -4018,12 +3975,12 @@ real*8 :: guardaene
 	call draw_func
   case(2)
 
-    print*,
+    print*, "     " !!>> HC 16-11-2020
     print*,"CURSOR MODE ON: DRAG WITH LEFT MOUSE-BUTTON TO MOVE CURSOR ON X-Y PLANE"
     print*,"                CLICK MIDDLE MOUSE TO SELECT NODE"
     print*,"                PRESS DOWN ARROW KEY TO SWITCH BETWEEN MOVING THE CURSOR"
     print*,"                ALONG X-Y PLANE AND Z AXIS"
-    print*,
+    print*, "     " !!>> HC 16-11-2020
 
     if(nki==0)then
       if (allocated(oopp)) then ; deallocate(oopp) ; endif
@@ -4062,12 +4019,12 @@ real*8 :: guardaene
     call draw_func
   case (4)
 
-    print*,
+    print*, "     " !!>> HC 16-11-2020
     print*,"CURSOR MODE ON: DRAG WITH LEFT MOUSE-BUTTON TO MOVE CURSOR ON X-Y PLANE"
     print*,"                CLICK MIDDLE MOUSE TO SELECT NODE"
     print*,"                PRESS DOWN ARROW KEY TO SWITCH BETWEEN MOVING THE CURSOR"
     print*,"                ALONG X-Y PLANE AND Z AXIS"
-    print*,
+    print*, "     " !!>> HC 16-11-2020
 
     if(nki==0)then
       if (allocated(oopp)) then ; deallocate(oopp) ; endif
@@ -4409,38 +4366,37 @@ real*8         :: disx(nd),disy(nd),disz(nd),distot(nd)
     case(2) ; mine=minval(node(:nd)%y) ; maxe=maxval(node(:nd)%y)
     case(3) ; mine=minval(node(:nd)%z) ; maxe=maxval(node(:nd)%z)
     case(4) ; mine=minval(node(:nd)%e) ; maxe=maxval(node(:nd)%e)
-    case(5) ; mine=minval(node(:nd)%req) ; maxe=maxval(node(:nd)%req) 
-    case(6) ; mine=minval(node(:nd)%da)  ; maxe=maxval(node(:nd)%da)
+    case(5) ; mine=minval(node(:nd)%eqd) ; maxe=maxval(node(:nd)%eqd) 
+    case(6) ; mine=minval(node(:nd)%add)  ; maxe=maxval(node(:nd)%add)
     case(7) ; mine=minval(node(:nd)%you) ; maxe=maxval(node(:nd)%you)
     case(8) ; mine=minval(node(:nd)%adh) ; maxe=maxval(node(:nd)%adh)
     case(9) ; mine=minval(node(:nd)%rep) ; maxe=maxval(node(:nd)%rep)	
-    case(10) ; mine=minval(node(:nd)%repcel) ; maxe=maxval(node(:nd)%repcel)
-    case(11) ; mine=minval(node(:nd)%tor) ; maxe=maxval(node(:nd)%tor)
-    case(12) ; mine=minval(node(:nd)%stor) ; maxe=maxval(node(:nd)%stor)	
-    case(13) ; mine=minval(node(:nd)%reqs) ; maxe=maxval(node(:nd)%reqs)
-    case(14) ; mine=minval(node(:nd)%ke) ; maxe=maxval(node(:nd)%ke) 
-    case(15) ; mine=minval(node(:nd)%mo) ; maxe=maxval(node(:nd)%mo)
+    case(10) ; mine=minval(node(:nd)%rec) ; maxe=maxval(node(:nd)%rec)
+    case(11) ; mine=minval(node(:nd)%erp) ; maxe=maxval(node(:nd)%erp)
+    case(12) ; mine=minval(node(:nd)%est) ; maxe=maxval(node(:nd)%est)	
+    case(13) ; mine=minval(node(:nd)%eqs) ; maxe=maxval(node(:nd)%eqs)
+    case(14) ; mine=minval(node(:nd)%hoo) ; maxe=maxval(node(:nd)%hoo) 
+    case(15) ; mine=minval(node(:nd)%mov) ; maxe=maxval(node(:nd)%mov)
     case(16) ; mine=minval(node(:nd)%dmo) ; maxe=maxval(node(:nd)%dmo)
     case(17) ; mine=minval(node(:nd)%orix) ; maxe=maxval(node(:nd)%orix) 
     case(18) ; mine=minval(node(:nd)%oriy) ; maxe=maxval(node(:nd)%oriy)
     case(19) ; mine=minval(node(:nd)%oriz) ; maxe=maxval(node(:nd)%oriz)
-    case(20) ; mine=minval(node(:nd)%acecm) ; maxe=maxval(node(:nd)%acecm)
-    case(21) ; mine=minval(node(:nd)%reqc) ; maxe=maxval(node(:nd)%reqc)
-    case(22) ; mine=minval(node(:nd)%reqcr) ; maxe=maxval(node(:nd)%reqcr)
-    case(23) ; mine=minval(node(:nd)%reqp) ; maxe=maxval(node(:nd)%reqp)
-    case(24) ; mine=minval(node(:nd)%reqv) ; maxe=maxval(node(:nd)%reqv)
-    case(25) ; mine=minval(node(:nd)%diffe) ; maxe=maxval(node(:nd)%diffe)
-    case(26) ; mine=minval(node(:nd)%khold) ; maxe=maxval(node(:nd)%khold)
-    case(27) ; mine=minval(node(:nd)%kplast) ; maxe=maxval(node(:nd)%kplast)
+    case(20) ; mine=minval(node(:nd)%ecm) ; maxe=maxval(node(:nd)%ecm)
+    case(21) ; mine=minval(node(:nd)%cod) ; maxe=maxval(node(:nd)%cod)
+    case(22) ; mine=minval(node(:nd)%grd) ; maxe=maxval(node(:nd)%grd)
+    case(23) ; mine=minval(node(:nd)%pld) ; maxe=maxval(node(:nd)%pld)
+    case(24) ; mine=minval(node(:nd)%vod) ; maxe=maxval(node(:nd)%vod)
+    case(25) ; mine=minval(node(:nd)%dif) ; maxe=maxval(node(:nd)%dif)
+    case(26) ; mine=minval(node(:nd)%kfi) ; maxe=maxval(node(:nd)%kfi)
+    case(27) ; mine=minval(node(:nd)%pla) ; maxe=maxval(node(:nd)%pla)
     case(28) ; mine=minval(node(:nd)%kvol) ; maxe=maxval(node(:nd)%kvol)
     case(29) ; mine=1 ;maxe=7 !mine=minval(node(:nd)%tipus) ; maxe=maxval(node(:nd)%tipus) !this is tipus
     case(30) ; mine=minval(node(:nd)%icel) ; maxe=maxval(node(:nd)%icel)
     case(31) ; mine=minval(node(:nd)%altre) ; maxe=maxval(node(:nd)%altre)
     case(32) ; mine=minval(node(:nd)%marge) ; maxe=maxval(node(:nd)%marge) 
     case(33) ; mine=minval(node(:nd)%talone) ; maxe=maxval(node(:nd)%talone) 
-    case(34) ; mine=0;maxe=1!minval(node(:nd)%hold) ; maxe=maxval(node(:nd)%hold) 
-    case(35) ; mine=0;maxe=1
-               !mine=minval(node(:nd)%border) ; maxe=maxval(node(:nd)%border) 
+    case(34) ; mine=0;maxe=1!minval(node(:nd)%fix) ; maxe=maxval(node(:nd)%fix) 
+    case(35) ; mine=minval(node(:nd)%ndiv) ; maxe=maxval(node(:nd)%ndiv)     !! HC 16-3-2022
 
     !case(36) ; if (chogen==0) then
     !           chogen=1
@@ -4481,10 +4437,11 @@ real*8         :: disx(nd),disy(nd),disz(nd),distot(nd)
                mine=minval(distot) ; maxe=maxval(distot)
     case(41) ; mine=1 ; maxe=nd
     case(42) ; mine=1 ; maxe=nd
+    case(43) ; mine=1; maxe=maxval(nodeo(:nd)%icel)  !!>> HC 11-1-2021
     end select
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!        !>>>Miguel30-10-14 
-    if(selection.gt.42)then
-      chogen=selection-42 
+    if(selection.gt.43)then                          !!>> HC 11-1-2021
+      chogen=selection-43                            !!>> HC 11-1-2021
       mine=minval(gex(:nd,chogen)) ; maxe=maxval(gex(:nd,chogen))
       !print*,"chosen gene",chogen,"maxim",maxe,"minim",mine
     end if
@@ -4708,20 +4665,20 @@ case(4)
          property=4
          call menueditor_handler(6)
 case(5)
-         print*,"The ",nodeparams(selection)," of the node is", node(nodeindex)%req
-	 tempnod%req=node(nodeindex)%req
+         print*,"The ",nodeparams(selection)," of the node is", node(nodeindex)%eqd
+	 tempnod%eqd=node(nodeindex)%eqd
          print*,"Now, please select a new node where you want to copy this property and select paste property"
          property=5
 	 call menueditor_handler(6)
 !case(6)
-!         print*,"The ",nodeparams(selection)," of the node is", node(nodeindex)%reqcel
-!	 tempnod%reqcel=node(nodeindex)%reqcel
+!         print*,"The ",nodeparams(selection)," of the node is", node(nodeindex)%codel
+!	 tempnod%codel=node(nodeindex)%codel
 !         print*,"Now, please select a new node where you want to copy this property and select paste property"
 !         property=6
 !	 call menueditor_handler(6)
 case(6)
-         print*,"The ",nodeparams(selection)," of the node is", node(nodeindex)%da
-	  tempnod%da=node(nodeindex)%da
+         print*,"The ",nodeparams(selection)," of the node is", node(nodeindex)%add
+	  tempnod%add=node(nodeindex)%add
          print*,"Now, please select a new node where you want to copy this property and select paste property"
          property=6
 	 call menueditor_handler(6)
@@ -4744,38 +4701,38 @@ case(9)
          property=9
 	 call menueditor_handler(6)
 case(10)
-         print*,"The ",nodeparams(selection)," of the node is", node(nodeindex)%repcel
-	  tempnod%repcel=node(nodeindex)%repcel
+         print*,"The ",nodeparams(selection)," of the node is", node(nodeindex)%rec
+	  tempnod%rec=node(nodeindex)%rec
          print*,"Now, please select a new node where you want to copy this property and select paste property"
          property=10
 	 call menueditor_handler(6)
 case(11)
-         print*,"The ",nodeparams(selection)," of the node is", node(nodeindex)%tor
-	  tempnod%tor=node(nodeindex)%tor
+         print*,"The ",nodeparams(selection)," of the node is", node(nodeindex)%erp
+	  tempnod%erp=node(nodeindex)%erp
          print*,"Now, please select a new node where you want to copy this property and select paste property"
          property=11
 	 call menueditor_handler(6)
 !case(12)
-!         print*,"The ",nodeparams(selection)," of the node is", node(nodeindex)%stor
-!	  tempnod%stor=node(nodeindex)%stor
+!         print*,"The ",nodeparams(selection)," of the node is", node(nodeindex)%est
+!	  tempnod%est=node(nodeindex)%est
 !         print*,"Now, please select a new node where you want to copy this property and select paste property"
 !         property=12
 !	 call menueditor_handler(6)
 case(14)
-         print*,"The ",nodeparams(selection)," of the node is", node(nodeindex)%reqs
-	  tempnod%reqs=node(nodeindex)%reqs
+         print*,"The ",nodeparams(selection)," of the node is", node(nodeindex)%eqs
+	  tempnod%eqs=node(nodeindex)%eqs
          print*,"Now, please select a new node where you want to copy this property and select paste property"
          property=12
 	 call menueditor_handler(6)
 case(15)
-         print*,"The ",nodeparams(selection)," of the node is", node(nodeindex)%ke
-	 tempnod%ke=node(nodeindex)%ke
+         print*,"The ",nodeparams(selection)," of the node is", node(nodeindex)%hoo
+	 tempnod%hoo=node(nodeindex)%hoo
          print*,"Now, please select a new node where you want to copy this property and select paste property"
          property=13
 	 call menueditor_handler(6)
 case(16)
-         print*,"The ",nodeparams(selection)," of the node is", node(nodeindex)%mo
-	  tempnod%mo=node(nodeindex)%mo
+         print*,"The ",nodeparams(selection)," of the node is", node(nodeindex)%mov
+	  tempnod%mov=node(nodeindex)%mov
          print*,"Now, please select a new node where you want to copy this property and select paste property"
          property=14
 	 call menueditor_handler(6)
@@ -4804,8 +4761,8 @@ case(20)
          property=18
 	 call menueditor_handler(6)
 case(21) 
-          print*,"The ",nodeparams(selection)," of the node is", node(nodeindex)%acecm
-	  tempnod%acecm=node(nodeindex)%acecm
+          print*,"The ",nodeparams(selection)," of the node is", node(nodeindex)%ecm
+	  tempnod%ecm=node(nodeindex)%ecm
          print*,"Now, please select a new node where you want to copy this property and select paste property"
          property=19
 	 call menueditor_handler(6)
@@ -4856,15 +4813,15 @@ case(26)
 		 print*,"Property changed"
 		 case(5)
                  colorselection=5
-		 node(nodeindex)%req=tempnod%req
+		 node(nodeindex)%eqd=tempnod%eqd
 		 print*,"Property changed"
 !		 case(6) 
 !                 colorselection=6
-!		 node(nodeindex)%reqcel=tempnod%reqcel
+!		 node(nodeindex)%codel=tempnod%codel
 !		 print*,"Property changed"
                  case(6)
 	         colorselection=6
-		 node(nodeindex)%da=tempnod%da
+		 node(nodeindex)%add=tempnod%add
 		 print*,"Property changed"
 		 case(7)
                  colorselection=7
@@ -4880,27 +4837,27 @@ case(26)
 		 print*,"Property changed"
 		 case(10)
                  colorselection=10
-		 node(nodeindex)%repcel=tempnod%repcel
+		 node(nodeindex)%rec=tempnod%rec
 		 print*,"Property changed"
 		 case(11) 
                  colorselection=11
-		 node(nodeindex)%tor=tempnod%tor
+		 node(nodeindex)%erp=tempnod%erp
 		 print*,"Property changed"
 		 !case(12)
 	         !colorselection=12
-		 !node(nodeindex)%stor=tempnod%stor
+		 !node(nodeindex)%est=tempnod%est
 		 !print*,"Property changed"
 		 case(12)
                  colorselection=12
-		 node(nodeindex)%reqs=tempnod%reqs
+		 node(nodeindex)%eqs=tempnod%eqs
 		 print*,"Property changed"
 		 case(13) 
                  colorselection=13
-		 node(nodeindex)%ke=tempnod%ke
+		 node(nodeindex)%hoo=tempnod%hoo
 		 print*,"Property changed"
 	 	 case(14)
 	         colorselection=14
-     		 node(nodeindex)%mo=tempnod%mo
+     		 node(nodeindex)%mov=tempnod%mov
 		 print*,"Property changed"
 		 case(15)
                  colorselection=15
@@ -4920,7 +4877,7 @@ case(26)
 		 print*,"Property changed"
 		 case(19) 
                  colorselection=19
-		 node(nodeindex)%acecm=tempnod%acecm
+		 node(nodeindex)%ecm=tempnod%ecm
 		 print*,"Property changed"
 	 	 case(20)
 	         colorselection=20
@@ -4959,29 +4916,29 @@ case(1) ; node(nodetarget)%x=tempnod%x
 case(2) ; node(nodetarget)%y=tempnod%y      
 case(3) ; node(nodetarget)%z=tempnod%z
 case(4) ; node(nodetarget)%e=tempnod%e 
-case(5) ; node(nodetarget)%req=tempnod%req
-case(6) ; node(nodetarget)%da=tempnod%da
+case(5) ; node(nodetarget)%eqd=tempnod%eqd
+case(6) ; node(nodetarget)%add=tempnod%add
 case(7) ; node(nodetarget)%you=tempnod%you
 case(8) ; node(nodetarget)%adh=tempnod%adh
 case(9) ; node(nodetarget)%rep=tempnod%rep
-case(10); node(nodetarget)%repcel=tempnod%repcel
-case(11); node(nodetarget)%tor=tempnod%tor
-!case(12); node(nodetarget)%stor=tempnod%stor
-case(12); node(nodetarget)%reqs=tempnod%reqs
-case(13); node(nodetarget)%ke=tempnod%ke
-case(14); node(nodetarget)%mo=tempnod%mo
+case(10); node(nodetarget)%rec=tempnod%rec
+case(11); node(nodetarget)%erp=tempnod%erp
+!case(12); node(nodetarget)%est=tempnod%est
+case(12); node(nodetarget)%eqs=tempnod%eqs
+case(13); node(nodetarget)%hoo=tempnod%hoo
+case(14); node(nodetarget)%mov=tempnod%mov
 case(15); node(nodetarget)%dmo=tempnod%dmo
 case(16); node(nodetarget)%orix=tempnod%orix
 case(17); node(nodetarget)%oriy=tempnod%oriy
 case(18); node(nodetarget)%oriz=tempnod%oriz
-case(19); node(nodetarget)%acecm=tempnod%acecm
-case(20); node(nodetarget)%reqc=tempnod%reqc
-case(21); node(nodetarget)%reqcr=tempnod%reqcr
-case(22); node(nodetarget)%reqp=tempnod%reqp
-case(23); node(nodetarget)%reqv=tempnod%reqv
-case(24); node(nodetarget)%diffe=tempnod%diffe
-case(25); node(nodetarget)%khold=tempnod%khold
-case(26); node(nodetarget)%kplast=tempnod%kplast
+case(19); node(nodetarget)%ecm=tempnod%ecm
+case(20); node(nodetarget)%cod=tempnod%cod
+case(21); node(nodetarget)%grd=tempnod%grd
+case(22); node(nodetarget)%pld=tempnod%pld
+case(23); node(nodetarget)%vod=tempnod%vod
+case(24); node(nodetarget)%dif=tempnod%dif
+case(25); node(nodetarget)%kfi=tempnod%kfi
+case(26); node(nodetarget)%pla=tempnod%pla
 case(27); node(nodetarget)%kvol=tempnod%kvol
 !case(29); node(nodetarget)%temt=tempnod%temt
 case(28); node(nodetarget)%tipus=tempnod%tipus
@@ -4989,8 +4946,8 @@ case(29); node(nodetarget)%icel=tempnod%icel
 case(30); node(nodetarget)%altre=tempnod%altre
 case(31); node(nodetarget)%marge=tempnod%marge
 case(32); node(nodetarget)%talone=tempnod%talone
-case(33); node(nodetarget)%hold=tempnod%hold
-case(34); node(nodetarget)%border=tempnod%border
+case(33); node(nodetarget)%fix=tempnod%fix
+case(34); node(nodetarget)%ndiv=tempnod%ndiv  !!>> HC 16-3-2022
 end select
 
 endif
@@ -5184,22 +5141,22 @@ case(3)
          read(*,*) temp
          node(nodeindex)%z=temp
 case(5)
-         print*,"The ",nodeparams(selection)," of the node is", node(nodeindex)%req
+         print*,"The ",nodeparams(selection)," of the node is", node(nodeindex)%eqd
 	 print*,"Please give new req for the selected node"
          read(*,*) temp
-         node(nodeindex)%req=temp
-         nodeo(nodeindex)%req=temp
+         node(nodeindex)%eqd=temp
+         nodeo(nodeindex)%eqd=temp
 !case(6)
-!         print*,"The ",nodeparams(selection)," of the node is", node(nodeindex)%reqcel
+!         print*,"The ",nodeparams(selection)," of the node is", node(nodeindex)%codel
 !	 print*,"Please give new reqcel for the selected node"
 !         read(*,*) temp
-!         node(nodeindex)%reqcel=temp
+!         node(nodeindex)%codel=temp
 case(6)
-         print*,"The ",nodeparams(selection)," of the node is", node(nodeindex)%da
+         print*,"The ",nodeparams(selection)," of the node is", node(nodeindex)%add
 	 print*,"Please give new da for the selected node"
          read(*,*) temp
-         node(nodeindex)%da=temp
-         nodeo(nodeindex)%da=temp
+         node(nodeindex)%add=temp
+         nodeo(nodeindex)%add=temp
 case(7)
          print*,"The ",nodeparams(selection)," of the node is", node(nodeindex)%you
 	 print*,"Please give new you for the selected node"
@@ -5219,41 +5176,41 @@ case(9)
          node(nodeindex)%rep=temp
          nodeo(nodeindex)%rep=temp
 case(10)
-         print*,"The ",nodeparams(selection)," of the node is", node(nodeindex)%repcel
+         print*,"The ",nodeparams(selection)," of the node is", node(nodeindex)%rec
 	 print*,"Please give new repcel for the selected node"
          read(*,*) temp
-         node(nodeindex)%repcel=temp
-         nodeo(nodeindex)%repcel=temp
+         node(nodeindex)%rec=temp
+         nodeo(nodeindex)%rec=temp
 case(11)
-         print*,"The ",nodeparams(selection)," of the node is", node(nodeindex)%tor
+         print*,"The ",nodeparams(selection)," of the node is", node(nodeindex)%erp
 	 print*,"Please give new tor for the selected node"
          read(*,*) temp
-         node(nodeindex)%tor=temp
-         nodeo(nodeindex)%tor=temp
+         node(nodeindex)%erp=temp
+         nodeo(nodeindex)%erp=temp
 case(12)
-         print*,"The ",nodeparams(selection)," of the node is", node(nodeindex)%stor
+         print*,"The ",nodeparams(selection)," of the node is", node(nodeindex)%est
 	 print*,"Please give new stor for the selected node"
          read(*,*) temp
-         node(nodeindex)%stor=temp
-         nodeo(nodeindex)%stor=temp
+         node(nodeindex)%est=temp
+         nodeo(nodeindex)%est=temp
 case(13)
-         print*,"The ",nodeparams(selection)," of the node is", node(nodeindex)%reqs
+         print*,"The ",nodeparams(selection)," of the node is", node(nodeindex)%eqs
 	 print*,"Please give new reqs for the selected node"
          read(*,*) temp
-         node(nodeindex)%reqs=temp
-         nodeo(nodeindex)%reqs=temp
+         node(nodeindex)%eqs=temp
+         nodeo(nodeindex)%eqs=temp
 case(14)
-         print*,"The ",nodeparams(selection)," of the node is", node(nodeindex)%ke
+         print*,"The ",nodeparams(selection)," of the node is", node(nodeindex)%hoo
 	 print*,"Please give new ke for the selected node"
          read(*,*) temp
-         node(nodeindex)%ke=temp
-         nodeo(nodeindex)%ke=temp
+         node(nodeindex)%hoo=temp
+         nodeo(nodeindex)%hoo=temp
 case(15)
-         print*,"The ",nodeparams(selection)," of the node is", node(nodeindex)%mo
+         print*,"The ",nodeparams(selection)," of the node is", node(nodeindex)%mov
 	 print*,"Please give new mo for the selected node"
          read(*,*) temp
-         node(nodeindex)%mo=temp
-         nodeo(nodeindex)%mo=temp
+         node(nodeindex)%mov=temp
+         nodeo(nodeindex)%mov=temp
 case(16)
          print*,"The ",nodeparams(selection)," of the node is", node(nodeindex)%dmo
 	 print*,"Please give new dmo for the selected node"
@@ -5276,52 +5233,52 @@ case(19)
          read(*,*) temp
          node(nodeindex)%oriz=temp
 case(20) 
-         print*,"The ",nodeparams(selection)," of the node is", node(nodeindex)%acecm
+         print*,"The ",nodeparams(selection)," of the node is", node(nodeindex)%ecm
 	 print*,"Please give new tipus for the selected node"
          read(*,*) temp
-         node(nodeindex)%acecm=temp
+         node(nodeindex)%ecm=temp
 case(21) 
-         print*,"The ",nodeparams(selection)," of the node is", node(nodeindex)%reqc
+         print*,"The ",nodeparams(selection)," of the node is", node(nodeindex)%cod
 	 print*,"Please give new tipus for the selected node"
          read(*,*) temp
-         node(nodeindex)%reqc=temp
-         nodeo(nodeindex)%reqc=temp
+         node(nodeindex)%cod=temp
+         nodeo(nodeindex)%cod=temp
 case(22) 
-         print*,"The ",nodeparams(selection)," of the node is", node(nodeindex)%reqcr
+         print*,"The ",nodeparams(selection)," of the node is", node(nodeindex)%grd
 	 print*,"Please give new tipus for the selected node"
          read(*,*) temp
-         node(nodeindex)%reqcr=temp
-         nodeo(nodeindex)%reqcr=temp
+         node(nodeindex)%grd=temp
+         nodeo(nodeindex)%grd=temp
 case(23) 
-         print*,"The ",nodeparams(selection)," of the node is", node(nodeindex)%reqp
+         print*,"The ",nodeparams(selection)," of the node is", node(nodeindex)%pld
 	 print*,"Please give new tipus for the selected node"
          read(*,*) temp
-         node(nodeindex)%reqp=temp
-         nodeo(nodeindex)%reqp=temp
+         node(nodeindex)%pld=temp
+         nodeo(nodeindex)%pld=temp
 case(24) 
-         print*,"The ",nodeparams(selection)," of the node is", node(nodeindex)%reqv
+         print*,"The ",nodeparams(selection)," of the node is", node(nodeindex)%vod
 	 print*,"Please give new tipus for the selected node"
          read(*,*) temp
-         node(nodeindex)%reqv=temp
-         nodeo(nodeindex)%reqv=temp
+         node(nodeindex)%vod=temp
+         nodeo(nodeindex)%vod=temp
 case(25) 
-         print*,"The ",nodeparams(selection)," of the node is", node(nodeindex)%diffe
+         print*,"The ",nodeparams(selection)," of the node is", node(nodeindex)%dif
 	 print*,"Please give new tipus for the selected node"
          read(*,*) temp
-         node(nodeindex)%diffe=temp
-         nodeo(nodeindex)%diffe=temp
+         node(nodeindex)%dif=temp
+         nodeo(nodeindex)%dif=temp
 case(26) 
-         print*,"The ",nodeparams(selection)," of the node is", node(nodeindex)%khold
+         print*,"The ",nodeparams(selection)," of the node is", node(nodeindex)%kfi
 	 print*,"Please give new tipus for the selected node"
          read(*,*) temp
-         node(nodeindex)%khold=temp
-         nodeo(nodeindex)%khold=temp
+         node(nodeindex)%kfi=temp
+         nodeo(nodeindex)%kfi=temp
 case(27) 
-         print*,"The ",nodeparams(selection)," of the node is", node(nodeindex)%kplast
+         print*,"The ",nodeparams(selection)," of the node is", node(nodeindex)%pla
 	 print*,"Please give new tipus for the selected node"
          read(*,*) temp
-         node(nodeindex)%kplast=temp
-         nodeo(nodeindex)%kplast=temp
+         node(nodeindex)%pla=temp
+         nodeo(nodeindex)%pla=temp
 case(28) 
          print*,"The ",nodeparams(selection)," of the node is", node(nodeindex)%kvol
 	 print*,"Please give new tipus for the selected node"
@@ -5354,15 +5311,15 @@ case(33)
          read(*,*) temp
          node(nodeindex)%talone=temp
 case(34)
-         print*,"The ",nodeparams(selection)," of the node is", node(nodeindex)%hold
+         print*,"The ",nodeparams(selection)," of the node is", node(nodeindex)%fix
 	 print*,"Please give new marge for the selected node"
          read(*,*) temp
-         node(nodeindex)%hold=temp
+         node(nodeindex)%fix=temp
 case(35)
-         print*,"The ",nodeparams(selection)," of the node is", node(nodeindex)%border
+         print*,"The ",nodeparams(selection)," of the node is", node(nodeindex)%ndiv !!>> HC 16-3-2022
 	 print*,"Please give new marge for the selected node"
          read(*,*) temp
-         node(nodeindex)%border=temp
+         node(nodeindex)%ndiv=temp   !!>> HC 16-3-2022
 end select
 
 print*,"Property of the node changed"
@@ -5770,12 +5727,13 @@ nu=1 !Tommi 1.8.2013
     if (nu>16.and.nu<19) cycle
     call glutAddMenuEntry(nodeparams(nu)//char(0),nu)
   end do
-
+  
   cmenuu2 = glutCreateMenu(cmenuu2_handler)
   call glutAddMenuEntry("node type"//char(0),29)
   call glutAddMenuEntry("cells"//char(0),30)
   call glutAddMenuEntry("cell nucleus as blue"//char(0),32)
   call glutAddMenuEntry("nodes fixed as yellow"//char(0),34)
+  call glutAddMenuEntry("Number of divisions"//char(0),35)
 
   nu=nparam_per_node
   call glutAddMenuEntry("as cell cycle"//char(0),nu+1)
@@ -5785,10 +5743,11 @@ nu=1 !Tommi 1.8.2013
   call glutAddMenuEntry("as dtotal"//char(0),nu+5)
   call glutAddMenuEntry("as boxes"//char(0),nu+6)
   call glutAddMenuEntry("as node index"//char(0),nu+7)!>>>>>Tommi 5.8.2013
+  call glutAddMenuEntry("cell lineage"//char(0),nu+8)                              !!>> HC 15-12-2021
   do i=1,ng						!>>>Miguel30-10-14
     write(genetitle,*)'Amount of regulatory molecule',i  !>>>Miguel30-10-14
     genetitle=adjustl(genetitle)				!>>>Miguel30-10-14
-    call glutAddMenuEntry(genetitle(1:43)//char(0),nu+7+i) !>>>Miguel30-10-14
+    call glutAddMenuEntry(genetitle(1:43)//char(0),nu+8+i) !>>>Miguel30-10-14      !!>> HC 15-12-2021
   end do                                                 !>>>Miguel30-10-14 
 !!!!!!!!!!!
 
@@ -5957,7 +5916,8 @@ call glutAddMenuEntry("force component: epi. surface tension apical/basal"//char
 call glutAddMenuEntry("movement module vectors"//char(0),27)      !
 call glutAddMenuEntry("do not show/show epithelium"//char(0),30)      !
 call glutAddMenuEntry("do not show/show mesenchyme"//char(0),31)      !
-call glutAddMenuEntry("do not show/show extracellular matrix"//char(0),32)      !
+call glutAddMenuEntry("do not show/show extracellular matrix"//char(0),32)      !  !
+call glutAddMenuEntry("Ellongated cells as ellipses"//char(0),33)               !!>> HC 8-4-2022
 
 !menut = glutCreateMenu(menut_handler)
 !call glutAddMenuEntry("cell division"//char(0),1)

@@ -18,24 +18,25 @@
 
 
 
-module biomechanic	!>>>>>>>> by Miquel 17-5-13
+module biomechanic_pola	!>>>>>>>> by Miquel 17-5-13
 
 use general
 use genetic
 use neighboring
+use polarization
 use shell       ! miguel4-11-13
 use io          !!>>HC 13-10-2020 We need this to put a filter into the number of neightbors
 !use nexus       ! Is 3-1-14
 
 contains
 
-subroutine iterdiferencial
+subroutine iterdiferencial_pola
 integer::nodmo,i,j,k,ii
 real*8::a,b,c
 real*8::ox,oy,oz !miguel4-1-13
 
   !CALCULATING FORCES AND MOVEMENT VECTORS
-  call forces !>> TT 24-7-2020
+  call forces_pola !>> TT 24-7-2020
   !print*,"start iteration",getot
   !print*,"check*** p1",px(1),py(1),pz(1)
   !print*,"check*** p2",px(2),py(2),pz(2)
@@ -57,15 +58,14 @@ real*8::ox,oy,oz !miguel4-1-13
     delta=deltamin
 !    delta=deltamax 
   end if
-  
                       
   if (delta>deltamax) delta=deltamax
   if (delta<deltamin) delta=deltamin
-end subroutine iterdiferencial
+end subroutine iterdiferencial_pola
 
 !***************************************************************************************************
 
-subroutine rungekutta4(d)  ! Runge-Kutta fourth order integration
+subroutine rungekutta4_pola(d)  ! Runge-Kutta fourth order integration
 real*8 d,halfd,sixthd
 real*8 ox(nd),oy(nd),oz(nd)
 real*8 kux(nd),kuy(nd),kuz(nd)
@@ -86,11 +86,11 @@ node(:nd)%x=node(:nd)%x+halfd*px(:nd)
 node(:nd)%y=node(:nd)%y+halfd*py(:nd)
 node(:nd)%z=node(:nd)%z+halfd*pz(:nd)
 if (ffu(27)==1)then                         !!>> HC 12-7-2021
-   if(nd>1) call neighbor_build             !!>> HC 12-7-2021 
+   if(nd>1) call neighbor_build_pola             !!>> HC 12-7-2021 
    if(ffu(24)==0) call restore_neighbors    !!>> HC 12-7-2021  Algorithm that restores lost ADD neighbors
-   call forces                              !!>> HC 12-7-2021  This is the normal version of forces that takes distances from dneigh         
+   call forces_pola                              !!>> HC 12-7-2021  This is the normal version of forces that takes distances from dneigh         
 else                                        !!>> HC 12-7-2021
-   call forces_calculating_distances        !!>> HC 12-7-2021  In this version we calculate the distances in forces
+   call forces_calculating_distances_pola        !!>> HC 12-7-2021  In this version we calculate the distances in forces
 endif                                       !!>> HC 12-7-2021
 
 kdx=px(:nd) ; kdy=py(:nd) ; kdz=pz(:nd)
@@ -100,11 +100,11 @@ node(:nd)%x=node(:nd)%x+halfd*px(:nd)
 node(:nd)%y=node(:nd)%y+halfd*py(:nd)
 node(:nd)%z=node(:nd)%z+halfd*pz(:nd)
 if (ffu(27)==1)then                         !!>> HC 12-7-2021
-   if(nd>1) call neighbor_build             !!>> HC 12-7-2021
+   if(nd>1) call neighbor_build_pola             !!>> HC 12-7-2021
    if(ffu(24)==0) call restore_neighbors    !!>> HC 12-7-2021 Algorithm that restores lost ADD neighbors
-   call forces                              !!>> HC 12-7-2021 This is the normal version of forces that takes distances from dneigh             
+   call forces_pola                              !!>> HC 12-7-2021 This is the normal version of forces that takes distances from dneigh             
 else                                        !!>> HC 12-7-2021
-   call forces_calculating_distances        !!>> HC 12-7-2021 In this version we calculate the distances in forces
+   call forces_calculating_distances_pola        !!>> HC 12-7-2021 In this version we calculate the distances in forces
 endif                                       !!>> HC 12-7-2021
 
 ktx=px(:nd) ; kty=py(:nd) ; ktz=pz(:nd)
@@ -114,11 +114,11 @@ node(:nd)%x=node(:nd)%x+d*px(:nd)
 node(:nd)%y=node(:nd)%y+d*py(:nd)
 node(:nd)%z=node(:nd)%z+d*pz(:nd)
 if (ffu(27)==1)then                         !!>> HC 12-7-2021
-   if(nd>1) call neighbor_build             !!>> HC 12-7-2021
+   if(nd>1) call neighbor_build_pola             !!>> HC 12-7-2021
    if(ffu(24)==0) call restore_neighbors    !!>> HC 12-7-2021 Algorithm that restores lost ADD neighbors
-   call forces                              !!>> HC 12-7-2021 This is the normal version of forces that takes distances from dneigh             
+   call forces_pola                              !!>> HC 12-7-2021 This is the normal version of forces that takes distances from dneigh             
 else                                        !!>> HC 12-7-2021
-   call forces_calculating_distances        !!>> HC 12-7-2021 In this version we calculate the distances in forces
+   call forces_calculating_distances_pola        !!>> HC 12-7-2021 In this version we calculate the distances in forces
 endif                                       !!>> HC 12-7-2021
 
 kqx=px(:nd) ; kqy=py(:nd) ; kqz=pz(:nd)
@@ -131,7 +131,7 @@ end subroutine
 
 !***************************************************************************************************
 
-subroutine adaptive_rungekutta
+subroutine adaptive_rungekutta_pola
 real*8 ox(nd),oy(nd),oz(nd)
 real*8 aux(nd),auy(nd),auz(nd)
 real*8 adx(nd),ady(nd),adz(nd)
@@ -144,13 +144,13 @@ invdelta=1d0/delta
 
 ox=node(:nd)%x ; oy=node(:nd)%y ; oz=node(:nd)%z
 
-call rungekutta4(delta)
+call rungekutta4_pola(delta)
 
 aux=node(:nd)%x ; auy=node(:nd)%y ; auz=node(:nd)%z
 node(:nd)%x=ox  ; node(:nd)%y=oy  ; node(:nd)%z=oz
 
-call rungekutta4(halfdelta)
-call rungekutta4(halfdelta)
+call rungekutta4_pola(halfdelta)
+call rungekutta4_pola(halfdelta)
 
 adx=node(:nd)%x ; ady=node(:nd)%y ; adz=node(:nd)%z
 
@@ -195,7 +195,7 @@ end subroutine
 !***************************************************************************************************
 !***************************************************************************************************
 
-subroutine forces
+subroutine forces_pola
 real*8   ::ix,iy,iz,dd
 real*8   ::a,b,c,d,e,f,g
 integer  ::celi,celj,nod
@@ -238,7 +238,7 @@ integer  ::epinveins(nd)      ! we store how many same-side epithelial neighbors
 integer  ::alone              ! 0 if the node is really alone
 integer  ::whichend           ! For filtering too many neighbors !!>>HC 17-11-2020
 character*300 ::cxhc          ! For filtering too many neighbors !!>>HC 17-11-2020
-
+integer :: itt, mitt
 
   if (aut==0) then
     vcilx=0 ; vcily=0 ; vcilz=0 ; vsprx=0     !force vectors storage matrices, for different components
@@ -307,6 +307,13 @@ character*300 ::cxhc          ! For filtering too many neighbors !!>>HC 17-11-20
         alone=1
         cycle
       end if
+      
+      do itt=1, nneigh(ic)
+        if(neigh(ic,itt) .eq. nod)then
+          mitt=itt
+          exit
+        end if
+      end do
 
       !so it turns out that the nod-ic interactions has not been calculated before
       bx=node(ic)%x   ; by=node(ic)%y    ; bz=node(ic)%z
@@ -332,7 +339,7 @@ character*300 ::cxhc          ! For filtering too many neighbors !!>>HC 17-11-20
               ddd=abs(dotp)*md  !vertical component
               ad=d**2-ddd**2 ; if(ad<epsilod) ad=epsilod
               ad=sqrt(ad)              !lateral component
-              if (ad-nodda-node(ic)%add>epsilod .and. ffu(23)==1)cycle
+              if (ad-ADDe(nod,i)-ADDe(ic,mitt)>epsilod .and. ffu(23)==1)cycle
               pesco=dotp*md**2
               a=1.0d0/ad              
               uvx=(ccx-mcx*pesco)*a ; uvy=(ccy-mcy*pesco)*a ; uvz=(ccz-mcz*pesco)*a  !unit vector of the within cilinder force !el modul és el mateix que el vector c
@@ -348,7 +355,7 @@ character*300 ::cxhc          ! For filtering too many neighbors !!>>HC 17-11-20
                  dotp=cx*ccx+cy*ccy+cz*ccz
                  if (dotp<epsilod) then         ! projection of the vector from nod to ic into the vector from nod to iv
                     ddd=-dotp*udd                 ! that is the distance UP in the direction of altre
-                    a=nodda+node(ic)%add
+                    a=ADDe(nod,i)+ADDe(ic,mitt)
                     if (ddd-a<epsilod) then
                        ddd=d**2-ad**2 ;if(ddd<epsilod) ddd=epsilod
                        ddd=sqrt(ddd)              !lateral component
@@ -364,7 +371,7 @@ character*300 ::cxhc          ! For filtering too many neighbors !!>>HC 17-11-20
                  md=1d0/sqrt(md)
                  dotp=mcx*ccx+mcy*ccy+mcz*ccz
                  ad=abs(dotp)*md  !vertical component
-                 a=nodda+node(ic)%add
+                 a=ADDe(nod,i)+ADDe(ic,mitt)
                  if (ad-a<epsilod)then
                     ddd=d**2-ad**2 ;if(ddd<epsilod) ddd=epsilod
                     ddd=sqrt(ddd)              !lateral component
@@ -386,7 +393,7 @@ character*300 ::cxhc          ! For filtering too many neighbors !!>>HC 17-11-20
               dotp=cx*ccx+cy*ccy+cz*ccz                     
               if (dotp<epsilod) then         ! projection of the vector from nod to ic into the vector from nod to iv
                 ddd=-dotp*udd                 ! that is the distance UP in the direction of altre
-                a=nodda+node(ic)%add
+                a=ADDe(nod,i)+ADDe(ic,mitt)
                 if (ddd-a<epsilod) then
                   ad=d**2-ddd**2 ;if(ad<epsilod) ad=epsilod
                   ad=sqrt(ad)              !lateral component
@@ -406,7 +413,7 @@ character*300 ::cxhc          ! For filtering too many neighbors !!>>HC 17-11-20
           dotp=(cx*ccx+cy*ccy+cz*ccz)!;print*,"dotp epi-mes",dotp,nod,ic !hi ha un vector del revés, per tant això està al revés també
           if (dotp<0.0) then
             ddd=abs(dotp*udd)    !vertical component
-            a=nodda+node(ic)%add
+            a=ADDe(nod,i)+ADDe(ic,mitt)
             if (ddd-a<epsilod) then
               ad=d**2-ddd**2 ;if(ad<epsilod) ad=epsilod
               ad=sqrt(ad)              !lateral component
@@ -428,7 +435,7 @@ character*300 ::cxhc          ! For filtering too many neighbors !!>>HC 17-11-20
           dotp=icx*ccx+icy*ccy+icz*ccz  !hi ha un vector del revés, per tant això està al revés també
           if (dotp>0.0) then
             ddd=dotp*idd        !vertical component
-            a=nodda+node(ic)%add
+            a=ADDe(nod,i)+ADDe(ic,mitt)
             if (ddd-a<0.0) then
               ad=d**2-ddd**2 ;if(ad<epsilod) ad=epsilod
               ad=sqrt(ad)              !lateral component
@@ -443,7 +450,7 @@ character*300 ::cxhc          ! For filtering too many neighbors !!>>HC 17-11-20
           end if
         else
           fd=d !BOTH NODES ARE NON-EPITHELIAL: we just consider the interactions between nodes as such
-          if (fd-nodda-node(ic)%add>epsilod) cycle
+          if (fd-ADDe(nod,i)-ADDe(ic,mitt)>epsilod) cycle
           uvx=ccx*ud ; uvy=ccy*ud ; uvz=ccz*ud  !unit vector of the within cilinder force !el modul és el mateix que el vector c
         end if
       end if
@@ -465,14 +472,14 @@ character*300 ::cxhc          ! For filtering too many neighbors !!>>HC 17-11-20
   
       !ALL THAT WAS JUST TO CALCULATE THE RIGHT DISTANCE BETWEEN NODES, fd, NOW WE CALCULATE THE ACTUAL ENERGIES
         if(node(nod)%icel==node(ic)%icel)then    !>> HC 12-6-2020 forces back to normal
-          deqe=(reqnod+node(ic)%eqd)             !>>>> Miquel 16-8-13
+          deqe=(EQDe(nod,i)+EQDe(ic,mitt))             !>>>> Miquel 16-8-13
           if(fd-deqe<-epsilod)then 	         !>> HC 12-6-2020 			
             f=(fd-deqe)*(repnod+node(ic)%rep)     !>>>> Miquel 16-8-13
           else                                   !>> HC 12-6-2020
             f=(younod+node(ic)%you)*(fd-deqe)                                                  !>> HC 27-7-2020
           end if                                 !>> HC 12-6-2020
         else                                     !>> HC 12-6-2020
-          deqe=(reqnod+node(ic)%eqd)             !>>>> Miquel 16-8-13
+          deqe=(EQDe(nod,i)+EQDe(ic,mitt))             !>>>> Miquel 16-8-13
           if(fd-deqe<-epsilod)then               !>> HC 12-6-2020
             f=(repcelnod+node(ic)%rec)*(fd-deqe)                  !>> HC 12-6-2020 !in fact that is the derivative of the energy
           else                                   !>> HC 12-6-2020
@@ -629,37 +636,37 @@ return !X! THIS IS THE END         !!>> HC 17-11-2020
 ! 12 = BROKEN EPITHELIUM                                 !!>> HC 18-9-2020
 ! 13 = BLACK HOLES                                       !!>> HC 18-9-2020
 
-171  print *,""                                                                                                 !!>> HC 17-11-2020
-  if (ffu(22)==0)then                                                                                           !!>> HC 4-2-2021
-      print *," THIS IS THE END all cells are differentiated and then the simulations stop",trim(carg)          !!>> HC 17-11-2020
-      print *,""                                                                                                !!>> HC 17-11-2020
-      print*,"reason to end:",whichend                                                                          !!>> HC 17-11-2020
-  endif                                                                                                         !!>> HC 4-2-2021
-  open(616, file=trim(carg)//".loga")                                                                            !!>> HC 20-2-2021 We want to know
-      write(616,*) "reason to end:",whichend                                                                    !!>> HC 17-11-2020 why we killed this indv
-  close(616)                                                                                                    !!>> HC 17-11-2020
-  cxhc="pwd >> "//trim(carg)//".logb"                                                                           !!>> HC 29-9-2021 Save the name of the individual (evolution)
-  call system(cxhc)                                                                                             !!>> HC 29-9-2021
-  cxhc="paste "//trim(carg)//".logb "//trim(carg)//".loga > "//trim(carg)//".log"                               !!>> HC 29-9-2021 paste the name and the reason to end
-  call system(cxhc)                                                                                             !!>> HC 29-9-2021 Remove the temporal files
-  cxhc="rm "//trim(carg)//".logb"                                                                               !!>> HC 29-9-2021
-  call system(cxhc)                                                                                             !!>> HC 29-9-2021
-  cxhc="rm "//trim(carg)//".loga"                                                                               !!>> HC 29-9-2021
-  call system(cxhc)                                                                                             !!>> HC 29-9-2021
-  if (ffufi(whichend,2)==1)then                                                                                 !!>> HC 20-2-2021  If the end is lethal 
-      cxhc='echo "0.00" > '//trim(carg)//'fitness'                                                              !!>> HC 17-11-2020 We kill the embryo 
-      call system(cxhc)                                                                                         !!>> HC 17-11-2020 and it has no fitness 
+171  print *,""                                                                                                 !!>> HC 20-11-2021
+  if (ffu(22)==0)then                                                                                           !!>> HC 20-11-2021
+      print *," THIS IS THE END all cells are differentiated and then the simulations stop",trim(carg)          !!>> HC 20-11-2021
+      print *,""                                                                                                !!>> HC 20-11-2021
+      print*,"reason to end:",whichend                                                                          !!>> HC 20-11-2021
+  endif                                                                                                         !!>> HC 20-11-2021
+  open(616, file=trim(carg)//".loga")                                                                           !!>> HC 20-11-2021 We want to know
+      write(616,*) "reason to end:",whichend                                                                    !!>> HC 20-11-2021 why we killed this indv
+  close(616)                                                                                                    !!>> HC 20-11-2021
+  cxhc="pwd >> "//trim(carg)//".logb"                                                                           !!>> HC 20-11-2021 Save the name of the individual (evolution)
+  call system(cxhc)                                                                                             !!>> HC 20-11-2021
+  cxhc="paste "//trim(carg)//".logb "//trim(carg)//".loga > "//trim(carg)//".log"                               !!>> HC 20-11-2021 paste the name and the reason to end
+  call system(cxhc)                                                                                             !!>> HC 20-11-2021 Remove the temporal files
+  cxhc="rm "//trim(carg)//".logb"                                                                               !!>> HC 20-11-2021
+  call system(cxhc)                                                                                             !!>> HC 20-11-2021
+  cxhc="rm "//trim(carg)//".loga"                                                                               !!>> HC 20-11-2021
+  call system(cxhc)                                                                                             !!>> HC 20-11-2021
+  if (ffufi(whichend,2)==1)then                                                                                 !!>> HC 20-11-2021  If the end is lethal 
+      cxhc='echo "0.00" > '//trim(carg)//'fitness'                                                              !!>> HC 20-11-2021 We kill the embryo 
+      call system(cxhc)                                                                                         !!>> HC 20-11-2021 and it has no fitness 
   endif                                                                                                        
 
-  call writesnap                                                                                                 !!>> HC 17-11-2020  
+  call writesnap                                                                                                !!>> HC 20-11-2021  
   
-  stop                                                                                                          !!>> HC 17-11-2020
-45 print *,"end of file error"                                                                                  !!>> HC 17-11-2020
-  stop                                                                                                          !!>> HC 17-11-2020
-46 print *,"error in writing",trim(carg)//"t"                                                                   !!>> HC 17-11-2020
-  stop                                                                                                          !!>> HC 17-11-2020
-48 print *,"other end"                                                                                          !!>> HC 17-11-2020
-  stop                                                                                                          !!>> HC 17-11-2020
+  stop                                                                                                          !!>> HC 20-11-2021
+45 print *,"end of file error"                                                                                  !!>> HC 20-11-2021
+  stop                                                                                                          !!>> HC 20-11-2021
+46 print *,"error in writing",trim(carg)//"t"                                                                   !!>> HC 20-11-2021
+  stop                                                                                                          !!>> HC 20-11-2021
+48 print *,"other end"                                                                                          !!>> HC 20-11-2021
+  stop                                                                                                          !!>> HC 20-11-2021
 
   
 end subroutine 
@@ -676,7 +683,7 @@ end subroutine
 !***************************************************************************************************
 !***************************************************************************************************
 
-subroutine forces_calculating_distances
+subroutine forces_calculating_distances_pola
 real*8   ::ix,iy,iz,dd
 real*8   ::a,b,c,d,e,f,g
 integer  ::celi,celj,nod
@@ -719,7 +726,7 @@ integer  ::epinveins(nd)      ! we store how many same-side epithelial neighbors
 integer  ::alone              ! 0 if the node is really alone
 integer  ::whichend           ! For filtering too many neighbors !!>>HC 17-11-2020
 character*300 ::cxhc          ! For filtering too many neighbors !!>>HC 17-11-2020
-
+integer :: itt, mitt
 
   if (aut==0) then
     vcilx=0 ; vcily=0 ; vcilz=0 ; vsprx=0     !force vectors storage matrices, for different components
@@ -789,6 +796,13 @@ character*300 ::cxhc          ! For filtering too many neighbors !!>>HC 17-11-20
         cycle
       end if
 
+      do itt=1, nneigh(ic)
+        if(neigh(ic,itt) .eq. nod)then
+          mitt=itt
+          exit
+        end if
+      end do
+
       !so it turns out that the nod-ic interactions has not been calculated before
       bx=node(ic)%x   ; by=node(ic)%y    ; bz=node(ic)%z
       ccx=bx-ix       ; ccy=by-iy        ; ccz=bz-iz		
@@ -813,7 +827,7 @@ character*300 ::cxhc          ! For filtering too many neighbors !!>>HC 17-11-20
               ddd=abs(dotp)*md  !vertical component
               ad=d**2-ddd**2 ; if(ad<epsilod) ad=epsilod
               ad=sqrt(ad)              !lateral component
-              if (ad-nodda-node(ic)%add>epsilod .and. ffu(23)==1)cycle       !!>> HC 1-10-2021   
+              if (ad-ADDe(nod,i)-ADDe(ic,mitt)>epsilod)cycle  !!>> HC 1-10-2021 
               pesco=dotp*md**2
               a=1.0d0/ad              
               uvx=(ccx-mcx*pesco)*a ; uvy=(ccy-mcy*pesco)*a ; uvz=(ccz-mcz*pesco)*a  !unit vector of the within cilinder force !el modul és el mateix que el vector c
@@ -829,7 +843,7 @@ character*300 ::cxhc          ! For filtering too many neighbors !!>>HC 17-11-20
                  dotp=cx*ccx+cy*ccy+cz*ccz
                  if (dotp<epsilod) then         ! projection of the vector from nod to ic into the vector from nod to iv
                     ddd=-dotp*udd                 ! that is the distance UP in the direction of altre
-                    a=nodda+node(ic)%add
+                    a=ADDe(nod,i)+ADDe(ic,mitt)
                     if (ddd-a<epsilod) then
                        ddd=d**2-ad**2 ;if(ddd<epsilod) ddd=epsilod
                        ddd=sqrt(ddd)              !lateral component
@@ -845,7 +859,7 @@ character*300 ::cxhc          ! For filtering too many neighbors !!>>HC 17-11-20
                  md=1d0/sqrt(md)
                  dotp=mcx*ccx+mcy*ccy+mcz*ccz
                  ad=abs(dotp)*md  !vertical component
-                 a=nodda+node(ic)%add
+                 a=ADDe(nod,i)+ADDe(ic,mitt)
                  if (ad-a<epsilod)then
                     ddd=d**2-ad**2 ;if(ddd<epsilod) ddd=epsilod
                     ddd=sqrt(ddd)              !lateral component
@@ -867,7 +881,7 @@ character*300 ::cxhc          ! For filtering too many neighbors !!>>HC 17-11-20
               dotp=cx*ccx+cy*ccy+cz*ccz                     
               if (dotp<epsilod) then         ! projection of the vector from nod to ic into the vector from nod to iv
                 ddd=-dotp*udd                 ! that is the distance UP in the direction of altre
-                a=nodda+node(ic)%add
+                a=ADDe(nod,i)+ADDe(ic,mitt)
                 if (ddd-a<epsilod) then
                   ad=d**2-ddd**2 ;if(ad<epsilod) ad=epsilod
                   ad=sqrt(ad)              !lateral component
@@ -887,7 +901,7 @@ character*300 ::cxhc          ! For filtering too many neighbors !!>>HC 17-11-20
           dotp=(cx*ccx+cy*ccy+cz*ccz)!;print*,"dotp epi-mes",dotp,nod,ic !hi ha un vector del revés, per tant això està al revés també
           if (dotp<0.0) then
             ddd=abs(dotp*udd)    !vertical component
-            a=nodda+node(ic)%add
+            a=ADDe(nod,i)+ADDe(ic,mitt)
             if (ddd-a<epsilod) then
               ad=d**2-ddd**2 ;if(ad<epsilod) ad=epsilod
               ad=sqrt(ad)              !lateral component
@@ -909,7 +923,7 @@ character*300 ::cxhc          ! For filtering too many neighbors !!>>HC 17-11-20
           dotp=icx*ccx+icy*ccy+icz*ccz  !hi ha un vector del revés, per tant això està al revés també
           if (dotp>0.0) then
             ddd=dotp*idd        !vertical component
-            a=nodda+node(ic)%add
+            a=ADDe(nod,i)+ADDe(ic,mitt)
             if (ddd-a<0.0) then
               ad=d**2-ddd**2 ;if(ad<epsilod) ad=epsilod
               ad=sqrt(ad)              !lateral component
@@ -924,7 +938,7 @@ character*300 ::cxhc          ! For filtering too many neighbors !!>>HC 17-11-20
           end if
         else
           fd=d !BOTH NODES ARE NON-EPITHELIAL: we just consider the interactions between nodes as such
-          if (fd-nodda-node(ic)%add>epsilod) cycle
+          if (fd-ADDe(nod,i)-ADDe(ic,mitt)>epsilod) cycle
           uvx=ccx*ud ; uvy=ccy*ud ; uvz=ccz*ud  !unit vector of the within cilinder force !el modul és el mateix que el vector c
         end if
       end if
@@ -946,14 +960,14 @@ character*300 ::cxhc          ! For filtering too many neighbors !!>>HC 17-11-20
   
       !ALL THAT WAS JUST TO CALCULATE THE RIGHT DISTANCE BETWEEN NODES, fd, NOW WE CALCULATE THE ACTUAL ENERGIES
         if(node(nod)%icel==node(ic)%icel)then    !>> HC 12-6-2020 forces back to normal
-          deqe=(reqnod+node(ic)%eqd)             !>>>> Miquel 16-8-13
+          deqe=(EQDe(nod,i)+EQDe(ic,mitt))             !>>>> Miquel 16-8-13
           if(fd-deqe<-epsilod)then 	         !>> HC 12-6-2020 			
             f=(fd-deqe)*(repnod+node(ic)%rep)     !>>>> Miquel 16-8-13
           else                                   !>> HC 12-6-2020
             f=(younod+node(ic)%you)*(fd-deqe)                                                  !>> HC 27-7-2020
           end if                                 !>> HC 12-6-2020
         else                                     !>> HC 12-6-2020
-          deqe=(reqnod+node(ic)%eqd)             !>>>> Miquel 16-8-13
+          deqe=(EQDe(nod,i)+EQDe(ic,mitt))             !>>>> Miquel 16-8-13
           if(fd-deqe<-epsilod)then               !>> HC 12-6-2020
             f=(repcelnod+node(ic)%rec)*(fd-deqe)                  !>> HC 12-6-2020 !in fact that is the derivative of the energy
           else                                   !>> HC 12-6-2020
@@ -1111,43 +1125,43 @@ return !X! THIS IS THE END         !!>> HC 17-11-2020
 ! 12 = BROKEN EPITHELIUM                                 !!>> HC 18-9-2020
 ! 13 = BLACK HOLES                                       !!>> HC 18-9-2020
 
-171  print *,""                                                                                                 !!>> HC 17-11-2020
-  if (ffu(22)==0)then                                                                                           !!>> HC 4-2-2021
-      print *," THIS IS THE END all cells are differentiated and then the simulations stop",trim(carg)          !!>> HC 17-11-2020
-      print *,""                                                                                                !!>> HC 17-11-2020
-      print*,"reason to end:",whichend                                                                          !!>> HC 17-11-2020
-  endif                                                                                                         !!>> HC 4-2-2021
-  open(616, file=trim(carg)//".loga")                                                                            !!>> HC 20-2-2021 We want to know
-      write(616,*) "reason to end:",whichend                                                                    !!>> HC 17-11-2020 why we killed this indv
-  close(616)                                                                                                    !!>> HC 17-11-2020
-  cxhc="pwd >> "//trim(carg)//".logb"                                                                           !!>> HC 29-9-2021 Save the name of the individual (evolution)
-  call system(cxhc)                                                                                             !!>> HC 29-9-2021
-  cxhc="paste "//trim(carg)//".logb "//trim(carg)//".loga > "//trim(carg)//".log"                               !!>> HC 29-9-2021 paste the name and the reason to end
-  call system(cxhc)                                                                                             !!>> HC 29-9-2021 Remove the temporal files
-  cxhc="rm "//trim(carg)//".logb"                                                                               !!>> HC 29-9-2021
-  call system(cxhc)                                                                                             !!>> HC 29-9-2021
-  cxhc="rm "//trim(carg)//".loga"                                                                               !!>> HC 29-9-2021
-  call system(cxhc)                                                                                             !!>> HC 29-9-2021
-  if (ffufi(whichend,2)==1)then                                                                                 !!>> HC 20-2-2021  If the end is lethal 
-      cxhc='echo "0.00" > '//trim(carg)//'fitness'                                                              !!>> HC 17-11-2020 We kill the embryo 
-      call system(cxhc)                                                                                         !!>> HC 17-11-2020 and it has no fitness 
+171  print *,""                                                                                                 !!>> HC 20-11-2021
+  if (ffu(22)==0)then                                                                                           !!>> HC 20-11-2021
+      print *," THIS IS THE END all cells are differentiated and then the simulations stop",trim(carg)          !!>> HC 20-11-2021
+      print *,""                                                                                                !!>> HC 20-11-2021
+      print*,"reason to end:",whichend                                                                          !!>> HC 20-11-2021
+  endif                                                                                                         !!>> HC 20-11-2021
+  open(616, file=trim(carg)//".loga")                                                                           !!>> HC 20-11-2021 We want to know
+      write(616,*) "reason to end:",whichend                                                                    !!>> HC 20-11-2021 why we killed this indv
+  close(616)                                                                                                    !!>> HC 20-11-2021
+  cxhc="pwd >> "//trim(carg)//".logb"                                                                           !!>> HC 20-11-2021 Save the name of the individual (evolution)
+  call system(cxhc)                                                                                             !!>> HC 20-11-2021
+  cxhc="paste "//trim(carg)//".logb "//trim(carg)//".loga > "//trim(carg)//".log"                               !!>> HC 20-11-2021 paste the name and the reason to end
+  call system(cxhc)                                                                                             !!>> HC 20-11-2021 Remove the temporal files
+  cxhc="rm "//trim(carg)//".logb"                                                                               !!>> HC 20-11-2021
+  call system(cxhc)                                                                                             !!>> HC 20-11-2021
+  cxhc="rm "//trim(carg)//".loga"                                                                               !!>> HC 20-11-2021
+  call system(cxhc)                                                                                             !!>> HC 20-11-2021
+  if (ffufi(whichend,2)==1)then                                                                                 !!>> HC 20-11-2021  If the end is lethal 
+      cxhc='echo "0.00" > '//trim(carg)//'fitness'                                                              !!>> HC 20-11-2021 We kill the embryo 
+      call system(cxhc)                                                                                         !!>> HC 20-11-2021 and it has no fitness 
   endif                                                                                                        
 
-  call writesnap                                                                                                 !!>> HC 17-11-2020  
+  call writesnap                                                                                                !!>> HC 20-11-2021  
   
-  stop                                                                                                          !!>> HC 17-11-2020
-45 print *,"end of file error"                                                                                  !!>> HC 17-11-2020
-  stop                                                                                                          !!>> HC 17-11-2020
-46 print *,"error in writing",trim(carg)//"t"                                                                   !!>> HC 17-11-2020
-  stop                                                                                                          !!>> HC 17-11-2020
-48 print *,"other end"                                                                                          !!>> HC 17-11-2020
-  stop                                                                                                          !!>> HC 17-11-2020
+  stop                                                                                                          !!>> HC 20-11-2021
+45 print *,"end of file error"                                                                                  !!>> HC 20-11-2021
+  stop                                                                                                          !!>> HC 20-11-2021
+46 print *,"error in writing",trim(carg)//"t"                                                                   !!>> HC 20-11-2021
+  stop                                                                                                          !!>> HC 20-11-2021
+48 print *,"other end"                                                                                          !!>> HC 20-11-2021
+  stop                                                                                                          !!>> HC 20-11-2021
 
   
-end subroutine 
+end subroutine  
 
 
-subroutine ordenarepeq(ma,mt,rang)
+subroutine ordenarepeq_pola(ma,mt,rang)
   integer rang
   real*8 ma(rang)
   integer mt(rang)
@@ -1159,7 +1173,7 @@ el: do i=1,rang
       do j=1,rang ; if (a>ma(j)) k=k+1 ; end do 
       do j=k,rang ; if (mt(j)==0) then ; mt(j)=i ; cycle el ; end if ; end do
     end do el 
-end subroutine ordenarepeq
+end subroutine ordenarepeq_pola
 
 
-end module biomechanic
+end module biomechanic_pola

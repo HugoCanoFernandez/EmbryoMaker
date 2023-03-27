@@ -32,6 +32,8 @@ use nexus
 use biomechanic
 use genetic
 use energy ! >>> Is 5-6-14
+use polarization
+use biomechanic_pola
 
 public:: iteracio
 
@@ -55,7 +57,7 @@ end subroutine eneinicial
 
 !**************************************************************************
 subroutine prints
-!print *,"getot",getot,"real time",rtime,"nd",nd,"delta",delta,"deltamin",deltamin,node(nd)%x,minval(node(:nd)%diffe)," file ",carg,maxval(gex(:,5))
+!print *,"getot",getot,"real time",rtime,"nd",nd,"delta",delta,"deltamin",deltamin,node(nd)%x,minval(node(:nd)%dif)," file ",carg,maxval(gex(:,5))
 print *,"getot",getot,"real time",rtime,"nd",nd!," file ",carg,delta,deltamin,cels(1)%fase
 !do i=1,ng
 !  print *,i,maxval(gex(:,i))
@@ -74,6 +76,7 @@ real*8::rtf,realtf  !>>>>>>>>>>>Miquel 17-6-13
 integer::cont       !>>>>>>>>>>>Miquel 17-6-13
 real*8::ox,oy,oz !miguel4-1-13
 real*8::rad,nrad,ax,ay,az
+character*200 cxhc  !!>> HC 20-2-2021
 
   realtf=real(tf)   !>>>>>>>>>>>Miquel 17-6-13
   rtf=0d0           !>>>>>>>>>>>Miquel 17-6-13
@@ -112,39 +115,64 @@ real*8::rad,nrad,ax,ay,az
       cels(i)%cex=a*d ; cels(i)%cey=b*d ; cels(i)%cez=c*d
     end do
 
-    rdiffmax=2*maxval(node(:nd)%da)*dmax !>>Miquel27-2-14
+    rdiffmax=2*maxval(node(:nd)%add)*dmax !>>Miquel27-2-14
 
     !calculating neighbors
-    if(nd>1) call neighbor_build
+    if(nd>1)then
+      if(ffu(28)==1 .or. npag(nparam_per_node+17) .eq. 0)then
+        call neighbor_build
+      else
+        call neighbor_build_pola
+      end if
+    end if
+    if(ffu(24)==0)  call restore_neighbors
+    
 
-    if(ffu(23)==0)then
-      call iterdiferencial
+
+    if(ffu(16)==0)then
+      if(ffu(28)==1 .or. npag(nparam_per_node+17) .eq. 0)then
+        call iterdiferencial
+      else
+        call iterdiferencial_pola
+      end if
     else !forces is disabled
       delta=deltamin
     end if
-    call gene_stuff
 
-    call nexe        !nexe should be first >>> Is 13-2-14
+
+    call gene_stuff    !ffu ensemble
+
+
+    if (ffu(26)==1)then        !!>> HC 15-2-2021 
+       call nexe               !!>> HC 15-2-2021  !nexe should be first >>> Is 13-2-14
+    else                       !!>> HC 15-2-2021 
+       call nexe_gradual       !!>> HC 15-2-2021 Gradual implementation of genetic control of cell properties 
+    endif                      !!>> HC 15-2-2021 (it comes from nexe 2 with some 2021 changes)
+  
+    
 
     !UPDATINGS********
     !node positions from forces
-    if (ffu(19)==0) then
-      if (ffu(9)==0) then !euler numerical integration
+    if (ffu(12)==0) then
+      if (ffu(5)==1) then !euler numerical integration
         do i=1,nd                                       ! miguel4-11-13
           node(i)%x=node(i)%x+delta*px(i)               ! miguel4-11-13
           node(i)%y=node(i)%y+delta*py(i)               ! miguel4-11-13
           node(i)%z=node(i)%z+delta*pz(i)               ! miguel4-11-13
-          if(ffu(6).eq.1)then                           ! miguel4-11-13 
-            if(delta*px(i)*py(i)*pz(i).ne.0d0)then      ! miguel4-11-13
-            ox=node(i)%x ; oy=node(i)%y ; oz=node(i)%z  ! >>> Is 7-6-14  
-            call eggshell_forces(i,ox,oy,oz) ;endif     ! miguel4-11-13            
-          end if			                 		    ! miguel4-11-13 
         end do
       else  ! Runge-Kutta order 4 numerical integration
-        call rungekutta4(delta)
+        if(ffu(28)==1 .or. npag(nparam_per_node+17) .eq. 0)then
+          call rungekutta4(delta)
+        else
+          call rungekutta4_pola(delta)
+        end if
       end if
     else
-      call adaptive_rungekutta
+      if(ffu(28)==1 .or. npag(nparam_per_node+17) .eq. 0)then
+        call adaptive_rungekutta
+      else
+        call adaptive_rungekutta_pola
+      end if
     end if
 
     !gene expression
@@ -153,7 +181,7 @@ real*8::rad,nrad,ax,ay,az
 
 
     !RANDOM NOISE
-    if(ffu(23)==0)then
+    if(ffu(16)==0)then
       c=nd*prop_noise*delta/deltamin !now the proportion of nodes is still dynamic, but equal to prop_noise on default  !>>Miquel28-7-14
      !print*,"proportion c",c
       if (c>1) then
@@ -170,83 +198,102 @@ real*8::rad,nrad,ax,ay,az
       do il=1,nd
         call itera
       end do
-    end if   
-    if (nd<1.or.(ffu(2)==1.and.nd>=ndmax)) then !Is 25-12-13
-      out_of_control=1
-      status=10 !implies a 20560 exit status  Is 1-10-14
-      if (nd>ndmax) then 
-        print *,"too many cells, I quit"
-        write(0,*) nd,"nd",ndmax,"ndmax too many cells, I quit"
-      else
-        if (nd<1.or.ncels<1) then  !>>> IS 10-5-14
-          print *,"too few nodes, they all die"
-          write(0,*) nd,"nd",ndmax,"too few cells, they all die"
-        end if
-      end if
-      open(23,file=trim(carg)//"t")
-      print *,"making...",trim(carg)//"t"
-      write(23,*) trim(carg)//trim(nofi)
-      close(23)
-      call exit(status)
-      stop
-    end if
+    end if  
+    
+    ! WHICHEND 4: TOO MANY NODES 
+   ! whichend=0                                                             !!>> HC 26-2-2021 This is already initialized in elli
+    if ((ffu(21)==1.and.ffufi(4,1)==1)) then                                !!>> HC 12-7-2021
+       if (mod(getot,ffufi(4,3)).eq.0)then                                  !!>> HC 20-2-2021
+          if (nd>ndmax) then                                                !!>> HC 20-2-2021
+             out_of_control=1                                               !!>> HC 20-2-2021
+             status=10 !implies a 20560 exit status  Is 1-10-14             !!>> HC 20-2-2021
+             if (ffu(22)==0)then                                            !!>> HC 7-1-2021 FILTER OF MAXIMUM NUMBER OF NODES
+                print *,"too many cells, I quit"                            !!>> HC 7-1-2021 Silent mode
+                write(0,*) nd,"nd",ndmax,"ndmax too many cells, I quit"     !!>> HC 7-1-2021
+             endif                                                          !!>> HC 7-1-2021
+             whichend=4                                                     !!>> HC 7-1-2021
+          endif                                                             !!>> HC 20-2-2021
+       endif                                                                !!>> HC 20-2-2021
+    endif                                                                   !!>> HC 20-2-2021
 
-    ! physical boundaries !!!!!!!!!!!!!!!!
-    if(ffu(14)==1)then
-      do i=1,nd
-      !  if(node(i)%x>2d0) node(i)%x=2d0
-      !  if(node(i)%x<-2d0) node(i)%x=-2d0
-      !  if(node(i)%y>2d0) node(i)%y=2d0
-      !  if(node(i)%y<-2d0) node(i)%y=-2d0
-      !  if(node(i)%z>1d0) node(i)%z=1d0
+    ! WHICHEND 5: NO NODES   
+    if (ffu(21)==1)then                                                     !!>> HC 20-2-2021
+       if (ffufi(5,1)==1.and.ffufi(5,3)>0)then                              !!>> HC 20-2-2021
+          if (mod(getot,ffufi(5,3)).eq.0)then                               !!>> HC 20-2-2021
+             if (nd<1.or.ncels<1)then                                       !!>> HC 20-2-2021
+                out_of_control=1                                            !!>> HC 20-2-2021
+                status=10 !implies a 20560 exit status  Is 1-10-14          !!>> HC 20-2-2021
+                if (ffu(22)==0)then                                         !!>> HC 7-1-2021 FILTER OF NO NODES
+                   print *,"too few nodes, they all die"                    !!>> HC 7-1-2021 Silent mode
+                   write(0,*) nd,"nd",ndmax,"too few cells, they all die"   !!>> HC 7-1-2021
+                endif                                                       !!>> HC 7-1-2021
+                whichend=5                                                  !!>> HC 7-1-2021
+             endif                                                          !!>> HC 20-2-2021
+          endif                                                             !!>> HC 20-2-2021
+       endif                                                                !!>> HC 20-2-2021
+    end if                                                                  !!>> HC 20-2-2021
+   
+    if (whichend==4 .or. whichend==5)then                                   !!>> HC 20-2-2021        
+       open(616, file=trim(carg)//".loga")                                   !!>> HC 20-2-2021 We want to know
+       write(616,*) "reason to end:",whichend                               !!>> HC 17-11-2020 why we killed this indv
+       close(616)                                                           !!>> HC 17-11-2020
+       cxhc="pwd >> "//trim(carg)//".logb"                                  !!>> HC 29-9-2021 Save the name of the individual (evolution)
+       call system(cxhc)                                                    !!>> HC 29-9-2021
+       cxhc="paste "//trim(carg)//".logb "//trim(carg)//".loga > "//trim(carg)//".log"   !!>> HC 29-9-2021 paste the name and the reason to end
+       call system(cxhc)                                                    !!>> HC 29-9-2021 Remove the temporal files
+       cxhc="rm "//trim(carg)//".logb"                                      !!>> HC 29-9-2021
+       call system(cxhc)                                                    !!>> HC 29-9-2021
+       cxhc="rm "//trim(carg)//".loga"                                      !!>> HC 29-9-2021
+       call system(cxhc)                                                    !!>> HC 29-9-2021
+       if (ffufi(whichend,2)==1)then                                        !!>> HC 20-2-2021  If the end is lethal 
+           cxhc='echo "0.00" > '//trim(carg)//'fitness'                     !!>> HC 17-11-2020 We kill the embryo 
+           call system(cxhc)                                                !!>> HC 17-11-2020 and it has no fitness
+       endif                                                                !!>> HC 17-11-2020
 
-        rad=2.41d0
-        ax=node(i)%x ; ay=node(i)%y ; az=node(i)%z
-        d=sqrt(ax**2 + ay**2 + az**2)
-        if(rad-d < epsilod)then
-          d=1d0/d
-          nrad=rad-0.001
-          node(i)%x=ax*d*nrad
-          node(i)%y=ay*d*nrad
-          node(i)%z=az*d*nrad
-        end if
+       call writesnap                                                       !!>> HC 7-1-2021
+       
+       call exit(status)                                                    !!>> HC 20-2-2021
+       stop                                                                 !!>> HC 20-2-2021
+    endif                                                                   !!>> HC 20-2-2021
 
-        !if(node(i)%z>1.0d0)then
-        !  call random_number(a)
-        !  node(i)%z=1.0d0-desmax*a
-        !end if
-      end do
-    end if
+    
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     rtf=rtf+delta
     rtime=rtime+delta
 
     call put_param_to_matrix(param)
 
-    if (mod(getot,fprint)==0) call prints
+    if (mod(getot,fprint)==0 .and. ffu(22)==0) call prints  !!>> HC 30-11-2020 I have added a silent mode 
 
     if (mod(getot,freqsnap).eq.0) then ; if (fsnap==1) then ;call writesnap; end if ; end if
 
     if (mod(getot,100000).eq.0) print *,getot,nd,"getot nd",node(nd)%x
 
-    if (ffu(12)==0) then
-      if (ffu(21)==1) then
+    if (ffu(7)==0) then
+      if (ffu(14)==0) then
 !        print *,"the actual time is",rtf,"delta is",delta
-        if (rtf>=tf) then 
-          print *,"the real time is ",rtime,"we now runned",rtf,"the number of iterations runned are",itf,"and",getot,&
-          "in total : we have",nd,"nodes and",ncels,"cells" 
+        if (rtf>=tf) then                   
+          if (ffu(22)==0)then              !!>> HC 30-11-2020 I have added a silent mode
+             print *,"the real time is ",rtime,"we now runned",rtf,"the number of iterations runned are",itf,"and",getot,&
+             "in total : we have",nd,"nodes and",ncels,"cells" 
+          endif                            !!>> HC 30-11-2020 
           exit 
         end if
       else
 !        print *,delta,"delta",nd,"nd"
-        if (itf==tf) then 
-          print *,"real time is",rtf,"to run a time of ",tf,"delta",delta,"total number of iterations is",getot,"nd",nd,"ncels",ncels
-          exit
+        if (itf==tf) then                   
+           if (ffu(22)==0)then             !!>> HC 30-11-2020 I have added a silent mode
+              print *,"real time is",rtf,"to run a time of ",tf,"delta",delta,"total number of iterations is",getot,&
+              "nd",nd,"ncels",ncels
+           endif                           !!>> HC 30-11-2020 
+           exit
         end if
       end if
     else 
-      if (itf==tf) then 
-        print *,"the number of iterations is",getot," and we just runned",itf,"we have",nd,"nodes and",ncels,"cells" 
+      if (itf==tf) then                    
+        if (ffu(22)==0)then                !!>> HC 30-11-2020 I have added a silent mode 
+           print *,"the number of iterations is",getot," and we just runned",itf,"we have",nd,"nodes and",ncels,"cells" 
+        endif                              !!>> HC 30-11-2020 
         exit
       end if
     end if
@@ -294,9 +341,9 @@ integer   ::nr  !>>> Is 4-3-14
     nodmo=int(a*nd)+1 !ORIGNAL
 
     if (nr>nd*2) return             !>>> Is 4-3-14
-    if(node(nodmo)%hold==2) goto 10 !>>> Is 4-3-14
+    if(node(nodmo)%fix==2) goto 10 !>>> Is 4-3-14
 
-    if(ffu(22)==0) call energia(nodmo)	!energia abans de moure'l !only when noise by energy is activated !>>Miquel28-7-14
+    if(ffu(15)==1) call energia(nodmo)	!energia abans de moure'l !only when noise by energy is activated !>>Miquel28-7-14
 
     oe=node(nodmo)%e
     !mou-lo
@@ -316,7 +363,11 @@ integer   ::nr  !>>> Is 4-3-14
     !desplacament=a*node(nodmo)%dmo
     !a=ran2(idum);
     call random_number(a)
-    desplacament=a*node(nodmo)%dmo
+    if (ffu(9)==1) then                  ! 4-3-2020
+      desplacament=a*node(nodmo)%dmo       ! 4-3-2020
+    else                                   ! 4-3-2020
+      desplacament=a*node(nodmo)%dmo*delta ! 4-3-2020 THIS ONE IS MORE CORRECT    
+    end if
 !if (node(nodmo)%tipus==3) print *,nodmo,node(nodmo)%dmo,a,desplacament,"ds"
     if(desplacament<epsilod) return !no need to run all the energies if the movement is going to be 0 !>>Miquel27-8-14
   !insert biased noise here
@@ -325,7 +376,7 @@ integer   ::nr  !>>> Is 4-3-14
       do k=1,npag(nparam_per_node+16)
         kk=whonpag(nparam_per_node+16,k)
         if (gex(nodmo,kk)>0.0d0) then
-          a=a+gex(nodmo,kk)*gen(kk)%wa(nparam_per_node+16)  !wa in units of probability
+          a=a+gex(nodmo,kk)*gen(kk)%e(nparam_per_node+16)  !wa in units of probability
         end if
       end do
       call random_number(b)
@@ -357,13 +408,13 @@ integer   ::nr  !>>> Is 4-3-14
       cels(celi)%cez=cels(celi)%cez+(node(nodmo)%z-oz)*a
     end if
 
-    if(ffu(22)==1.and.ffu(23)==0) return  !if unbiased nise is activated, we skip all the energy part, the node is simply moved randomly !>>Miquel28-7-14
+    if(ffu(15)==0.and.ffu(16)==0) return  !if unbiased nise is activated, we skip all the energy part, the node is simply moved randomly !>>Miquel28-7-14
     !Calculate energy for new position
-    if(nd>1) call neighbor_build_node(nodmo)   ! >>> Is 29-6-14  ! THIS COULD BE OPTIMIZED
+    if(nd>1) call neighbor_build_node(nodmo)   ! >>> Is 29-6-14  !>> HC 27-5-2020 !>> HC 16-9-2020
+    if(ffu(24)==0) call restore_neighbors
     !call neighbor_build  ! >>> Is 29-6-14  ! THIS COULD BE OPTIMIZED
 
     call energia(nodmo)
-    if (ffu(6)==1) call eggshell(nodmo)                        ! miguel4-11-13
     !acceptes?
     ae=node(nodmo)%e-oe
     if(movi.eq.1)then; goto 432 ; endif   !miguel4-11-13 
@@ -374,9 +425,9 @@ integer   ::nr  !>>> Is 4-3-14
       !cotran=cotran+1 ;if (cotran>nunualea) call llaleat; g=stocas(cotran)
       call random_number(a)
       !a=ran2(idum)
-      kl=temp+node(nodmo)%mo  ! >>> Is 10-10-14
+      kl=temp+node(nodmo)%mov  ! >>> Is 10-10-14
       if (kl<0) kl=epsilod    ! >>> Is 10-10-14
-!if (node(nodmo)%tipus==3) print *,nodmo,node(nodmo)%mo,a,desplacament,"dsr",nue**(-ae/kl)
+!if (node(nodmo)%tipus==3) print *,nodmo,node(nodmo)%mov,a,desplacament,"dsr",nue**(-ae/kl)
       if(a<nue**(-ae/kl)) then ! >>> Is 10-10-14         
         !if(movi.eq.0)then    !miguel22-7-13           ! miguel4-11-13
           accepta=1
@@ -393,12 +444,19 @@ integer   ::nr  !>>> Is 4-3-14
           cels(celi)%cez=ocz
         end if
         !call neighbor_build  ! >>> Is 29-6-14 !THIS COULD BE OPTIMIZED
-        if(nd>1) call neighbor_build_node(nodmo)  ! >>> Is 29-6-14 !THIS COULD BE OPTIMIZED
+        if(nd>1) then
+          if(ffu(28)==1 .or. npag(nparam_per_node+17) .eq. 0)then
+            call neighbor_build_node(nodmo)   ! >>> Is 29-6-14  !>> HC 27-5-2020 !>> HC 16-9-2020
+          else
+            call neighbor_build_node_pola(nodmo)
+          end if
+        end if
+        if(ffu(24)==0) call restore_neighbors
 
         goto 150
       end if
     end if
-    !if(ffu(13)==0)then !only necessary when classic neighboring !this is not necessary anymore !>>Miquel7-3-14
+    !if(ffu(8)==0)then !only necessary when classic neighboring !this is not necessary anymore !>>Miquel7-3-14
     !  if (accepta==1) then
     !    if(abs(node(nodmo)%x*urv)>=nboxes-1.or.abs(node(nodmo)%y*urv)>=nboxes-1.or.abs(node(nodmo)%z*urv)>=nboxes-1) then		!>>>>>>>>>>>>>>>>>>>MIQUEL 4-3-13
     !      call iniboxesll  ;print*,"we remake the boxes"!we got out of the grid and have to remake the grid

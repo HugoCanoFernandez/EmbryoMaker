@@ -65,10 +65,16 @@ character*200 kk
   call iniio              ! this is just to allocate and inicializate the matrices for the variable names and stuff
   call inialea3d(nparti)  ! this is to inicialize the partition of random numbers in a sphere
   !call llaleat            ! this is to read a bunch of random numbers
-  if(ffu(13)==0)then
+  if(ffu(8)==0)then
     call iniboxes           ! this to inicialize the boxes
   end if
   if(nd>1) call neighbor_build
+  if (ffu(24)==0)then                              !!>>HC 6-7-2021
+     if (allocated(cogrid_r)) deallocate(cogrid_r) !!>>HC 17-6-2021
+     allocate(cogrid_r(1:nd,1:nd)); cogrid_r=0     !!>>HC 17-6-2021
+     call fill_co_griders                          !!>>HC 17-6-2021
+     call restore_neighbors                        !!>>HC 17-6-2021
+  endif                                            !!>>HC 6-7-2021
   call put_param_to_matrix(param)
   paramo=param
 
@@ -109,12 +115,12 @@ subroutine default_ic
     case(1);  call epi_apoptosis            !OK ; CHECKED 25-8-14
     case(2);  call mes_cell_sorting         !OK ; CHECKED 25-8-14
     case(3);  call invagination             !OK ; CHECKED 25-8-14
-    case(4);  call epi_polar_growth         !OK ; CHECKED 25-8-14
+    case(4);  call epi_polar_growth_single         !OK ; CHECKED 25-8-14
     case(5);  call epi_mes_ecm         !OK ; CHECKED 25-8-14
     case(6);  call migration              !OK ; CHECKED 25-8-14
     case(7);  call mes_polar_growth                !OK ; CHECKED 25-8-14
-    case(8);  call blastula_ensemble 
-    case(9);  call father
+    case(8);  call blastula_icosahedron 
+    case(9);  call blastula_fibonacci
     case(10);  call father_inva
   end select
 
@@ -150,7 +156,7 @@ subroutine default_ic
 !  call tooth_bud
 !  call delta_notch
 
-
+!call tooth40a
 !call blastuloid
 
 !call founding_father

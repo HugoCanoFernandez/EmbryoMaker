@@ -37,11 +37,11 @@ do ick=1,ncels
   s=0.0d0
   do j=1,cels(ick)%nunodes
     ii=cels(ick)%node(j)
-    c=1-node(ii)%diffe
+    c=1-node(ii)%dif
     do k=1,npag(nparam_per_node+2)
       kk=whonpag(nparam_per_node+2,k)
       if (gex(ii,kk)>0.0d0) then
-        s=s+gex(ii,kk)*gen(kk)%wa(nparam_per_node+2)*c  !wa in units of fase until a fase of 1
+        s=s+gex(ii,kk)*gen(kk)%e(nparam_per_node+2)*c  !wa in units of fase until a fase of 1
       end if
     end do
   end do
@@ -149,7 +149,7 @@ integer,dimension(:)::nodea(cels(celd)%nunodes),nodeb(cels(celd)%nunodes)
       j=cels(celd)%node(kk)
       do jj=1,npag(nparam_per_node+11)    !number of genes affecting growth
         k=whonpag(nparam_per_node+11,jj)  !which are those genes
-        d=d+gex(j,k)*gen(k)%wa(nparam_per_node+11) !this is the ponderation between the hertwig vector and the polarization
+        d=d+gex(j,k)*gen(k)%e(nparam_per_node+11) !this is the ponderation between the hertwig vector and the polarization
       end do                                       ! wa is then in units like a probability, 0-1
     end do
     d=1d0/(1d0+d)  !ponderacion entre vector fisico i quimico
@@ -327,7 +327,7 @@ real*8,dimension(cels(celd)%nunodes)  :: ctot,ctotaux             ! vectors of n
          do i=1,nnod
            j=cels(celd)%node(ntot(i))
            if (gex(j,kk)>0.0d0) then
-             ctot(i)=ctot(i)+gex(j,kk)*gen(kk)%wa(nparam_per_node+12)  !wa in units of probability more or less
+             ctot(i)=ctot(i)+gex(j,kk)*gen(kk)%e(nparam_per_node+12)  !wa in units of probability more or less
            end if
          end do
        end do
@@ -403,7 +403,7 @@ nodd=0 ; noddm=0 ; kk=0
           jj=nodek(ii)
           if(j.ne.jj)then
              a=sqrt((node(j)%x-node(jj)%x)**2+(node(j)%y-node(jj)%y)**2+(node(j)%z-node(jj)%z)**2) 
-             if(a.lt.(node(j)%da+node(jj)%da))then
+             if(a.lt.(node(j)%add+node(jj)%add))then
                 nodd(i,ii)=1
              end if                         
           end if
@@ -478,7 +478,7 @@ if(1==2)then
         alfa=0d0
         do i=1,npag(13)
           j=whonpag(13,i)
-          alfa=alfa+gex(k,j)*gen(j)%wa(13)          
+          alfa=alfa+gex(k,j)*gen(j)%e(13)          
         end do
         ix=0d0 ; iy=0d0 ; iz=0d0                                        ! vector of the gradient within a cell
         do i=1,nnod                                                     
@@ -491,7 +491,7 @@ if(1==2)then
         d=sqrt(ix**2+iy**2+iz**2)
         ix=ix/d ; iy=iy/d ; iz=iz/d 					! unitary resultant vector (gradient polarization)
 !        write(*,*)'xyz gradient',ix,iy,iz,'shape gradient',bx,by,bz	! unitary resultant vector (gradient polarization)
-        d=gen(3)%wa(14)!1d0-(1d0/(1d0+sum(gex(:,5))))                                 
+        d=gen(3)%e(14)!1d0-(1d0/(1d0+sum(gex(:,5))))                                 
           !dependence of the gradient vector (how many it affects to polarization vector)
           ! d=1  ; (a lot of gen5) polarization vector comes only from the gradient    
           ! d=0  ; (no gen 5) polarization vector comes only from its shape       
@@ -507,7 +507,7 @@ if(1==2)then
             if(gex(j,3).le.ix)then; ix=gex(j,3); endif
             if(gex(j,3).ge.iy)then; iy=gex(j,3); endif       
         end do                                                    ! the more absolute differences in (gen3) between nodes 
-        pasim=(1d0-(ix/(2*iy)))*gen(3)%wa(13)                     ! the more assymetric the cell division will be ...
+        pasim=(1d0-(ix/(2*iy)))*gen(3)%e(13)                     ! the more assymetric the cell division will be ...
         write(*,*)'PASIM',pasim                                   ! 0<pasim<1
                                                                   ! pasim=0.5=symmetrical division
         minim=0d0 ; maxim=0d0 !; pasim=0.5
@@ -683,7 +683,7 @@ if(1==2)then
         alfa=0d0
         do i=1,npag(13)
           j=whonpag(13,i)
-          alfa=alfa+gex(k,j)*gen(j)%wa(13)          
+          alfa=alfa+gex(k,j)*gen(j)%e(13)          
         end do
         ix=0d0 ; iy=0d0 ; iz=0d0                                        ! vector of the gradient within a cell
         do i=1,nnod                                                     
@@ -696,7 +696,7 @@ if(1==2)then
         d=sqrt(ix**2+iy**2+iz**2)
         ix=ix/d ; iy=iy/d ; iz=iz/d 					! unitary resultant vector (gradient polarization)
 !        write(*,*)'xyz gradient',ix,iy,iz,'shape gradient',bx,by,bz	! unitary resultant vector (gradient polarization)
-        d=gen(3)%wa(14)!1d0-(1d0/(1d0+sum(gex(:,5))))                                 
+        d=gen(3)%e(14)!1d0-(1d0/(1d0+sum(gex(:,5))))                                 
           !dependence of the gradient vector (how many it affects to polarization vector)
           ! d=1  ; (a lot of gen5) polarization vector comes only from the gradient    
           ! d=0  ; (no gen 5) polarization vector comes only from its shape       
@@ -712,7 +712,7 @@ if(1==2)then
             if(gex(j,3).le.ix)then; ix=gex(j,3); endif
             if(gex(j,3).ge.iy)then; iy=gex(j,3); endif       
         end do                                                    ! the more absolute differences in (gen3) between nodes 
-        pasim=(1d0-(ix/(2*iy)))*gen(3)%wa(13)                     ! the more assymetric the cell division will be ...
+        pasim=(1d0-(ix/(2*iy)))*gen(3)%e(13)                     ! the more assymetric the cell division will be ...
         write(*,*)'PASIM',pasim                                   ! 0<pasim<1
                                                                   ! pasim=0.5=symmetrical division
         minim=0d0 ; maxim=0d0 !; pasim=0.5

@@ -31,7 +31,7 @@ contains
 
 subroutine shellinicial
   !r1=1d0                     ! parameter 1 ; radius of the sphere. It determines the volume of the spheroid. 
-  r1=(nd**(1d0/3d0))*maxval(node(:nd)%req)    !calculated as the sum of volumes of the "req" spheres for all nodes
+  r1=(nd**(1d0/3d0))*maxval(node(:nd)%eqd)    !calculated as the sum of volumes of the "req" spheres for all nodes
   write(*,*)'r1',r1
   exc=0.75d0                 ! parameter 2 ; excentricity (r1=exc*r2)  
   ! exc<0   : as in exc>0
@@ -63,7 +63,7 @@ subroutine shellplot
 integer              :: ptsc,trsc
 real*8               :: pex,pey,pez,alfa,marg
 
-  pts=20 ; ptsc=1 ; marg=maxval(node(:nd)%req)
+  pts=20 ; ptsc=1 ; marg=maxval(node(:nd)%eqd)
 
   if(allocated(shellp))then;deallocate(shellp);endif
   allocate(shellp(2+int(pts*pts),3)) 
