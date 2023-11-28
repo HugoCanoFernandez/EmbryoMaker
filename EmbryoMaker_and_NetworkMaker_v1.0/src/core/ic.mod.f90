@@ -56,6 +56,659 @@ subroutine default_values  !IS 2-1-14
     prec=0.1  ! Is 26-8-14
     angletor=0.00 !Miquel15-9-14
     ldi=epsilod
+    maxad=15.0d0 !!>> HC 16-6-2020
+
+end subroutine
+
+
+!*************************************************************************************
+
+subroutine blastula_fibonacci                                            !!>>HC 18-3-2021 This subroutine creates an epithelial sphere full of mesenchymal cells
+implicit none                                                            !!>>HC 18-3-2021 using the Fibonacci algorithm (made by Hugo Cano 18-3-2021)
+integer ::  ich, jch, ord, ord2, newcell                                 !!>>HC 18-3-2021
+real*8 :: radch, reqch, reqch2, dich, addch, addch2                      !!>>HC 18-3-2021
+real*8 :: ratio_add_eqd, ratio_req2_req1                                 !!>>HC 18-3-2021
+real*8 :: goldenmean, goldenangle                                        !!>>HC 18-3-2021
+real*8, allocatable, dimension(:) :: lonch, latch, xch, ych, zch         !!>>HC 18-3-2021
+real*8, allocatable, dimension(:) :: mlonch, mlatch, mxch, mych, mzch    !!>>HC 18-3-2021
+integer :: nmesch, ncelepch, nepch, naltrech                             !!>>HC 18-3-2021
+real*8 :: xmax, xmax1, ymax, zmax, xmin, ymin, zmin, xmin1               !!>>HC 18-3-2021
+integer :: npilech, pilech                                               !!>>HC 19-3-2021
+real*8 :: parpil, dismech, dismch                                        !!>>HC 19-3-2021
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!                           !!>>HC 18-3-2021
+!!!!!!!!!!!!!CONSTANTS!!!!!!!!!!!!!!!!!!!!!!!!                           !!>>HC 18-3-2021
+goldenmean=(sqrt(5.0d0)+1.0)/2.0                                         !!>>HC 18-3-2021 Golden mean, used to calculate the golden angle
+goldenangle=(2.0-goldenmean)*(2.0*pi)                                    !!>>HC 18-3-2021 Golden angle, used to calculate the spheric coordinates
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!                           !!>>HC 18-3-2021 of the blastula
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!                           !!>>HC 18-3-2021
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!                           !!>>HC 18-3-2021
+!!!!PARAMETERS OF THE BLASTULA!!!!!!!!!!!!!!!!                           !!>>HC 18-3-2021
+radch=1.20d0                                                             !!>>HC 18-3-2021 blastula's radius
+reqch=0.12                                                               !!>>HC 18-3-2021 EQD for external epitelial nodes and mesenchyme (type 1 and 3)
+ratio_add_eqd=1.50d0                                                     !!>>HC 18-3-2021 ADD/EQD of nodes
+ratio_req2_req1=0.90d0                                                   !!>>HC 19-3-2021 Ration EQD external nodes/EQD internal nodes
+dich=0.90d0                                                              !!>>HC 18-3-2021 distance between upper and lower epitelial nodes
+nmesch=0!300                                                               !!>>HC 18-3-2021 number of mesenchymal cells
+npilech=3                                                                !!>>HC 19-3-2021 Number of mesenchymal layers
+dismch=0.20d0                                                            !!>>HC 19-3-2021 distance between mesenchimal layers
+ncelepch=1000                                                             !!>>HC 18-3-2021 number of epithelial cells
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!                           !!>>HC 18-3-2021
+!!!!!!!!!!!DERIVED PARAMETERS!!!!!!!!!!!!!!!!!                           !!>>HC 18-3-2021
+
+addch=ratio_add_eqd*reqch                                                !!>>HC 18-3-2021 ADD for external epitelial nodes and mesenchyme (type 1 and 3)
+reqch2=ratio_req2_req1*reqch                                             !!>>HC 19-3-2021 EQD for internal epitelial nodes (type 2)
+addch2=ratio_add_eqd*reqch2                                              !!>>HC 19-3-2021 ADD for internal epitelial nodes (type 2)
+nepch=ncelepch*2                                                         !!>>HC 18-3-2021 Number of epitelial nodes
+ncels=ncelepch+nmesch                                                    !!>>HC 18-3-2021 Total number of cells
+ncals=ncels+10                                                           !!>>HC 18-3-2021 number of cells +10
+nd=nepch+nmesch                                                          !!>>HC 18-3-2021 total number of nodes
+nda=nd+10                                                                !!>>HC 18-3-2021 number of nodes+10
+pilech=nmesch/npilech                                                    !!>>HC 19-3-2021 Number of mesenchymal cells per layer
+parpil=dich/(real(npilech)+2.0d0)                                        !!>>HC 19-3-2021 Distance between layers (percentage from the center)
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!                           !!>>HC 18-3-2021
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!                           !!>>HC 18-3-2021
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!                           !!>>HC 18-3-2021
+!!!!!!!!ALLOCATING MEMORY!!!!!!!!!!!!!!!!!!!!!                           !!>>HC 18-3-2021
+
+if(allocated(xch)) deallocate(xch); allocate(xch(1:ncelepch))            !!>>HC 18-3-2021 These vectors will store the Fibonacci's sphere 
+if(allocated(ych)) deallocate(ych); allocate(ych(1:ncelepch))            !!>>HC 18-3-2021 cartesian coordinates
+if(allocated(zch)) deallocate(zch); allocate(zch(1:ncelepch))            !!>>HC 18-3-2021
+if(allocated(lonch)) deallocate(lonch); allocate(lonch(1:ncelepch))      !!>>HC 18-3-2021 These vectors will store the Fibonacci's sphere 
+if(allocated(latch)) deallocate(latch); allocate(latch(1:ncelepch))      !!>>HC 18-3-2021 spheric coordinates (latch=latitude lonch=longitude)
+lonch=0.0d0; latch=0.0d0                                                 !!>>HC 18-3-2021
+xch=0.0d0; ych=0.0d0; zch=0.0d0                                          !!>>HC 18-3-2021
+
+if(allocated(mxch)) deallocate(mxch); allocate(mxch(1:pilech))           !!>>HC 18-3-2021 These vectors will store the Fibonacci's sphere 
+if(allocated(mych)) deallocate(mych); allocate(mych(1:pilech))           !!>>HC 18-3-2021 cartesian coordinates
+if(allocated(mzch)) deallocate(mzch); allocate(mzch(1:pilech))           !!>>HC 18-3-2021
+if(allocated(mlonch)) deallocate(mlonch); allocate(mlonch(1:pilech))     !!>>HC 18-3-2021 These vectors will store the Fibonacci's sphere 
+if(allocated(mlatch)) deallocate(mlatch); allocate(mlatch(1:pilech))     !!>>HC 18-3-2021 spheric coordinates (latch=latitude lonch=longitude)
+mlonch=0.0d0; mlatch=0.0d0                                               !!>>HC 18-3-2021
+mxch=0.0d0; mych=0.0d0; mzch=0.0d0                                       !!>>HC 18-3-2021
+
+
+if (allocated(node))deallocate(node); allocate(node(1:nda))              !!>>HC 18-3-2021 
+if (allocated(cels))deallocate(cels); allocate(cels(1:ncals))            !!>>HC 18-3-2021
+if(allocated(nodeo)) deallocate(nodeo); allocate(nodeo(nda))             !!>>HC 18-3-2021
+call iniarrays
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!                           !!>>HC 18-3-2021
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!                           !!>>HC 18-3-2021
+   !******* #2 DEFINING MODEL PARAMETERS *******                         !!>>HC 18-3-2021 Here we set the global parameters so that the program can run
+
+    !implementation and initializations                                  !!>>HC 18-3-2021
+    getot=0                                                              !!>>HC 18-3-2021
+    itacc=0                                                              !!>>HC 18-3-2021
+    nparti=1000                                                          !!>>HC 18-3-2021
+    idum=-11111                                                          !!>>HC 18-3-2021
+    idumoriginal=idum                                                    !!>>HC 18-3-2021
+    nvarglobal_out=5                                                     !!>>HC 18-3-2021
+
+    !physical                                                            !!>>HC 18-3-2021
+    temp=0.1d1 !low value is low temperature	                           !!>>HC 18-3-2021
+    desmax=0.001                                                         !!>>HC 18-3-2021
+    resmax=1d-3                                                          !!>>HC 18-3-2021
+    prop_noise=0.10d0                                                    !!>>HC 18-3-2021
+    deltamax=1d-2 ! miguel 14-10-13                                      !!>>HC 18-3-2021
+    dmax=1                                                               !!>>HC 18-3-2021
+    screen_radius=1.0d0                                                  !!>>HC 18-3-2021
+    
+    maxbox=10.0d0                                                        !!>>HC 19-3-2021
+    maxad=5.0d0                                                          !!>>HC 18-3-2021
+    maxcycl=1.50d0                                                       !!>>HC 18-3-2021
+
+    ffu=0                                                                !!>>HC 18-3-2021 
+    ffu(5)=0   !!>> HC 13-7-2021 0= Runge-Kutta integration 
+    ffu(6)=0   !!>> HC 13-7-2021 0= plasticity
+    ffu(9)=0   !!>> HC 13-7-2021 0= NEW VERSION 2021
+    ffu(10)=0  !!>> HC 13-7-2021 0= volume conservation
+    ffu(15)=0  !!>> HC 13-7-2021 0= unbiased random noise (faster)
+    ffu(19)=0  !!>> HC 13-7-2021 0= polarization and polarized division controled by same wa
+    ffu(20)=0  !!>> HC 13-7-2021 0= Maximum value for adhesion (maxad)
+    ffu(23)=0  !!>> HC 13-7-2021 0= only neighbors are the neighbors in ADD range
+    ffu(24)=0  !!>> HC 13-7-2021 0= We recover the lost ADD neighbors
+    ffu(25)=0  !!>> HC 13-7-2021 0= Nutrients limited, maximum global cell cycle increase (maxcycl)
+    ffu(26)=0  !!>> HC 13-7-2021 0= Gradual implementation of cell properties and behaviors
+    ffu(27)=0  !!>> HC 13-7-2021 0= We call to neighbor_build only once in Runge-Kutta
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!                                        !!>>HC 18-3-2021
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!                                        !!>>HC 18-3-2021
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!                                           !!>>HC 18-3-2021
+!!!!!!!!!NODE!!!!!!!!!!!!!!!!!                                           !!>>HC 18-3-2021 HERE WE FILL THE NODE MATRIX
+!!!!!NODE TYPES AND ALTRE/CELL ASIGNATION!!!!!!!!!!                      !!>>HC 18-3-2021
+
+newcell=0                                                                !!>>HC 18-3-2021 We decide node type, altres and cells
+do ich=1,nd                                                              !!>>HC 18-3-2021 
+   if (ich.le.nepch)then                                                 !!>>HC 18-3-2021 This is true for all EPITELIAL nodes
+      if (modulo(ich,2).ne.0)then                                        !!>>HC 18-3-2021 This is true for odd nodes (type 2 nodes go always first)
+         node(ich)%tipus=2                                               !!>>HC 18-3-2021 So this is an odd epitelial node (1,3,5...) and it must be tipus 2
+         node(ich)%altre=ich+1                                           !!>>HC 18-3-2021 Its altre node will be the next node (tipus 1)
+         newcell=newcell+1                                               !!>>HC 18-3-2021 Tipus 2 always goes first, so this node starts a new cell
+         node(ich)%icel=newcell                                          !!>>HC 18-3-2021 Assign the cell to de node
+      else                                                               !!>>HC 18-3-2021
+         node(ich)%tipus=1                                               !!>>HC 18-3-2021 This node is an even node (2,4,6..) and it must be tipus 1
+         node(ich)%altre=ich-1                                           !!>>HC 18-3-2021 Its altre must be the previous node (tipus 1)
+         node(ich)%icel=newcell                                          !!>>HC 18-3-2021 and it is in the same cell than his mate (ie the previous node)
+      endif                                                              !!>>HC 18-3-2021
+   else                                                                  !!>>HC 18-3-2021 This is for MESENCHIMAL nodes
+      newcell=newcell+1                                                  !!>>HC 18-3-2021 Every node belongs to a single cell
+      node(ich)%tipus=3                                                  !!>>HC 18-3-2021 The typus of mesenchymal cells
+      node(ich)%icel=newcell                                             !!>>HC 18-3-2021 Assing the cell
+   endif                                                                 !!>>HC 18-3-2021
+enddo                                                                    !!>>HC 18-3-2021
+
+!!!!!NODE PROPERTIES!!!!!!!!!!                                           !!>>HC 18-3-2021
+do ich=1,nd                                                              !!>>HC 18-3-2021 Here we give the nodes PHYSICAL PROPERTIES
+   if (node(ich)%tipus==1.or.node(ich)%tipus==3)then                     !!>>HC 18-3-2021 External epithelial nodes and mesenchymal nodes have the same size
+      node(ich)%eqd=reqch                                                !!>>HC 18-3-2021 
+      node(ich)%add=addch                                                !!>>HC 18-3-2021 
+   else                                                                  !!>>HC 18-3-2021
+      node(ich)%eqd=reqch2                                               !!>>HC 18-3-2021 
+      node(ich)%add=addch2                                               !!>>HC 18-3-2021 
+   endif                                                                 !!>>HC 18-3-2021
+   node(ich)%grd=node(ich)%eqd                                           !!>>HC 18-3-2021
+   node(ich)%adh=5.0d0; node(ich)%rec=30.0d0                             !!>>HC 18-3-2021
+   node(ich)%erp=80.0d0; node(ich)%est=100.0d0                               !!>>HC 18-3-2021
+   node(ich)%eqs=0.150d0; node(ich)%hoo=10.0d0                           !!>>HC 18-3-2021
+   node(ich)%mov=0.010d0; node(ich)%dmo=0.0010d0                         !!>>HC 18-3-2021
+   node(ich)%pla=0.0d0                                                   !!>>HC 18-3-2021
+   node(ich)%cod=0.0d0;  node(ich)%kvol=0.0d0; node(ich)%pld=0.0d0       !!>>HC 18-3-2021
+enddo                                                                    !!>>HC 18-3-2021
+  
+!!!!!NODE POSITIONS!!!!!!!!!!                                            !!>>HC 18-3-2021 HERE WE DECIDE NODE POSITIONS (FIBONACCI SPHERE)
+do ich=1,ncelepch                                                        !!>>HC 18-3-2021 EPITHELUM
+   latch(ich)=asin(-1.0+2.0*real(ich)/(real(ncelepch)+1))                !!>>HC 18-3-2021 This is the latitude calculated with the golden angle (fibonacci sphere) 
+   lonch(ich)=goldenangle*real(ich)                                      !!>>HC 18-3-2021 This is the longitude calculated with the golden angle (fibonacci sphere) 
+   xch(ich)=cos(lonch(ich))*cos(latch(ich))                              !!>>HC 18-3-2021 This transforms spherical coordinates to cartesian coordinates
+   ych(ich)=sin(lonch(ich))*cos(latch(ich))                              !!>>HC 18-3-2021
+   zch(ich)=sin(latch(ich))                                              !!>>HC 18-3-2021
+enddo                                                                    !!>>HC 18-3-2021
+
+ord=0                                                                    !!>>HC 18-3-2021 We give the cartesian coordinates to the external nodes
+do ich=1,nd                                                              !!>>HC 18-3-2021
+   if (node(ich)%tipus==1)then                                           !!>>HC 18-3-2021
+      ord=ord+1                                                          !!>>HC 18-3-2021
+      node(ich)%x=xch(ord)*radch                                         !!>>HC 18-3-2021 Multiply the coordinate by the radius, otherwise, radius will be =1
+      node(ich)%y=ych(ord)*radch                                         !!>>HC 18-3-2021
+      node(ich)%z=zch(ord)*radch                                         !!>>HC 18-3-2021
+   endif                                                                 !!>>HC 18-3-2021
+enddo                                                                    !!>>HC 18-3-2021
+
+do ich=1,nd                                                              !!>>HC 18-3-2021 We give the cartesian coordinates to the internal nodes
+   if (node(ich)%tipus==2)then                                           !!>>HC 18-3-2021 Basically we multiply the external radius coordinates by the distance between spheres (dich)
+      naltrech=node(ich)%altre                                           !!>>HC 18-3-2021
+      node(ich)%x=node(naltrech)%x*dich                                  !!>>HC 18-3-2021
+      node(ich)%y=node(naltrech)%y*dich                                  !!>>HC 18-3-2021
+      node(ich)%z=node(naltrech)%z*dich                                  !!>>HC 18-3-2021
+   endif                                                                 !!>>HC 18-3-2021
+enddo                                                                    !!>>HC 18-3-2021
+
+do ich=1,pilech                                                          !!>>HC 18-3-2021 MESENCHYMAL NODES
+   mlatch(ich)=asin(-1.0+2.0*real(ich)/(real(pilech)+1))                 !!>>HC 18-3-2021 We create the Fibonacci sphere 
+   mlonch(ich)=goldenangle*real(ich)                                     !!>>HC 18-3-2021 (same as epithelium, but with different node number)
+   mxch(ich)=cos(mlonch(ich))*cos(mlatch(ich))                           !!>>HC 18-3-2021
+   mych(ich)=sin(mlonch(ich))*cos(mlatch(ich))                           !!>>HC 18-3-2021
+   mzch(ich)=sin(mlatch(ich))                                            !!>>HC 18-3-2021
+enddo
+
+ord=nepch                                                                !!>>HC 19-3-2021
+do ich=1,npilech                                                         !!>>HC 19-3-2021 We assign the coordinates to each spherical layer of mesenchymal cells
+   dismech=(radch*dich)-(dismch*ich)                                     !!>>HC 19-3-2021 This is the radius of each mesenchymal spherical layer
+   ord2=0                                                                !!>>HC 19-3-2021
+   do jch=1,pilech                                                       !!>>HC 19-3-2021
+      ord=ord+1                                                          !!>>HC 19-3-2021
+      node(ord)%x=mxch(jch)*dismech                                      !!>>HC 19-3-2021
+      node(ord)%y=mych(jch)*dismech                                      !!>>HC 19-3-2021
+      node(ord)%z=mzch(jch)*dismech                                      !!>>HC 19-3-2021
+   enddo                                                                 !!>>HC 19-3-2021
+enddo                                                                    !!>>HC 19-3-2021
+
+nodeo=node                                                               !!>>HC 19-3-2021 set the original node properties
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!                                  !!>>HC 18-3-2021
+!!!!!!!!!!!!CELLS!!!!!!!!!!!!!!!!!!!!!!                                  !!>>HC 18-3-2021 FILL THE CELS MATRIX
+
+newcell=0                                                                !!>>HC 18-3-2021
+do ich=1,nd                                                              !!>>HC 18-3-2021 EPITHELIUM
+   if (node(ich)%tipus==2)then                                           !!>>HC 18-3-2021 epithelial internal nodes
+      newcell=newcell+1                                                  !!>>HC 18-3-2021 each one belongs to one cell
+      cels(newcell)%ctipus=1                                             !!>>HC 18-3-2021 this cell is ctipus 1=epithelial
+      cels(newcell)%nunodes=2                                            !!>>HC 18-3-2021 it has 2 nodes
+      cels(newcell)%nodela=3                                             !!>>HC 18-3-2021 but the node array has 3 positions
+      call random_number(a)                                              !!>>HC 18-3-2021
+      cels(newcell)%fase=a                                               !!>>HC 18-3-2021 Give a random number to the cells fase
+      if(allocated(cels(newcell)%node)) deallocate(cels(newcell)%node)   !!>>HC 18-3-2021 Allocate the node array inside cells
+      allocate (cels(newcell)%node(3))                                   !!>>HC 18-3-2021
+      cels(newcell)%node(1)=ich                                          !!>>HC 18-3-2021 The node ich belongs to this cell
+      naltrech=node(ich)%altre                                           !!>>HC 18-3-2021 
+      cels(newcell)%cex=(node(ich)%x+node(naltrech)%x)/2                 !!>>HC 18-3-2021 Calculate the cell's centroid as the 
+      cels(newcell)%cey=(node(ich)%y+node(naltrech)%y)/2                 !!>>HC 18-3-2021 midpoint between nodes
+      cels(newcell)%cez=(node(ich)%z+node(naltrech)%z)/2                 !!>>HC 18-3-2021
+   elseif (node(ich)%tipus==1)then                                       !!>>HC 18-3-2021 If this is an external epithelial node
+          cels(newcell)%node(2)=ich                                      !!>>HC 18-3-2021 it belongs to the previously described cell
+          cels(newcell)%node(3)=0                                        !!>>HC 18-3-2021 empty
+   else                                                                  !!>>HC 18-3-2021 MESENCHYME
+          newcell=newcell+1                                              !!>>HC 18-3-2021 each node has its own cell
+          cels(newcell)%ctipus=3                                         !!>>HC 18-3-2021 ctipus for mesenchymal cells
+          cels(newcell)%nunodes=1                                        !!>>HC 18-3-2021 mesenchymal cells only have one node
+          cels(newcell)%nodela=1                                         !!>>HC 18-3-2021 and the actual size of the node array is 1
+          if(allocated(cels(newcell)%node)) deallocate(cels(newcell)%node)  !!>>HC 18-3-2021 Allocate the node array inside cells
+          allocate (cels(newcell)%node(1))                               !!>>HC 18-3-2021
+          cels(newcell)%node(1)=ich                                      !!>>HC 18-3-2021 Assing cell
+          call random_number(a)                                          !!>>HC 18-3-2021
+          cels(newcell)%fase=a                                           !!>>HC 18-3-2021 random cell fase
+          cels(newcell)%cex=node(ich)%x                                  !!>>HC 18-3-2021 centroid coordinates are the coordinates of the node
+          cels(newcell)%cey=node(ich)%y                                  !!>>HC 18-3-2021
+          cels(newcell)%cez=node(ich)%z                                  !!>>HC 18-3-2021
+   endif                                                                 !!>>HC 18-3-2021
+enddo                                                                    !!>>HC 18-3-2021
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!                     !!>>HC 18-3-2021
+!!!!!!!!!!!!!!!!GENES!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!                     !!>>HC 18-3-2021  CREATING THE GENE NETWORK
+
+ng=3                                                                     !!>>HC 18-3-2021
+call initiate_gene                                                       !!>>HC 18-3-2021
+
+print *,nparam_per_node,"nparam si"
+gen(3)%e=1.0d0
+gen(3)%e(nparam_per_node+2)=1.d10
+
+do ich=1,ng                                                              !!>>HC 18-3-2021
+   if(allocated(gen(ich)%t)) deallocate(gen(ich)%t)                      !!>>HC 18-3-2021
+   allocate(gen(ich)%t(1:ng))                                            !!>>HC 18-3-2021
+   gen(ich)%t(:)=0.0d0                                                   !!>>HC 18-3-2021
+   gen(ich)%e(:)=0.0d0                                                   !!>>HC 18-3-2021
+   gen(ich)%diffu=0.0010d0                                               !!>>HC 18-3-2021
+   gen(ich)%mu=0.20d0                                                    !!>>HC 18-3-2021
+   gen(ich)%mich=1.0d0                                                   !!>>HC 18-3-2021
+   gen(ich)%kindof=4.0d0                                                 !!>>HC 18-3-2021
+enddo                                                                    !!>>HC 18-3-2021
+
+gen(3)%kindof=4                                                          !!>>HC 18-3-2021
+gen(3)%diffu=0.0d0                                                       !!>>HC 18-3-2021
+gen(3)%mu=0.0d0                                                          !!>>HC 18-3-2021
+
+if (allocated(gex)) deallocate(gex)                                      !!>>HC 18-3-2021
+allocate(gex(1:nda,1:ng))                                                 !!>>HC 18-3-2021
+gex(:,:)=0                                                               !!>>HC 18-3-2021
+ 
+if (allocated(kadh)) deallocate(kadh)                                    !!>>HC 18-3-2021
+ntipusadh=0                                                              !!>>HC 18-3-2021
+
+
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!                                    !!>>HC 18-3-2021
+  ! WE CREATE THE INITIAL GRADIENTS !                                    !!>>HC 18-3-2021
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!                                    !!>>HC 18-3-2021
+  zmax = maxval(node(:)%z); zmin = minval(node(:)%z)                     !!>>HC 18-3-2021
+  xmax = maxval(node(:)%x); xmin = minval(node(:)%x)                     !!>>HC 18-3-2021
+  ymax = maxval(node(:)%x); ymin = minval(node(:)%x)                     !!>>HC 18-3-2021
+
+  ! Gene 1 is expressed at the top only.                                 !!>>HC 18-3-2021
+  do ich=1, nd                                                           !!>>HC 18-3-2021
+    if(node(ich)%z-zmin .ge. 0.9*(zmax-zmin))then                        !!>>HC 18-3-2021
+      gex(ich,1)=1                                                       !!>>HC 18-3-2021
+      gex(node(ich)%altre,1)=1                                           !!>>HC 18-3-2021
+    end if                                                               !!>>HC 18-3-2021
+  end do                                                                 !!>>HC 18-3-2021
+
+! Gene 2 is expressed in a triangle on side of the embryo.               !!>>HC 18-3-2021
+  xmin1=0.35*(xmax-xmin)+xmin; xmax1=0.65*(xmax-xmin)+xmin               !!>>HC 18-3-2021
+  do ich=1, nd                                                           !!>>HC 18-3-2021
+    if(node(ich)%tipus > 1)cycle                                         !!>>HC 18-3-2021
+    if(node(ich)%x .gt. xmax1 .or. node(ich)%x .lt. xmin1)cycle          !!>>HC 18-3-2021
+    if(node(ich)%y-ymin > 0.4*(ymax-ymin))cycle                          !!>>HC 18-3-2021
+    gex(ich,2) = 10*(node(ich)%x-xmin1)*(xmax1-node(ich)%x)              !!>>HC 18-3-2021
+    gex(node(ich)%altre,2)=gex(ich,2)                                    !!>>HC 18-3-2021
+  end do                                                                 !!>>HC 18-3-2021
+  gex(:,:)=gex(:,:)/maxval(gex(:,:))                                     !!>>HC 18-3-2021
+  
+  do ich=1,nd                                                            !!>>HC 18-3-2021
+     if (node(ich)%tipus.ge.3)then                                       !!>>HC 18-3-2021
+        gex(ich,3)=0.250d0                                               !!>>HC 18-3-2021
+     else                                                                !!>>HC 18-3-2021
+       gex(ich,3)=1.0d0                                                  !!>>HC 18-3-2021
+       if (gex(ich,1)>0.0d0 .and. gex(ich,2)>0.0d0 ) gex(ich,2)=0.0d0    !!>>HC 18-3-2021
+       if (gex(ich,1)>0.0d0) gex(ich,1)=1.0d0                            !!>>HC 18-3-2021
+     endif                                                               !!>>HC 18-3-2021
+  enddo                                                                  !!>>HC 18-3-2021
+         
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+end subroutine
+!*************************************************************************************
+
+
+!*************************************************************************************
+
+subroutine blastula_icosahedron                                          !!>>HC 18-3-2021 This subroutine creates an epithelial sphere full of mesenchymal cells
+implicit none                                                            !!>>HC 18-3-2021 using coordinates already calculated for geodesic icosahedra 
+integer ::  ich, jch, ord, ord2, newcell                                 !!>>HC 18-3-2021 stored in a directory called "ico"
+real*8 :: radch, reqch, reqch2, dich, addch, addch2                      !!>>HC 18-3-2021 (made by Hugo Cano 30-3-2021)
+real*8 :: ratio_add_eqd, ratio_req2_req1                                 !!>>HC 18-3-2021
+real*8 :: goldenmean, goldenangle                                        !!>>HC 18-3-2021
+real*8, allocatable, dimension(:) :: lonch, latch, xch, ych, zch         !!>>HC 18-3-2021
+real*8, allocatable, dimension(:) :: mlonch, mlatch, mxch, mych, mzch    !!>>HC 18-3-2021
+integer :: nmesch, ncelepch, nepch, naltrech                             !!>>HC 18-3-2021
+real*8 :: xmax, xmax1, ymax, zmax, xmin, ymin, zmin, xmin1               !!>>HC 18-3-2021
+integer :: npilech, pilech                                               !!>>HC 19-3-2021
+real*8 :: parpil, dismech, dismch                                        !!>>HC 19-3-2021
+character*100 :: icfile
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!                           !!>>HC 18-3-2021
+!!!!PARAMETERS OF THE BLASTULA!!!!!!!!!!!!!!!!                           !!>>HC 18-3-2021
+radch=1.0d0                                                              !!>>HC 18-3-2021 blastula's radius
+reqch=0.12                                                               !!>>HC 18-3-2021 EQD for external epitelial nodes and mesenchyme (type 1 and 3)
+ratio_add_eqd=1.20d0                                                     !!>>HC 18-3-2021 ADD/EQD of nodes
+ratio_req2_req1=0.90d0                                                   !!>>HC 19-3-2021 Ration EQD external nodes/EQD internal nodes
+dich=0.90d0                                                              !!>>HC 18-3-2021 distance between upper and lower epitelial nodes
+nmesch=80*int((4.0/3.0)*pi*(radch+reqch)**3)!300 !miguel 2021 automatic  !!>>HC 18-3-2021 number of mesenchymal cells
+npilech=3                                                                !!>>HC 19-3-2021 Number of mesenchymal layers
+dismch=0.20d0                                                            !!>>HC 19-3-2021 distance between mesenchimal layers
+!ncelepch=212;  icfile="../ico/geo_ic_coordinates212.dat"                 !!>>HC 31-3-2021 number of epithelial cells
+ncelepch=372;  icfile="../ico/geo_ic_coordinates372.dat"                 !!>>HC 31-3-2021 and path to the file where the icosahedrum coordinates are stored
+!ncelepch=482;  icfile="../ico/geo_ic_coordinates482.dat"                 !!>>HC 31-3-2021 use one of these lines, comment the rest
+!ncelepch=522;  icfile="../ico/geo_ic_coordinates522.dat"                 !!>>HC 31-3-2021
+!ncelepch=632:  icfile="../ico/geo_ic_coordinates632.dat"                 !!>>HC 31-3-2021
+!ncelepch=792;  icfile="../ico/geo_ic_coordinates792.dat"                 !!>>HC 31-3-2021
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!                           !!>>HC 31-3-2021
+!!!!!!!!!!!DERIVED PARAMETERS!!!!!!!!!!!!!!!!!                           !!>>HC 31-3-2021
+
+addch=ratio_add_eqd*reqch                                                !!>>HC 18-3-2021 ADD for external epitelial nodes and mesenchyme (type 1 and 3)
+reqch2=ratio_req2_req1*reqch                                             !!>>HC 19-3-2021 EQD for internal epitelial nodes (type 2)
+addch2=ratio_add_eqd*reqch2                                              !!>>HC 19-3-2021 ADD for internal epitelial nodes (type 2)
+nepch=ncelepch*2                                                         !!>>HC 18-3-2021 Number of epitelial nodes
+ncels=ncelepch+nmesch                                                    !!>>HC 18-3-2021 Total number of cells
+ncals=ncels+10                                                           !!>>HC 18-3-2021 number of cells +10
+nd=nepch+nmesch                                                          !!>>HC 18-3-2021 total number of nodes
+nda=nd+10                                                                !!>>HC 18-3-2021 number of nodes+10
+pilech=nmesch/npilech                                                    !!>>HC 19-3-2021 Number of mesenchymal cells per layer
+parpil=dich/(real(npilech)+2.0d0)                                        !!>>HC 19-3-2021 Distance between layers (percentage from the center)
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!                           !!>>HC 18-3-2021
+!!!!!!!!ALLOCATING MEMORY!!!!!!!!!!!!!!!!!!!!!                           !!>>HC 18-3-2021
+
+if(allocated(xch)) deallocate(xch); allocate(xch(1:ncelepch))            !!>>HC 18-3-2021 These vectors will store the Fibonacci's sphere 
+if(allocated(ych)) deallocate(ych); allocate(ych(1:ncelepch))            !!>>HC 18-3-2021 cartesian coordinates
+if(allocated(zch)) deallocate(zch); allocate(zch(1:ncelepch))            !!>>HC 18-3-2021
+if(allocated(lonch)) deallocate(lonch); allocate(lonch(1:ncelepch))      !!>>HC 18-3-2021 These vectors will store the Fibonacci's sphere 
+if(allocated(latch)) deallocate(latch); allocate(latch(1:ncelepch))      !!>>HC 18-3-2021 spheric coordinates (latch=latitude lonch=longitude)
+lonch=0.0d0; latch=0.0d0                                                 !!>>HC 18-3-2021
+xch=0.0d0; ych=0.0d0; zch=0.0d0                                          !!>>HC 18-3-2021
+
+if(allocated(mxch)) deallocate(mxch); allocate(mxch(1:pilech))           !!>>HC 18-3-2021 These vectors will store the Fibonacci's sphere 
+if(allocated(mych)) deallocate(mych); allocate(mych(1:pilech))           !!>>HC 18-3-2021 cartesian coordinates
+if(allocated(mzch)) deallocate(mzch); allocate(mzch(1:pilech))           !!>>HC 18-3-2021
+if(allocated(mlonch)) deallocate(mlonch); allocate(mlonch(1:pilech))     !!>>HC 18-3-2021 These vectors will store the Fibonacci's sphere 
+if(allocated(mlatch)) deallocate(mlatch); allocate(mlatch(1:pilech))     !!>>HC 18-3-2021 spheric coordinates (latch=latitude lonch=longitude)
+mlonch=0.0d0; mlatch=0.0d0                                               !!>>HC 18-3-2021
+mxch=0.0d0; mych=0.0d0; mzch=0.0d0                                       !!>>HC 18-3-2021
+
+
+if (allocated(node))deallocate(node); allocate(node(1:nda))              !!>>HC 18-3-2021 
+if (allocated(cels))deallocate(cels); allocate(cels(1:ncals))            !!>>HC 18-3-2021
+if(allocated(nodeo)) deallocate(nodeo); allocate(nodeo(nda))             !!>>HC 18-3-2021
+call iniarrays
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!                           !!>>HC 18-3-2021
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!                           !!>>HC 18-3-2021
+   !******* #2 DEFINING MODEL PARAMETERS *******                         !!>>HC 18-3-2021 Here we set the global parameters so that the program can run
+
+    !implementation and initializations                                  !!>>HC 18-3-2021
+    getot=0                                                              !!>>HC 18-3-2021
+    itacc=0                                                              !!>>HC 18-3-2021
+    nparti=1000                                                          !!>>HC 18-3-2021
+    idum=-11111                                                          !!>>HC 18-3-2021
+    idumoriginal=idum                                                    !!>>HC 18-3-2021
+    nvarglobal_out=5                                                     !!>>HC 18-3-2021
+
+    !physical                                                            !!>>HC 18-3-2021
+    temp=0.1d1 !low value is low temperature	                           !!>>HC 18-3-2021
+    desmax=0.001                                                         !!>>HC 18-3-2021
+    resmax=1d-3                                                          !!>>HC 18-3-2021
+    prop_noise=0.10d0                                                    !!>>HC 18-3-2021
+    deltamax=1d-2 ! miguel 14-10-13                                      !!>>HC 18-3-2021
+    dmax=1                                                               !!>>HC 18-3-2021
+    screen_radius=1.0d0                                                  !!>>HC 18-3-2021
+    
+    maxbox=10.0d0                                                        !!>>HC 19-3-2021
+    maxad=5.0d0                                                          !!>>HC 18-3-2021
+    maxcycl=1.50d0                                                       !!>>HC 18-3-2021
+
+    ffu=0                                                                !!>>HC 18-3-2021 
+    ffu(5)=0   !!>> HC 13-7-2021 0= Runge-Kutta integration 
+    ffu(6)=0   !!>> HC 13-7-2021 0= plasticity
+    ffu(9)=0   !!>> HC 13-7-2021 0= NEW VERSION 2021
+    ffu(10)=0  !!>> HC 13-7-2021 0= volume conservation
+    ffu(15)=0  !!>> HC 13-7-2021 0= unbiased random noise (faster)
+    ffu(19)=0  !!>> HC 13-7-2021 0= polarization and polarized division controled by same wa
+    ffu(20)=0  !!>> HC 13-7-2021 0= Maximum value for adhesion (maxad)
+    ffu(23)=0  !!>> HC 13-7-2021 0= only neighbors are the neighbors in ADD range
+    ffu(24)=0  !!>> HC 13-7-2021 0= We recover the lost ADD neighbors
+    ffu(25)=0  !!>> HC 13-7-2021 0= Nutrients limited, maximum global cell cycle increase (maxcycl)
+    ffu(26)=0  !!>> HC 13-7-2021 0= Gradual implementation of cell properties and behaviors
+    ffu(27)=0  !!>> HC 13-7-2021 0= We call to neighbor_build only once in Runge-Kutta
+    
+!!!!!!!!!NODE!!!!!!!!!!!!!!!!!                                           !!>>HC 18-3-2021 HERE WE FILL THE NODE MATRIX
+!!!!!NODE TYPES AND ALTRE/CELL ASIGNATION!!!!!!!!!!                      !!>>HC 18-3-2021
+
+newcell=0                                                                !!>>HC 18-3-2021 We decide node type, altres and cells
+do ich=1,nd                                                              !!>>HC 18-3-2021 
+   if (ich.le.nepch)then                                                 !!>>HC 18-3-2021 This is true for all EPITELIAL nodes
+      if (modulo(ich,2).ne.0)then                                        !!>>HC 18-3-2021 This is true for odd nodes (type 2 nodes go always first)
+         node(ich)%tipus=2                                               !!>>HC 18-3-2021 So this is an odd epitelial node (1,3,5...) and it must be tipus 2
+         node(ich)%altre=ich+1                                           !!>>HC 18-3-2021 Its altre node will be the next node (tipus 1)
+         newcell=newcell+1                                               !!>>HC 18-3-2021 Tipus 2 always goes first, so this node starts a new cell
+         node(ich)%icel=newcell                                          !!>>HC 18-3-2021 Assign the cell to de node
+      else                                                               !!>>HC 18-3-2021
+         node(ich)%tipus=1                                               !!>>HC 18-3-2021 This node is an even node (2,4,6..) and it must be tipus 1
+         node(ich)%altre=ich-1                                           !!>>HC 18-3-2021 Its altre must be the previous node (tipus 1)
+         node(ich)%icel=newcell                                          !!>>HC 18-3-2021 and it is in the same cell than his mate (ie the previous node)
+      endif                                                              !!>>HC 18-3-2021
+   else                                                                  !!>>HC 18-3-2021 This is for MESENCHIMAL nodes
+      newcell=newcell+1                                                  !!>>HC 18-3-2021 Every node belongs to a single cell
+      node(ich)%tipus=3                                                  !!>>HC 18-3-2021 The typus of mesenchymal cells
+      node(ich)%icel=newcell                                             !!>>HC 18-3-2021 Assing the cell
+   endif                                                                 !!>>HC 18-3-2021
+enddo                                                                    !!>>HC 18-3-2021
+
+!!!!!NODE PROPERTIES!!!!!!!!!!                                           !!>>HC 18-3-2021
+do ich=1,nd                                                              !!>>HC 18-3-2021 Here we give the nodes PHYSICAL PROPERTIES
+   if (node(ich)%tipus==1.or.node(ich)%tipus==3)then                     !!>>HC 18-3-2021 External epithelial nodes and mesenchymal nodes have the same size
+      node(ich)%eqd=reqch                                                !!>>HC 18-3-2021 
+      node(ich)%add=addch                                                !!>>HC 18-3-2021 
+   else                                                                  !!>>HC 18-3-2021
+      node(ich)%eqd=reqch2                                               !!>>HC 18-3-2021 
+      node(ich)%add=addch2                                               !!>>HC 18-3-2021 
+   endif                                                                 !!>>HC 18-3-2021
+   node(ich)%grd=node(ich)%eqd                                           !!>>HC 18-3-2021
+   node(ich)%adh=5.0d0; node(ich)%rec=50.0d0                             !!>>HC 18-3-2021
+   node(ich)%erp=20.0d0; node(ich)%est=70.0d0                            !!>>HC 30-3-2021
+   node(ich)%eqs=0.150d0; node(ich)%hoo=10.0d0                           !!>>HC 18-3-2021
+   node(ich)%mov=0.010d0; node(ich)%dmo=0.0010d0                         !!>>HC 18-3-2021
+   node(ich)%pla=0.050d0                                                   !!>>HC 18-3-2021
+   node(ich)%cod=0.0d0;  node(ich)%kvol=0.50d0; node(ich)%pld=0.0d0      !!>>HC 18-3-2021
+enddo                                                                    !!>>HC 18-3-2021
+  
+!!!!!NODE POSITIONS!!!!!!!!!!                                            !!>>HC 30-3-2021 ICOSAHEDRUM COORDINATES  
+open(391, file=trim(icfile))                                             !!>>HC 30-3-2021 already calculated and written in the file                   
+ do ich=1,ncelepch                                                       !!>>HC 30-3-2021
+    read(391,*) xch(ich), ych(ich), zch(ich)                             !!>>HC 30-3-2021
+ enddo                                                                   !!>>HC 30-3-2021
+ close(391)                                                              !!>>HC 30-3-2021
+
+ord=0                                                                    !!>>HC 18-3-2021 We give the cartesian coordinates to the external nodes
+do ich=1,nd                                                              !!>>HC 18-3-2021
+   if (node(ich)%tipus==1)then                                           !!>>HC 18-3-2021
+      ord=ord+1                                                          !!>>HC 18-3-2021
+      node(ich)%x=xch(ord)*radch                                         !!>>HC 18-3-2021 Multiply the coordinate by the radius, otherwise, radius will be =1
+      node(ich)%y=ych(ord)*radch                                         !!>>HC 18-3-2021
+      node(ich)%z=zch(ord)*radch                                         !!>>HC 18-3-2021
+   endif                                                                 !!>>HC 18-3-2021
+enddo                                                                    !!>>HC 18-3-2021
+
+do ich=1,nd                                                              !!>>HC 18-3-2021 We give the cartesian coordinates to the internal nodes
+   if (node(ich)%tipus==2)then                                           !!>>HC 18-3-2021 Basically we multiply the external radius coordinates by the distance between spheres (dich)
+      naltrech=node(ich)%altre                                           !!>>HC 18-3-2021
+      node(ich)%x=node(naltrech)%x*dich                                  !!>>HC 18-3-2021
+      node(ich)%y=node(naltrech)%y*dich                                  !!>>HC 18-3-2021
+      node(ich)%z=node(naltrech)%z*dich                                  !!>>HC 18-3-2021
+   endif                                                                 !!>>HC 18-3-2021
+enddo                                                                    !!>>HC 18-3-2021
+
+!do ich=1,pilech                                                          !!>>HC 18-3-2021 MESENCHYMAL NODES
+!   mlatch(ich)=asin(-1.0+2.0*real(ich)/(real(pilech)+1))                 !!>>HC 18-3-2021 We create the Fibonacci sphere 
+!   mlonch(ich)=goldenangle*real(ich)                                     !!>>HC 18-3-2021 (same as epithelium, but with different node number)
+!   mxch(ich)=cos(mlonch(ich))*cos(mlatch(ich))                           !!>>HC 18-3-2021
+!   mych(ich)=sin(mlonch(ich))*cos(mlatch(ich))                           !!>>HC 18-3-2021
+!   mzch(ich)=sin(mlatch(ich))                                            !!>>HC 18-3-2021
+      
+!enddo
+
+!ord=nepch                                                                !!>>HC 19-3-2021
+!do ich=1,npilech                                                         !!>>HC 19-3-2021 We assign the coordinates to each spherical layer of mesenchymal cells
+!   dismech=(radch*dich)-(dismch*ich)                                     !!>>HC 19-3-2021 This is the radius of each mesenchymal spherical layer
+!   ord2=0                                                                !!>>HC 19-3-2021
+!   do jch=1,pilech                                                       !!>>HC 19-3-2021
+!      ord=ord+1                                                          !!>>HC 19-3-2021
+!      node(ord)%x=mxch(jch)*dismech                                      !!>>HC 19-3-2021
+!      node(ord)%y=mych(jch)*dismech                                      !!>>HC 19-3-2021
+!      node(ord)%z=mzch(jch)*dismech                                      !!>>HC 19-3-2021
+!   enddo                                                                 !!>>HC 19-3-2021
+!enddo                                                                    !!>>HC 19-3-2021
+
+do ich=nepch+1,nd                                 ! Miguel 2021 randomized mesenchyme
+   7757 call random_number(x) ; call random_number(y) ; call random_number(z)
+   xx=radch-reqch ; yy=(0.9*xx)**2
+   x=x*2.0*xx-xx   ; y=y*2.0*xx-xx   ; z=z*2.0*xx-xx
+   if((x**2+y**2+z**2).lt.yy)then 
+     node(ich)%x=x ;  node(ich)%y=y ;  node(ich)%z=z
+   else ; goto 7757 ; end if
+end do
+
+nodeo=node                                                               !!>>HC 19-3-2021 set the original node properties
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!                                  !!>>HC 18-3-2021
+!!!!!!!!!!!!CELLS!!!!!!!!!!!!!!!!!!!!!!                                  !!>>HC 18-3-2021 FILL THE CELS MATRIX
+
+newcell=0                                                                !!>>HC 18-3-2021
+do ich=1,nd                                                              !!>>HC 18-3-2021 EPITHELIUM
+   if (node(ich)%tipus==2)then                                           !!>>HC 18-3-2021 epithelial internal nodes
+      newcell=newcell+1                                                  !!>>HC 18-3-2021 each one belongs to one cell
+      cels(newcell)%ctipus=1                                             !!>>HC 18-3-2021 this cell is ctipus 1=epithelial
+      cels(newcell)%nunodes=2                                            !!>>HC 18-3-2021 it has 2 nodes
+      cels(newcell)%nodela=3                                             !!>>HC 18-3-2021 but the node array has 3 positions
+      call random_number(a)                                              !!>>HC 18-3-2021
+      cels(newcell)%fase=a                                               !!>>HC 18-3-2021 Give a random number to the cells fase
+      if(allocated(cels(newcell)%node)) deallocate(cels(newcell)%node)   !!>>HC 18-3-2021 Allocate the node array inside cells
+      allocate (cels(newcell)%node(3))                                   !!>>HC 18-3-2021
+      cels(newcell)%node(1)=ich                                          !!>>HC 18-3-2021 The node ich belongs to this cell
+      naltrech=node(ich)%altre                                           !!>>HC 18-3-2021 
+      cels(newcell)%cex=(node(ich)%x+node(naltrech)%x)/2                 !!>>HC 18-3-2021 Calculate the cell's centroid as the 
+      cels(newcell)%cey=(node(ich)%y+node(naltrech)%y)/2                 !!>>HC 18-3-2021 midpoint between nodes
+      cels(newcell)%cez=(node(ich)%z+node(naltrech)%z)/2                 !!>>HC 18-3-2021
+   elseif (node(ich)%tipus==1)then                                       !!>>HC 18-3-2021 If this is an external epithelial node
+          cels(newcell)%node(2)=ich                                      !!>>HC 18-3-2021 it belongs to the previously described cell
+          cels(newcell)%node(3)=0                                        !!>>HC 18-3-2021 empty
+   else                                                                  !!>>HC 18-3-2021 MESENCHYME
+          newcell=newcell+1                                              !!>>HC 18-3-2021 each node has its own cell
+          cels(newcell)%ctipus=3                                         !!>>HC 18-3-2021 ctipus for mesenchymal cells
+          cels(newcell)%nunodes=1                                        !!>>HC 18-3-2021 mesenchymal cells only have one node
+          cels(newcell)%nodela=1                                         !!>>HC 18-3-2021 and the actual size of the node array is 1
+          if(allocated(cels(newcell)%node)) deallocate(cels(newcell)%node)  !!>>HC 18-3-2021 Allocate the node array inside cells
+          allocate (cels(newcell)%node(1))                               !!>>HC 18-3-2021
+          cels(newcell)%node(1)=ich                                      !!>>HC 18-3-2021 Assing cell
+          call random_number(a)                                          !!>>HC 18-3-2021
+          cels(newcell)%fase=a                                           !!>>HC 18-3-2021 random cell fase
+          cels(newcell)%cex=node(ich)%x                                  !!>>HC 18-3-2021 centroid coordinates are the coordinates of the node
+          cels(newcell)%cey=node(ich)%y                                  !!>>HC 18-3-2021
+          cels(newcell)%cez=node(ich)%z                                  !!>>HC 18-3-2021
+   endif                                                                 !!>>HC 18-3-2021
+enddo                                                                    !!>>HC 18-3-2021
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!                     !!>>HC 18-3-2021
+!!!!!!!!!!!!!!!!GENES!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!                     !!>>HC 18-3-2021  CREATING THE GENE NETWORK
+
+ng=3                                                                     !!>>HC 18-3-2021
+call initiate_gene                                                       !!>>HC 18-3-2021
+
+do ich=1,ng                                                              !!>>HC 18-3-2021 This sets up gene properties
+   if(allocated(gen(ich)%t)) deallocate(gen(ich)%t)                      !!>>HC 18-3-2021
+   allocate(gen(ich)%t(1:ng))                                            !!>>HC 18-3-2021
+   gen(ich)%t(:)=0.0d0                                                   !!>>HC 18-3-2021
+   gen(ich)%e(:)=0.0d0                                                   !!>>HC 18-3-2021
+   gen(ich)%diffu=0.000d0                                                !!>>HC 18-3-2021
+   gen(ich)%mu=0.0d0                                                     !!>>HC 18-3-2021
+   gen(ich)%mich=1.0d0                                                   !!>>HC 18-3-2021
+   gen(ich)%kindof=4.0d0                                                 !!>>HC 18-3-2021
+enddo                                                                    !!>>HC 18-3-2021
+
+gen(3)%kindof=4                                                          !!>>HC 18-3-2021
+gen(3)%diffu=0.0d0                                                       !!>>HC 18-3-2021
+gen(3)%mu=0.0d0                                                          !!>>HC 18-3-2021
+
+if (allocated(gex)) deallocate(gex)                                      !!>>HC 18-3-2021 allocating matrix of gene expression
+allocate(gex(1:nda,1:ng))                                                 !!>>HC 18-3-2021
+gex(:,:)=0                                                               !!>>HC 18-3-2021
+ 
+if (allocated(kadh)) deallocate(kadh)                                    !!>>HC 18-3-2021 allocating matrix of specific adhesion
+ntipusadh=0                                                              !!>>HC 18-3-2021
+
+
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!                                    !!>>HC 18-3-2021
+  ! WE CREATE THE INITIAL GRADIENTS !                                    !!>>HC 18-3-2021
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!                                    !!>>HC 18-3-2021 We create two gradients
+  zmax = maxval(node(:)%z); zmin = minval(node(:)%z)                     !!>>HC 18-3-2021 
+  xmax = maxval(node(:)%x); xmin = minval(node(:)%x)                     !!>>HC 18-3-2021 
+  ymax = maxval(node(:)%x); ymin = minval(node(:)%x)                     !!>>HC 18-3-2021 
+
+  ! Gene 1 is expressed at the top only.                                 !!>>HC 18-3-2021 Gene 1 is expressed in the animal pole
+  do ich=1, nd                                                           !!>>HC 18-3-2021
+    if(node(ich)%z-zmin .ge. 0.9*(zmax-zmin))then                        !!>>HC 18-3-2021
+      gex(ich,1)=1.0d0                                                   !!>>HC 18-3-2021
+      gex(node(ich)%altre,1)=1                                           !!>>HC 18-3-2021
+    end if                                                               !!>>HC 18-3-2021
+  end do                                                                 !!>>HC 18-3-2021
+
+! Gene 2 is expressed in a triangle on side of the embryo.               !!>>HC 18-3-2021 Gene 2 is expressed in the dorsal area
+  xmin1=0.35*(xmax-xmin)+xmin; xmax1=0.65*(xmax-xmin)+xmin               !!>>HC 18-3-2021
+  do ich=1, nd                                                           !!>>HC 18-3-2021
+    if(node(ich)%tipus > 1)cycle                                         !!>>HC 18-3-2021
+    if(node(ich)%x .gt. xmax1 .or. node(ich)%x .lt. xmin1)cycle          !!>>HC 18-3-2021
+    if(node(ich)%y-ymin > 0.4*(ymax-ymin))cycle                          !!>>HC 18-3-2021
+    if(gex(ich,1)>0.0d0)cycle
+    gex(ich,2) = 1.0d0 !10*(node(ich)%x-xmin1)*(xmax1-node(ich)%x)              !!>>HC 18-3-2021
+    gex(node(ich)%altre,2)=gex(ich,2)                                    !!>>HC 18-3-2021
+  end do                                                                 !!>>HC 18-3-2021
+  gex(:,:)=gex(:,:)/maxval(gex(:,:))                                     !!>>HC 18-3-2021
+  
+  do ich=1,nd                                                            !!>>HC 18-3-2021 Gene 3 is expressed in all the embryo 
+     if (node(ich)%tipus.ge.3)then                                       !!>>HC 18-3-2021 0.5 in mesenchymal nodes
+        gex(ich,3)=0.50d0                                                !!>>HC 23-3-2021 1 in epithelial nodes
+     else                                                                !!>>HC 18-3-2021 (it is the one that will activate division)
+       gex(ich,3)=1.0d0                                                  !!>>HC 18-3-2021
+       if (gex(ich,1)>0.0d0 .and. gex(ich,2)>0.0d0 ) gex(ich,2)=0.0d0    !!>>HC 18-3-2021
+       if (gex(ich,1)>0.0d0) gex(ich,1)=1.0d0                            !!>>HC 18-3-2021
+     endif                                                               !!>>HC 18-3-2021
+  enddo                                                                  !!>>HC 18-3-2021
+         
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+
 
 end subroutine
 
@@ -127,7 +780,7 @@ subroutine epi_mes
     nda=nd+10
 	ncals=ncels+10
     
-    if(radi==1.or.mradi==1) ffu(1)=1
+    if(radi==1.or.mradi==1) ffu(1)=0
   !End initializing dimension parameters
 
     !print*,"nodecel",nodecel,"ncelsepi",ncelsepi,"ncelsmes",ncelsmes,"ndepi",ndepi,"ndmes",ndmes
@@ -169,14 +822,13 @@ subroutine epi_mes
     
     ffu=0
      !spring of the ellipse
-    ffu(2)=0 !to quite if there are too many cells
-    ffu(3)=1 !screening
-    ffu(4)=0 !torsion
-    ffu(5)=0 !external signal source
-    ffu(6)=0 !eggshell miguel4-1-13
-    ffu(12)=0
-    ffu(13)=0
-    ffu(22)=0 !0 = noise biased by energies , 1 = unbiased noise
+    ffu(2)=0 !>>> TT no screening !screening
+    ffu(3)=0 !torsion
+    
+    
+    ffu(7)=0
+    ffu(8)=0
+    ffu(15)=1 !1 = noise biased by energies , 0 = unbiased noise
     
     
    !******* #2 DEFINING NODE MECHANIC PARAMETERS *******
@@ -184,16 +836,16 @@ subroutine epi_mes
     if(radi>0.and.radicel>0)then
       do i=1,ndepi
         node(i)%you=1d1;node(i)%adh=1d1    	!>>Miquel 26-10-12
-        node(i)%rep=1d1;node(i)%repcel=1d1	!>>Miquel 8-10-12
-        node(i)%req=0.25d0 ; node(i)%reqcr=node(i)%req !;node(i)%reqcel=0.25d0;	!>>Miquel 26-10-12!de
-        node(i)%reqs=0.5d0
-        node(i)%da=node(i)%req*1.50; 
-        node(i)%ke=5d1
-        node(i)%tor=5d1
-        !!node(i)%stor=1d1
-        node(i)%mo=temp
+        node(i)%rep=1d1;node(i)%rec=1d1	!>>Miquel 8-10-12
+        node(i)%eqd=0.25d0 ; node(i)%grd=node(i)%eqd !;node(i)%codel=0.25d0;	!>>Miquel 26-10-12!de
+        node(i)%eqs=0.5d0
+        node(i)%add=node(i)%eqd*1.50; 
+        node(i)%hoo=5d1
+        node(i)%erp=5d1
+        !!node(i)%est=1d1
+        node(i)%mov=temp
         node(i)%dmo=desmax
-        node(i)%kplast=1d0
+        node(i)%pla=1d0
         node(i)%kvol=1d1
       end do
     end if
@@ -202,26 +854,26 @@ subroutine epi_mes
     if(mradi>0.and.mradicel>0.and.layer>0)then
       do i=ndepi+1,nd
         node(i)%you=1d1;node(i)%adh=0d0 	!>>Miquel 26-10-12
-        node(i)%rep=1d1;node(i)%repcel=1d1	!>>Miquel 8-10-12
-        node(i)%req=0.25d0 ; node(i)%reqcr=node(i)%req !;node(i)%reqcel=0.25d0	!>>Miquel 26-10-12!de
-        node(i)%reqs=0d0
-        node(i)%da=node(i)%req*1.50 
-        node(i)%ke=0d0   !only for epithelium
-        node(i)%tor=1d0  !only for epithelium
-        !!node(i)%stor=1d1 !only for epithelium
+        node(i)%rep=1d1;node(i)%rec=1d1	!>>Miquel 8-10-12
+        node(i)%eqd=0.25d0 ; node(i)%grd=node(i)%eqd !;node(i)%codel=0.25d0	!>>Miquel 26-10-12!de
+        node(i)%eqs=0d0
+        node(i)%add=node(i)%eqd*1.50 
+        node(i)%hoo=0d0   !only for epithelium
+        node(i)%erp=1d0  !only for epithelium
+        !!node(i)%est=1d1 !only for epithelium
         node(i)%altre=0  !only for epithelium
-        node(i)%mo=temp
+        node(i)%mov=temp
         node(i)%dmo=desmax
       end do
     end if
 
     !General parameters that depend on node parameters
-    rv=2*maxval(node(:)%da)
+    rv=2*maxval(node(:)%add)
 
 
     !Distribution of nodes in space
-    if(radi>0.and.radicel>0)               call epiteli(radi,radicel,zepi,node(1)%req,node(1)%reqs)
-    if(mradi>0.and.mradicel>0.and.layer>0) call mesenq(mradi,mradicel,layer,zmes,node(ndepi+1)%req)
+    if(radi>0.and.radicel>0)               call epiteli(radi,radicel,zepi,node(1)%eqd,node(1)%eqs)
+    if(mradi>0.and.mradicel>0.and.layer>0) call mesenq(mradi,mradicel,layer,zmes,node(ndepi+1)%eqd)
 
     do i=1,nd
       node(i)%orix=node(i)%x ; node(i)%oriy=node(i)%y ; node(i)%oriz=node(i)%z
@@ -242,7 +894,7 @@ subroutine epi_mes
     !End distribution of nodes in space
 
     !Setting boundary nodes (they will be subject to an external force keeping them in their initial position)
-    node(:)%hold=0
+    node(:)%fix=0
 
 
    !******* #3 DEFINING CELL PARAMETERS *******
@@ -250,7 +902,7 @@ subroutine epi_mes
     if(radi>0.and.radicel>0)then
       do i=1,ncelsepi
         cels(i)%fase=0d0
-        mmae=node(cels(i)%node(1))%req
+        mmae=node(cels(i)%node(1))%eqd
         cels(i)%minsize_for_div=cels(i)%nunodes*2
         cels(i)%maxsize_for_div=10000 !>>> Is 5-2-14
       end do
@@ -259,7 +911,7 @@ subroutine epi_mes
     if(mradi>0.and.mradicel>0.and.layer>0)then
       do i=ncelsepi+1,ncels
         cels(i)%fase=0d0
-        mmae=node(cels(i)%node(1))%req
+        mmae=node(cels(i)%node(1))%eqd
         cels(i)%minsize_for_div=cels(i)%nunodes*2
         cels(i)%maxsize_for_div=10000 !>>> Is 5-2-14
       end do
@@ -305,9 +957,9 @@ subroutine epi_mes
    
     node(:)%talone=0.0d0
 
-    ramax=maxval(node(:)%da)*3
+    ramax=maxval(node(:)%add)*3
  
-    node(:)%diffe=0.0d0
+    node(:)%dif=0.0d0
 
 end subroutine
 
@@ -392,7 +1044,7 @@ integer re,rm
     nda=nd+10
 	ncals=ncels+10
     
-    if(radi==1.or.mradi==1) ffu(1)=1
+    if(radi==1.or.mradi==1) ffu(1)=0
   !End initializing dimension parameters
 
 
@@ -435,15 +1087,14 @@ integer re,rm
     
     ffu=0
      !spring of the ellipse
-    ffu(2)=0 !to quite if there are too many cells
-    ffu(3)=1 !screening
-    ffu(4)=0 !torsion
-    ffu(5)=0 !external signal source
-    ffu(6)=0 !eggshell miguel4-1-13
+    ffu(2)=0 !>>> TT no screening !screening
+    ffu(3)=0 !torsion
     
-    ffu(12)=0
-    ffu(13)=0 !neighboring by triangulation
-    ffu(22)=0 !0 = noise biased by energies , 1 = unbiased noise
+    
+    
+    ffu(7)=0
+    ffu(8)=0 !neighboring by triangulation
+    ffu(15)=1 !1 = noise biased by energies , 0 = unbiased noise
 
 
    !******* #2 DEFINING NODE MECHANIC PARAMETERS *******
@@ -451,14 +1102,14 @@ integer re,rm
     if(radi>0.and.radicel>0)then
       do i=1,ndepi
         node(i)%you=1.3d1;node(i)%adh=8d0	!>>Miquel 26-10-12
-        node(i)%rep=1.3d1;node(i)%repcel=1.5d1	!>>Miquel 8-10-12
-        node(i)%req=0.25d0 ; node(i)%reqcr=node(i)%req !;node(i)%reqcel=0.25d0	!>>Miquel 26-10-12!de
-        node(i)%reqs=0.25d0
-        node(i)%da=node(i)%req*1.30  
-        node(i)%ke=1d1
-        node(i)%tor=3d1
-        !!node(i)%stor=3d1
-        node(i)%mo=temp
+        node(i)%rep=1.3d1;node(i)%rec=1.5d1	!>>Miquel 8-10-12
+        node(i)%eqd=0.25d0 ; node(i)%grd=node(i)%eqd !;node(i)%codel=0.25d0	!>>Miquel 26-10-12!de
+        node(i)%eqs=0.25d0
+        node(i)%add=node(i)%eqd*1.30  
+        node(i)%hoo=1d1
+        node(i)%erp=3d1
+        !!node(i)%est=3d1
+        node(i)%mov=temp
         node(i)%dmo=desmax
       end do
     end if
@@ -467,28 +1118,28 @@ integer re,rm
     if(mradi>0.and.mradicel>0.and.layer>0)then
       do i=ndepi+1,nd
         node(i)%you=1d0;node(i)%adh=1d0 	!>>Miquel 26-10-12
-        node(i)%rep=1d0;node(i)%repcel=1d0	!>>Miquel 8-10-12
-        node(i)%req=0.25d0 ;node(i)%reqcr=node(i)%req
-        node(i)%reqs=0d0
-        node(i)%da=node(i)%req*1.3
-        node(i)%ke=0d0   !only for epithelium
-        node(i)%tor=3d1  !only for epithelium
-        !!node(i)%stor=3d1 !only for epithelium
+        node(i)%rep=1d0;node(i)%rec=1d0	!>>Miquel 8-10-12
+        node(i)%eqd=0.25d0 ;node(i)%grd=node(i)%eqd
+        node(i)%eqs=0d0
+        node(i)%add=node(i)%eqd*1.3
+        node(i)%hoo=0d0   !only for epithelium
+        node(i)%erp=3d1  !only for epithelium
+        !!node(i)%est=3d1 !only for epithelium
         node(i)%altre=0  !only for epithelium
-        node(i)%mo=temp
+        node(i)%mov=temp
         node(i)%dmo=desmax
       end do
     end if
 
     !General parameters that depend on node parameters
-    rv=2*maxval(node(:)%da)
+    rv=2*maxval(node(:)%add)
 
 
     !Distribution of nodes in space
-    if(radi>0.and.radicel>0)               call epiteli(radi,radicel,zepi,node(1)%req,node(1)%reqs)
+    if(radi>0.and.radicel>0)               call epiteli(radi,radicel,zepi,node(1)%eqd,node(1)%eqs)
     if(mradi>0.and.mradicel>0.and.layer>0)then
-                       if(packed==0)then ; call mesenq(mradi,mradicel,layer,zmes,node(ndepi+1)%req)
-                       else  ; call mesenq_packed(mradi,mradicel,layer,zmes,node(ndepi+1)%req) ; end if ; end if
+                       if(packed==0)then ; call mesenq(mradi,mradicel,layer,zmes,node(ndepi+1)%eqd)
+                       else  ; call mesenq_packed(mradi,mradicel,layer,zmes,node(ndepi+1)%eqd) ; end if ; end if
 
     do i=1,nd
       node(i)%orix=node(i)%x ; node(i)%oriy=node(i)%y ; node(i)%oriz=node(i)%z
@@ -496,7 +1147,7 @@ integer re,rm
     !End distribution of nodes in space
 
     !Setting boundary nodes (they will be subject to an external force keeping them in their initial position)
-    node(:)%hold=0
+    node(:)%fix=0
 
 
    !******* #3 DEFINING CELL PARAMETERS *******
@@ -504,7 +1155,7 @@ integer re,rm
     if(radi>0.and.radicel>0)then
       do i=1,ncelsepi
         cels(i)%fase=0d0
-        mmae=node(cels(i)%node(1))%req
+        mmae=node(cels(i)%node(1))%eqd
         cels(i)%minsize_for_div=cels(i)%nunodes*2
         cels(i)%maxsize_for_div=cels(i)%nunodes*4 !>>> Is 5-2-14
       end do
@@ -513,7 +1164,7 @@ integer re,rm
     if(mradi>0.and.mradicel>0.and.layer>0)then
       do i=ncelsepi+1,ncels
         cels(i)%fase=0d0
-        mmae=node(cels(i)%node(1))%req
+        mmae=node(cels(i)%node(1))%eqd
         cels(i)%minsize_for_div=cels(i)%nunodes*2
         cels(i)%maxsize_for_div=cels(i)%nunodes*4 !>>> Is 5-2-14
       end do
@@ -529,12 +1180,12 @@ integer re,rm
       gen(1)%diffu=0.5d0 ; gen(1)%kindof=0 ; gen(1)%mu=0.1d0 ! miguel 14-10-13
 
     !Gene-behavior interactions
-      gen(1)%wa(nparam_per_node+1)=1d0
-      gen(1)%wa(nparam_per_node+2)=1d-1
+      gen(1)%e(nparam_per_node+1)=1d0
+      gen(1)%e(nparam_per_node+2)=1d-1
       cels(:)%maxsize_for_div=28
 
     !Gene-gene interactions
-      gen(1)%w(1)=1.0d0
+      gen(1)%t(1)=1.0d0
 
     !Adhesion molecules
 
@@ -556,8 +1207,8 @@ integer re,rm
 
     call update_npag
     node(:)%talone=0.0d0
-    ramax=maxval(node(:)%da)*3
-    node(:)%diffe=0.0d0
+    ramax=maxval(node(:)%add)*3
+    node(:)%dif=0.0d0
 end subroutine
 
 !***********************************************************************************************
@@ -627,7 +1278,7 @@ subroutine epi_mes_growth_and_division
     nda=nd+10
 	ncals=ncels+10
     
-    if(radi==1.or.mradi==1) ffu(1)=1
+    if(radi==1.or.mradi==1) ffu(1)=0
   !End initializing dimension parameters
 
 !  print*,"nodecel",nodecel,"ncelsepi",ncelsepi,"ncelsmes",ncelsmes,"ndepi",ndepi,"ndmes",ndmes
@@ -669,14 +1320,13 @@ subroutine epi_mes_growth_and_division
     
     ffu=0
      !spring of the ellipse
-    ffu(2)=0 !to quite if there are too many cells
-    ffu(3)=1 !screening
-    ffu(4)=0 !torsion
-    ffu(5)=0 !external signal source
-    ffu(6)=0 !eggshell miguel4-1-13
-    ffu(9)=1
-    ffu(19)=1
-    ffu(22)=0 !0 = noise biased by energies , 1 = unbiased noise
+    ffu(2)=0 !>>> TT no screening !screening
+    ffu(3)=0 !torsion
+    
+    
+    ffu(5)=0
+    ffu(12)=1
+    ffu(15)=1 !1 = noise biased by energies , 0 = unbiased noise
 
 
    !******* #2 DEFINING NODE MECHANIC PARAMETERS *******
@@ -684,14 +1334,14 @@ subroutine epi_mes_growth_and_division
     if(radi>0.and.radicel>0)then
       do i=1,ndepi
         node(i)%you=1.3d1;node(i)%adh=8d0	!>>Miquel 26-10-12
-        node(i)%rep=1.3d1;node(i)%repcel=1.5d1	!>>Miquel 8-10-12
-        node(i)%req=0.25d0 ; node(i)%reqcr=node(i)%req !;node(i)%reqcel=0.25d0	!>>Miquel 26-10-12!de
-        node(i)%reqs=0.5d0
-        node(i)%da=node(i)%req*1.30  
-        node(i)%ke=1d1
-        node(i)%tor=1d0
-        !!node(i)%stor=1d1
-        node(i)%mo=temp
+        node(i)%rep=1.3d1;node(i)%rec=1.5d1	!>>Miquel 8-10-12
+        node(i)%eqd=0.25d0 ; node(i)%grd=node(i)%eqd !;node(i)%codel=0.25d0	!>>Miquel 26-10-12!de
+        node(i)%eqs=0.5d0
+        node(i)%add=node(i)%eqd*1.30  
+        node(i)%hoo=1d1
+        node(i)%erp=1d0
+        !!node(i)%est=1d1
+        node(i)%mov=temp
         node(i)%dmo=desmax
       end do
     end if
@@ -700,26 +1350,26 @@ subroutine epi_mes_growth_and_division
     if(mradi>0.and.mradicel>0.and.layer>0)then
       do i=ndepi+1,nd
         node(i)%you=1.3d1;node(i)%adh=8d0	!>>Miquel 26-10-12
-        node(i)%rep=1.3d1;node(i)%repcel=1.5d1	!>>Miquel 8-10-12
-        node(i)%req=0.25d0 ; node(i)%reqcr=node(i)%req !;node(i)%reqcel=0.25d0	!>>Miquel 26-10-12!de
-        node(i)%reqs=0d0
-        node(i)%da=node(i)%req*1.2  
-        node(i)%ke=0d0   !only for epithelium
-        node(i)%tor=1d0  !only for epithelium
-        !!node(i)%stor=1d1 !only for epithelium
+        node(i)%rep=1.3d1;node(i)%rec=1.5d1	!>>Miquel 8-10-12
+        node(i)%eqd=0.25d0 ; node(i)%grd=node(i)%eqd !;node(i)%codel=0.25d0	!>>Miquel 26-10-12!de
+        node(i)%eqs=0d0
+        node(i)%add=node(i)%eqd*1.2  
+        node(i)%hoo=0d0   !only for epithelium
+        node(i)%erp=1d0  !only for epithelium
+        !!node(i)%est=1d1 !only for epithelium
         node(i)%altre=0  !only for epithelium
-        node(i)%mo=temp
+        node(i)%mov=temp
         node(i)%dmo=desmax
       end do
     end if
 
     !General parameters that depend on node parameters
-    rv=2*maxval(node(:)%da)
+    rv=2*maxval(node(:)%add)
 
 
     !Distribution of nodes in space
-    if(radi>0.and.radicel>0)               call epiteli(radi,radicel,zepi,node(1)%req,node(1)%reqs)
-    if(mradi>0.and.mradicel>0.and.layer>0) call mesenq(mradi,mradicel,layer,zmes,node(ndepi+1)%req)
+    if(radi>0.and.radicel>0)               call epiteli(radi,radicel,zepi,node(1)%eqd,node(1)%eqs)
+    if(mradi>0.and.mradicel>0.and.layer>0) call mesenq(mradi,mradicel,layer,zmes,node(ndepi+1)%eqd)
 
     do i=1,nd
       node(i)%orix=node(i)%x ; node(i)%oriy=node(i)%y ; node(i)%oriz=node(i)%z
@@ -727,7 +1377,7 @@ subroutine epi_mes_growth_and_division
     !End distribution of nodes in space
 
     !Setting boundary nodes (they will be subject to an external force keeping them in their initial position)
-    node(:)%hold=0
+    node(:)%fix=0
 
 
    !******* #3 DEFINING CELL PARAMETERS *******
@@ -735,7 +1385,7 @@ subroutine epi_mes_growth_and_division
     if(radi>0.and.radicel>0)then
       do i=1,ncelsepi
         cels(i)%fase=0d0
-        mmae=node(cels(i)%node(1))%req
+        mmae=node(cels(i)%node(1))%eqd
         cels(i)%minsize_for_div=cels(i)%nunodes*2
         cels(i)%maxsize_for_div=20 !>>> Is 5-2-14
       end do
@@ -744,7 +1394,7 @@ subroutine epi_mes_growth_and_division
     if(mradi>0.and.mradicel>0.and.layer>0)then
       do i=ncelsepi+1,ncels
         cels(i)%fase=0d0
-        mmae=node(cels(i)%node(1))%req
+        mmae=node(cels(i)%node(1))%eqd
         cels(i)%minsize_for_div=cels(i)%nunodes*2
         cels(i)%maxsize_for_div=20 !>>> Is 5-2-14
       end do
@@ -760,11 +1410,11 @@ subroutine epi_mes_growth_and_division
       gen(1)%diffu=0.5d0 ; gen(1)%kindof=0 ; gen(1)%mu=0.0d0 ! miguel 14-10-13
 
     !Gene-behavior interactions
-      gen(1)%wa(nparam_per_node+1)=1d-2
-      gen(1)%wa(nparam_per_node+2)=1d-2
+      gen(1)%e(nparam_per_node+1)=1d-2
+      gen(1)%e(nparam_per_node+2)=1d-2
 
     !Gene-gene interactions
-      gen(1)%w(1)=1.0d0
+      gen(1)%t(1)=1.0d0
 
     !Adhesion molecules
 
@@ -786,8 +1436,8 @@ subroutine epi_mes_growth_and_division
 
     call update_npag
     node(:)%talone=0.0d0
-    ramax=maxval(node(:)%da)*3
-    node(:)%diffe=0.0d0
+    ramax=maxval(node(:)%add)*3
+    node(:)%dif=0.0d0
 end subroutine
 
 
@@ -879,7 +1529,7 @@ subroutine mes_polar_growth
     nda=nd+10
 	ncals=ncels+10
     
-    if(radi==1.or.mradi==1) ffu(1)=1
+    if(radi==1.or.mradi==1) ffu(1)=0
   !End initializing dimension parameters
 
 
@@ -921,13 +1571,12 @@ subroutine mes_polar_growth
     
     ffu=0
      !spring of the ellipse
-    ffu(2)=0 !to quite if there are too many cells
-    ffu(3)=1 !screening
-    ffu(4)=0 !torsion
-    ffu(5)=1 !external signal source
-    ffu(6)=0 !eggshell miguel4-1-13
-    ffu(8)=0
-    ffu(22)=0 !0 = noise biased by energies , 1 = unbiased noise
+    ffu(2)=0 !>>> TT no screening !screening
+    ffu(3)=0 !torsion
+    
+    
+    ffu(4)=0
+    ffu(15)=1 !1 = noise biased by energies , 0 = unbiased noise
 
 
    !******* #2 DEFINING NODE MECHANIC PARAMETERS *******
@@ -935,16 +1584,16 @@ subroutine mes_polar_growth
     if(radi>0.and.radicel>0)then
       do i=1,ndepi
         node(i)%you=1d1;node(i)%adh=0d0	!>>Miquel 26-10-12
-        node(i)%rep=1d1;node(i)%repcel=1d1	!>>Miquel 8-10-12
-        node(i)%req=0.25d0 ; node(i)%reqcr=node(i)%req !;node(i)%reqcel=0.25d0	!>>Miquel 26-10-12!de
-        node(i)%reqs=0.5d0
-        node(i)%da=node(i)%req*1.25 
-        node(i)%ke=1d1
-        node(i)%tor=5d-1
-        !!node(i)%stor=1d1
-        node(i)%mo=temp
+        node(i)%rep=1d1;node(i)%rec=1d1	!>>Miquel 8-10-12
+        node(i)%eqd=0.25d0 ; node(i)%grd=node(i)%eqd !;node(i)%codel=0.25d0	!>>Miquel 26-10-12!de
+        node(i)%eqs=0.5d0
+        node(i)%add=node(i)%eqd*1.25 
+        node(i)%hoo=1d1
+        node(i)%erp=5d-1
+        !!node(i)%est=1d1
+        node(i)%mov=temp
         node(i)%dmo=desmax
-        node(i)%acecm=0d0
+        node(i)%ecm=0d0
       end do
     end if
 
@@ -952,29 +1601,29 @@ subroutine mes_polar_growth
     if(mradi>0.and.mradicel>0.and.layer>0)then
       do i=ndepi+1,nd
         node(i)%you=1d1;node(i)%adh=0d0	!>>Miquel 26-10-12
-        node(i)%rep=1d1;node(i)%repcel=1d1	!>>Miquel 8-10-12
-        node(i)%req=0.25d0 ; node(i)%reqcr=node(i)%req !;node(i)%reqcel=0.25d0	!>>Miquel 26-10-12!de
-        node(i)%reqs=0d0
-        node(i)%da=node(i)%req*1.40; 
-        node(i)%ke=0d0   !only for epithelium
-        node(i)%tor=1d0  !only for epithelium
-        !node(i)%stor=1d1 !only for epithelium
+        node(i)%rep=1d1;node(i)%rec=1d1	!>>Miquel 8-10-12
+        node(i)%eqd=0.25d0 ; node(i)%grd=node(i)%eqd !;node(i)%codel=0.25d0	!>>Miquel 26-10-12!de
+        node(i)%eqs=0d0
+        node(i)%add=node(i)%eqd*1.40; 
+        node(i)%hoo=0d0   !only for epithelium
+        node(i)%erp=1d0  !only for epithelium
+        !node(i)%est=1d1 !only for epithelium
         node(i)%altre=0  !only for epithelium
-        node(i)%mo=temp
+        node(i)%mov=temp
         node(i)%dmo=desmax
-        node(i)%acecm=0d0
+        node(i)%ecm=0d0
       end do
     end if
 
     !General parameters that depend on node parameters
-    rv=2*maxval(node(:)%da)
+    rv=2*maxval(node(:)%add)
 
     !Distribution of nodes in space
     !Distribution of nodes in space
-    if(radi>0.and.radicel>0)               call epiteli(radi,radicel,zepi,node(1)%req,node(1)%reqs)
+    if(radi>0.and.radicel>0)               call epiteli(radi,radicel,zepi,node(1)%eqd,node(1)%eqs)
     if(mradi>0.and.mradicel>0.and.layer>0)then
-                       if(packed==0)then ; call mesenq(mradi,mradicel,layer,zmes,node(ndepi+1)%req)
-                       else  ; call mesenq_packed(mradi,mradicel,layer,zmes,node(ndepi+1)%req) ; end if ; end if
+                       if(packed==0)then ; call mesenq(mradi,mradicel,layer,zmes,node(ndepi+1)%eqd)
+                       else  ; call mesenq_packed(mradi,mradicel,layer,zmes,node(ndepi+1)%eqd) ; end if ; end if
 
     do i=1,nd
       node(i)%orix=node(i)%x ; node(i)%oriy=node(i)%y ; node(i)%oriz=node(i)%z
@@ -982,7 +1631,7 @@ subroutine mes_polar_growth
     !End distribution of nodes in space
 
     !Setting boundary nodes (they will be subject to an external force keeping them in their initial position)
-    node(:)%hold=0
+    node(:)%fix=0
 
 
    !******* #3 DEFINING CELL PARAMETERS *******
@@ -990,7 +1639,7 @@ subroutine mes_polar_growth
     if(radi>0.and.radicel>0)then
       do i=1,ncelsepi
         cels(i)%fase=0d0
-        mmae=node(cels(i)%node(1))%req
+        mmae=node(cels(i)%node(1))%eqd
         cels(i)%minsize_for_div=cels(i)%nunodes*2
         cels(i)%maxsize_for_div=10000 !>>> Is 5-2-14
       end do
@@ -999,7 +1648,7 @@ subroutine mes_polar_growth
     if(mradi>0.and.mradicel>0.and.layer>0)then
       do i=ncelsepi+1,ncels
         cels(i)%fase=0d0
-        mmae=node(cels(i)%node(1))%req
+        mmae=node(cels(i)%node(1))%eqd
         cels(i)%minsize_for_div=cels(i)%nunodes*2
         cels(i)%maxsize_for_div=mradi*2 !>>> Is 5-2-14
       end do
@@ -1022,11 +1671,11 @@ subroutine mes_polar_growth
 
 
     !Gene-behavior interactions
-    gen(2)%wa(nparam_per_node+1)=5.0d-1 
-    gen(2)%wa(nparam_per_node+2)=2.0d-2  
-    gen(1)%wa(nparam_per_node+8)=1.0d0  
-    gen(1)%wa(nparam_per_node+11)=0.0d0
-    gen(2)%wa(nparam_per_node+9)=1.0d0
+    gen(2)%e(nparam_per_node+1)=5.0d-1 
+    gen(2)%e(nparam_per_node+2)=2.0d-2  
+    gen(1)%e(nparam_per_node+8)=1.0d0  
+    gen(1)%e(nparam_per_node+11)=0.0d0
+    gen(2)%e(nparam_per_node+9)=1.0d0
 
     gen(:)%diffu=0.1d0
 
@@ -1052,11 +1701,11 @@ subroutine mes_polar_growth
 
     end if
 
-    gen(1)%wa(1)=1
-    gen(2)%wa(1)=2
-    gen(3)%wa(1)=3
-    gen(4)%wa(1)=4
-    gen(5)%wa(1)=5
+    gen(1)%e(1)=1
+    gen(2)%e(1)=2
+    gen(3)%e(1)=3
+    gen(4)%e(1)=4
+    gen(5)%e(1)=5
 
     !Gene expression on nodes
       do i=1,nd
@@ -1069,8 +1718,8 @@ subroutine mes_polar_growth
     call update_npag
 
     node(:)%talone=0.0d0
-    ramax=maxval(node(:)%da)*3
-    node(:)%diffe=0.0d0
+    ramax=maxval(node(:)%add)*3
+    node(:)%dif=0.0d0
 end subroutine 
 
 !*****************************************************************************************
@@ -1136,7 +1785,7 @@ subroutine mes_polar_growth_old
     nda=nd+10
 	ncals=ncels+10
     
-    if(radi==1.or.mradi==1) ffu(1)=1
+    if(radi==1.or.mradi==1) ffu(1)=0
   !End initializing dimension parameters
 
 
@@ -1178,12 +1827,11 @@ subroutine mes_polar_growth_old
     
     ffu=0
      !spring of the ellipse
-    ffu(2)=0 !to quite if there are too many cells
-    ffu(3)=0 !screening
-    ffu(4)=0 !torsion
-    ffu(5)=1 !external signal source
-    ffu(6)=0 !eggshell miguel4-1-13
-    ffu(22)=0 !0 = noise biased by energies , 1 = unbiased noise
+    ffu(2)=0 !screening
+    ffu(3)=0 !torsion
+    
+    
+    ffu(15)=1 !1 = noise biased by energies , 0 = unbiased noise
 
 
    !******* #2 DEFINING NODE MECHANIC PARAMETERS *******
@@ -1191,14 +1839,14 @@ subroutine mes_polar_growth_old
     if(radi>0.and.radicel>0)then
       do i=1,ndepi
         node(i)%you=0d0;node(i)%adh=0d0    	!>>Miquel 26-10-12
-        node(i)%rep=0d0;node(i)%repcel=0d0	!>>Miquel 8-10-12
-        node(i)%req=0d0 !;node(i)%reqcel=0d0	!>>Miquel 26-10-12!de
-        node(i)%reqs=0d0
-        node(i)%da=0d0
-        node(i)%ke=0d0
-        node(i)%tor=1d0
-        !node(i)%stor=1d1
-        node(i)%mo=temp
+        node(i)%rep=0d0;node(i)%rec=0d0	!>>Miquel 8-10-12
+        node(i)%eqd=0d0 !;node(i)%codel=0d0	!>>Miquel 26-10-12!de
+        node(i)%eqs=0d0
+        node(i)%add=0d0
+        node(i)%hoo=0d0
+        node(i)%erp=1d0
+        !node(i)%est=1d1
+        node(i)%mov=temp
         node(i)%dmo=desmax
       end do
     end if
@@ -1207,26 +1855,26 @@ subroutine mes_polar_growth_old
     if(mradi>0.and.mradicel>0.and.layer>0)then
       do i=ndepi+1,nd
         node(i)%you=1d4;node(i)%adh=0d0 	!>>Miquel 26-10-12
-        node(i)%rep=1d4;node(i)%repcel=1d6	!>>Miquel 8-10-12
-        node(i)%req=0.25d0 ; node(i)%reqcr=node(i)%req !;node(i)%reqcel=0.25d0	!>>Miquel 26-10-12!de
-        node(i)%reqs=0.5d0
-        node(i)%da=node(i)%req*1.3 
-        node(i)%ke=0d0   !only for epithelium
-        node(i)%tor=1d0  !only for epithelium
-        !node(i)%stor=1d1 !only for epithelium
+        node(i)%rep=1d4;node(i)%rec=1d6	!>>Miquel 8-10-12
+        node(i)%eqd=0.25d0 ; node(i)%grd=node(i)%eqd !;node(i)%codel=0.25d0	!>>Miquel 26-10-12!de
+        node(i)%eqs=0.5d0
+        node(i)%add=node(i)%eqd*1.3 
+        node(i)%hoo=0d0   !only for epithelium
+        node(i)%erp=1d0  !only for epithelium
+        !node(i)%est=1d1 !only for epithelium
         node(i)%altre=0  !only for epithelium
-        node(i)%mo=temp
+        node(i)%mov=temp
         node(i)%dmo=desmax
       end do
     end if
 
     !General parameters that depend on node parameters
-    rv=2*maxval(node(:)%da)
+    rv=2*maxval(node(:)%add)
 
 
     !Distribution of nodes in space
-    if(radi>0.and.radicel>0)               call epiteli(radi,radicel,zepi,node(1)%req,node(1)%reqs)
-    if(mradi>0.and.mradicel>0.and.layer>0) call mesenq(mradi,mradicel,layer,zmes,node(ndepi+1)%req)
+    if(radi>0.and.radicel>0)               call epiteli(radi,radicel,zepi,node(1)%eqd,node(1)%eqs)
+    if(mradi>0.and.mradicel>0.and.layer>0) call mesenq(mradi,mradicel,layer,zmes,node(ndepi+1)%eqd)
 
     do i=1,nd
       node(i)%orix=node(i)%x ; node(i)%oriy=node(i)%y ; node(i)%oriz=node(i)%z
@@ -1234,7 +1882,7 @@ subroutine mes_polar_growth_old
     !End distribution of nodes in space
 
     !Setting boundary nodes (they will be subject to an external force keeping them in their initial position)
-    node(:)%hold=0
+    node(:)%fix=0
 
 
    !******* #3 DEFINING CELL PARAMETERS *******
@@ -1242,7 +1890,7 @@ subroutine mes_polar_growth_old
     if(radi>0.and.radicel>0)then
       do i=1,ncelsepi
         cels(i)%fase=0d0
-        mmae=node(cels(i)%node(1))%req
+        mmae=node(cels(i)%node(1))%eqd
         cels(i)%minsize_for_div=cels(i)%nunodes*2
         cels(i)%maxsize_for_div=10000 !>>> Is 5-2-14
       end do
@@ -1251,7 +1899,7 @@ subroutine mes_polar_growth_old
     if(mradi>0.and.mradicel>0.and.layer>0)then
       do i=ncelsepi+1,ncels
         cels(i)%fase=0d0
-        mmae=node(cels(i)%node(1))%req
+        mmae=node(cels(i)%node(1))%eqd
         cels(i)%minsize_for_div=cels(i)%nunodes*2    
         cels(i)%maxsize_for_div=10000 !>>> Is 5-2-14
       end do
@@ -1269,15 +1917,15 @@ subroutine mes_polar_growth_old
 
     !Gene-behavior interactions
 
-    gen(2)%wa(nparam_per_node+1)=2.0d-5  
-    gen(2)%wa(nparam_per_node+2)=2.0d-4  
-    gen(1)%wa(nparam_per_node+8)=1.0d0  
-!    gen(1)%wa(nparam_per_node+11)=0.0d0
-    gen(2)%wa(nparam_per_node+9)=0.5d0
+    gen(2)%e(nparam_per_node+1)=2.0d-5  
+    gen(2)%e(nparam_per_node+2)=2.0d-4  
+    gen(1)%e(nparam_per_node+8)=1.0d0  
+!    gen(1)%e(nparam_per_node+11)=0.0d0
+    gen(2)%e(nparam_per_node+9)=0.5d0
 
 
     !Gene-gene interactions
-      gen(2)%w(2)=1.0d0
+      gen(2)%t(2)=1.0d0
 
     !Adhesion molecules
 
@@ -1298,8 +1946,8 @@ subroutine mes_polar_growth_old
 
     call update_npag
     node(:)%talone=0.0d0
-    ramax=maxval(node(:)%da)*3
-    node(:)%diffe=0.0d0
+    ramax=maxval(node(:)%add)*3
+    node(:)%dif=0.0d0
 end subroutine
 
 !**************************************************************************************************************
@@ -1385,7 +2033,7 @@ subroutine epi_growth
     nda=nd+10
 	ncals=ncels+10
     
-    if(radi==1.or.mradi==1) ffu(1)=1
+    if(radi==1.or.mradi==1) ffu(1)=0
   !End initializing dimension parameters
 
   print*,"nd",nd,"nodecel",nodecel,"ncelsepi",ncelsepi,"ncelsmes",ncelsmes,"ndepi",ndepi,"ndmes",ndmes
@@ -1429,15 +2077,15 @@ subroutine epi_growth
     ffu=0
      !spring of the ellipse
     ffu(2)=0 !to quit if there are too many cells
-    ffu(3)=1 !screening
-    ffu(4)=0 !torsion
-    ffu(5)=0 !external signal source
-    ffu(6)=0 !eggshell miguel4-1-13
+    ffu(2)=0 !>>> TT no screening !screening
+    ffu(3)=0 !torsion
+    
+    
 
-    ffu(11)=0 !epithelial node plastic deformation
-    ffu(12)=0 !0 dynamic delta, 1 fixed delta
-    ffu(13)=0 !neighboring by triangulation
-    ffu(22)=0 !0 = noise biased by energies , 1 = unbiased noise
+    ffu(6)=0 !epithelial node plastic deformation
+    ffu(7)=0 !0 dynamic delta, 1 fixed delta
+    ffu(8)=0 !neighboring by triangulation
+    ffu(15)=1 !1 = noise biased by energies , 0 = unbiased noise
 
 
    !******* #2 DEFINING NODE MECHANIC PARAMETERS *******
@@ -1446,21 +2094,21 @@ subroutine epi_growth
       do i=1,ndepi
         if(i<=ndepi/2)then  !basal
           node(i)%you=1d1 ; node(i)%adh=0d0
-          node(i)%rep=1d1 ; node(i)%repcel=1d1
+          node(i)%rep=1d1 ; node(i)%rec=1d1
         else                      !apical
           node(i)%you=1d1 ; node(i)%adh=0d0
-          node(i)%rep=1d1 ; node(i)%repcel=1d1
+          node(i)%rep=1d1 ; node(i)%rec=1d1
         end if
-        node(i)%req=0.25d0 ; node(i)%reqcr=node(i)%req
-        node(i)%reqs=0.25
-        node(i)%da=node(i)%req*1.70; 
-        node(i)%ke=1d1
-        node(i)%tor=5d1
-        !node(i)%stor=1d1
-        node(i)%mo=temp
+        node(i)%eqd=0.25d0 ; node(i)%grd=node(i)%eqd
+        node(i)%eqs=0.25
+        node(i)%add=node(i)%eqd*1.70; 
+        node(i)%hoo=1d1
+        node(i)%erp=5d1
+        !node(i)%est=1d1
+        node(i)%mov=temp
         node(i)%dmo=desmax
-        node(i)%diffe=0d0
-        node(i)%khold=khold
+        node(i)%dif=0d0
+        node(i)%kfi=khold
       end do
     end if
 
@@ -1468,30 +2116,30 @@ subroutine epi_growth
     if(mradi>0.and.mradicel>0.and.layer>0)then
       do i=ndepi+1,nd
         node(i)%you=5d0 ; node(i)%adh=5d0
-        node(i)%rep=1d1 ; node(i)%repcel=1d1
-        node(i)%req=0.25d0 ; node(i)%reqcr=node(i)%req
-        node(i)%reqs=0d0
-        node(i)%da=node(i)%req*1.70
-        node(i)%ke=0d0   !only for epithelium
-        node(i)%tor=1d0  !only for epithelium
-        !node(i)%stor=1d1 !only for epithelium
+        node(i)%rep=1d1 ; node(i)%rec=1d1
+        node(i)%eqd=0.25d0 ; node(i)%grd=node(i)%eqd
+        node(i)%eqs=0d0
+        node(i)%add=node(i)%eqd*1.70
+        node(i)%hoo=0d0   !only for epithelium
+        node(i)%erp=1d0  !only for epithelium
+        !node(i)%est=1d1 !only for epithelium
         node(i)%altre=0  !only for epithelium
-        node(i)%mo=temp
+        node(i)%mov=temp
         node(i)%dmo=desmax
-        node(i)%diffe=0d0
-        node(i)%khold=khold
+        node(i)%dif=0d0
+        node(i)%kfi=khold
       end do
     end if
 
     !General parameters that depend on node parameters
-    rv=2*maxval(node(:)%da)
+    rv=2*maxval(node(:)%add)
 
 
     !Distribution of nodes in space
-    if(radi>0.and.radicel>0)               call epiteli(radi,radicel,zepi,node(1)%req,node(1)%reqs)
+    if(radi>0.and.radicel>0)               call epiteli(radi,radicel,zepi,node(1)%eqd,node(1)%eqs)
     if(mradi>0.and.mradicel>0.and.layer>0)then
-                       if(packed==0)then ; call mesenq(mradi,mradicel,layer,zmes,node(ndepi+1)%req)
-                       else  ; call mesenq_packed(mradi,mradicel,layer,zmes,node(ndepi+1)%req) ; end if ; end if
+                       if(packed==0)then ; call mesenq(mradi,mradicel,layer,zmes,node(ndepi+1)%eqd)
+                       else  ; call mesenq_packed(mradi,mradicel,layer,zmes,node(ndepi+1)%eqd) ; end if ; end if
 
 
     do i=1,nd
@@ -1510,7 +2158,7 @@ subroutine epi_growth
     !End distribution of nodes in space
 
     !Setting boundary nodes (they will be subject to an external force keeping them in their initial position)
-    node(:)%hold=0
+    node(:)%fix=0
     !!let's do it for the most external layer of cells
     !  j=0
     !  do i=1,radicel-2
@@ -1518,14 +2166,14 @@ subroutine epi_growth
     !  end do
     !  j=(6*j+1)*cels(1)%nunodes!nodecel !this is the number of epithelial nodes wich are not external
     !  do i=j+1,ndepi
-    !    node(i)%hold=1
-    !    !node(i)%da=node(i)%req*2.0
+    !    node(i)%fix=1
+    !    !node(i)%add=node(i)%eqd*2.0
     !    !node(i)%orix=0 ; node(i)%oriy=0
     !    !node(i)%oriz=node(i)%oriz-100
-    !    !node(i)%rep=1d1;node(i)%repcel=1d1
-    !    !node(i)%ke=1d1
-    !    !node(i)%tor=1d1
-    !    !!node(i)%stor=1d1
+    !    !node(i)%rep=1d1;node(i)%rec=1d1
+    !    !node(i)%hoo=1d1
+    !    !node(i)%erp=1d1
+    !    !!node(i)%est=1d1
     !  end do
       !j=0
       !do i=1,mradicel-2
@@ -1533,16 +2181,16 @@ subroutine epi_growth
       !end do
       !j=(6*j+1)*cels(ncelsepi+1)%nunodes!mradi !this is the number of mesenchymal nodes wich are not external
       !do i=ndepi+j+1,ndepi+ndepi+ndmes/2
-      !  node(i)%hold=1
-      !  !node(i)%da=node(i)%req*2.0
+      !  node(i)%fix=1
+      !  !node(i)%add=node(i)%eqd*2.0
       !  !node(i)%orix=0 ; node(i)%oriy=0
-      !  !node(i)%rep=1d1;node(i)%repcel=1d1
+      !  !node(i)%rep=1d1;node(i)%rec=1d1
       !end do
       !do i=ndepi+ndmes/2+j+1,ndepi+ndmes
-      !  node(i)%hold=1
-      !  !node(i)%da=node(i)%req*2.0
+      !  node(i)%fix=1
+      !  !node(i)%add=node(i)%eqd*2.0
       !  !node(i)%orix=0 ; node(i)%oriy=0
-      !  !node(i)%rep=1d1;node(i)%repcel=1d1
+      !  !node(i)%rep=1d1;node(i)%rec=1d1
       !end do
 
     !!end of setting boundary nodes
@@ -1553,7 +2201,7 @@ subroutine epi_growth
     if(radi>0.and.radicel>0)then
       do i=1,ncelsepi
         cels(i)%fase=0d0
-        mmae=node(cels(i)%node(1))%req
+        mmae=node(cels(i)%node(1))%eqd
         cels(i)%minsize_for_div=cels(i)%nunodes*2
         cels(i)%maxsize_for_div=10000 !>>> Is 5-2-14
       end do
@@ -1562,7 +2210,7 @@ subroutine epi_growth
     if(mradi>0.and.mradicel>0.and.layer>0)then
       do i=ncelsepi+1,ncels
         cels(i)%fase=0d0
-        mmae=node(cels(i)%node(1))%req
+        mmae=node(cels(i)%node(1))%eqd
         cels(i)%minsize_for_div=cels(i)%nunodes*2
         cels(i)%maxsize_for_div=10000 !>>> Is 5-2-14
       end do
@@ -1578,10 +2226,10 @@ subroutine epi_growth
       gen(1)%diffu=0.5d0 ; gen(1)%kindof=0 ; gen(1)%mu=0.1d0 ! miguel 14-10-13
 
     !Gene-behavior interactions
-      gen(1)%wa(nparam_per_node+1)=1d-4
+      gen(1)%e(nparam_per_node+1)=1d-4
 
     !Gene-gene interactions
-      !gen(1)%w(2)=1.0d0
+      !gen(1)%t(2)=1.0d0
 
     !Adhesion molecules
 
@@ -1603,14 +2251,14 @@ subroutine epi_growth
 
     call update_npag
     node(:)%talone=0.0d0
-    ramax=maxval(node(:)%da)*3
-    node(:)%diffe=0.0d0
+    ramax=maxval(node(:)%add)*3
+    node(:)%dif=0.0d0
 end subroutine 
 !*************************************************************************************************************************************
 
 subroutine invagination  !Changed some parameters, now there is only contraction on the apical side (no expansion on the basal).
                          !Instead volume conservation and plasticity do the trick. But in order to work properly the apical contracting
-                         !nodes have to have %kplast=0 and %kvol=0 (only those)     !>>Miquel28-7-14
+                         !nodes have to have %pla=0 and %kvol=0 (only those)     !>>Miquel28-7-14
 
 
 !******* #1 DEFINING SPATIAL DIMENSIONS *******
@@ -1629,7 +2277,6 @@ subroutine invagination  !Changed some parameters, now there is only contraction
     !ECM dimension parameters?
 
 !************************************************
-
 
     !Initializing dimension parameters
     if(radi>0.and.radicel>0)then
@@ -1676,7 +2323,7 @@ subroutine invagination  !Changed some parameters, now there is only contraction
     nda=nd+10
 	ncals=ncels+10
     
-    if(radi==1.or.mradi==1) ffu(1)=1
+    if(radi==1.or.mradi==1) ffu(1)=0
   !End initializing dimension parameters
 
   print*,"nodecel",nodecel,"ncelsepi",ncelsepi,"ncelsmes",ncelsmes,"ndepi",ndepi,"ndmes",ndmes
@@ -1719,37 +2366,36 @@ subroutine invagination  !Changed some parameters, now there is only contraction
     
     ffu=0
      !spring of the ellipse
-    ffu(2)=0 !to quite if there are too many cells
-    ffu(3)=1 !screening
-    ffu(4)=0 !torsion
-    ffu(5)=0 !external signal source
-    ffu(6)=0 !eggshell miguel4-1-13
-    ffu(8)=1 !lonely cells and nodes die
-    ffu(11)=1 !epithelial plasticity
-    ffu(12)=1 !dynamic delta
-    ffu(13)=0 !neighboring by triangulation
-    ffu(17)=1 !volume conservation
-    ffu(22)=0 !0 = noise biased by energies , 1 = unbiased noise
-
-    ffu(9)=0 !integration method 0=euler , 1=runge-kutta forces , 2=runge-kutta forces+genes
-    ffu(19)=0 !adaptive time step 0=no , 1=yes for forces , 2=yes for forces+genes
-
+    ffu(5)=0   !!>> HC 13-7-2021 0= Runge-Kutta integration 
+    ffu(6)=0   !!>> HC 13-7-2021 0= plasticity
+    ffu(9)=0   !!>> HC 13-7-2021 0= NEW VERSION 2021
+    ffu(10)=0  !!>> HC 13-7-2021 0= volume conservation
+    ffu(15)=0  !!>> HC 13-7-2021 0= unbiased random noise (faster)
+    ffu(19)=0  !!>> HC 13-7-2021 0= polarization and polarized division controled by same wa
+    ffu(20)=0  !!>> HC 13-7-2021 0= Maximum value for adhesion (maxad)
+    ffu(23)=0  !!>> HC 13-7-2021 0= only neighbors are the neighbors in ADD range
+    ffu(24)=0  !!>> HC 13-7-2021 0= We recover the lost ADD neighbors
+    ffu(25)=0  !!>> HC 13-7-2021 0= Nutrients limited, maximum global cell cycle increase (maxcycl)
+    ffu(26)=0  !!>> HC 13-7-2021 0= Gradual implementation of cell properties and behaviors
+    ffu(27)=0  !!>> HC 13-7-2021 0= We call to neighbor_build only once in Runge-Kutta
+    maxad=5.0d0 !!>> HC 13-7-2021 
+     !>>> TT
     
    !******* #2 DEFINING NODE MECHANIC PARAMETERS *******
     !Epithelium
     if(radi>0.and.radicel>0)then
       do i=1,ndepi
-        node(i)%you=1.2d1  ;node(i)%adh=1.0d1         	!>>Miquel 26-10-12
-        node(i)%rep=1d1    ;node(i)%repcel=1d1	        !>>Miquel 8-10-12
-        node(i)%req=0.25d0 ; node(i)%reqcr=node(i)%req !;node(i)%reqcel=0.25d0     	!>>Miquel 26-10-12!de
-        node(i)%reqs=0.25d0
-        node(i)%da=node(i)%req*1.60  
-        node(i)%ke=1d1
-        node(i)%tor=3d0
-        node(i)%stor=5d0
-        node(i)%kplast=2d0
+        node(i)%you=5.0d0  ;node(i)%adh=5.0d0         	!>>Miquel 26-10-12
+        node(i)%rep=5d1    ;node(i)%rec=5d1	        !>>Miquel 8-10-12
+        node(i)%eqd=0.25d0 ; node(i)%grd=node(i)%eqd !;node(i)%codel=0.25d0     	!>>Miquel 26-10-12!de
+        node(i)%eqs=0.25d0
+        node(i)%add=node(i)%eqd*1.60  
+        node(i)%hoo=1d1
+        node(i)%erp=20d0
+        node(i)%est=60d0
+        node(i)%pla=2d0
         node(i)%kvol=5d-1
-        node(i)%mo=temp
+        node(i)%mov=temp
         node(i)%dmo=desmax
       end do
     end if
@@ -1758,26 +2404,26 @@ subroutine invagination  !Changed some parameters, now there is only contraction
     if(mradi>0.and.mradicel>0.and.layer>0)then
       do i=ndepi+1,nd
         node(i)%you=0d0;node(i)%adh=0d0 	!>>Miquel 26-10-12
-        node(i)%rep=0d0;node(i)%repcel=0d0	!>>Miquel 8-10-12
-        node(i)%req=0d0 !;node(i)%reqcel=0d0	!>>Miquel 26-10-12!de
-        node(i)%reqs=0d0
-        node(i)%da=0d0
-        node(i)%ke=0d0   !only for epithelium
-        node(i)%tor=1d0  !only for epithelium
-        node(i)%stor=1d1 !only for epithelium
+        node(i)%rep=0d0;node(i)%rec=0d0	!>>Miquel 8-10-12
+        node(i)%eqd=0d0 !;node(i)%codel=0d0	!>>Miquel 26-10-12!de
+        node(i)%eqs=0d0
+        node(i)%add=0d0
+        node(i)%hoo=0d0   !only for epithelium
+        node(i)%erp=1d0  !only for epithelium
+        node(i)%est=1d1 !only for epithelium
         node(i)%altre=0  !only for epithelium
-        node(i)%mo=temp
+        node(i)%mov=temp
         node(i)%dmo=desmax
       end do
     end if
 
     !General parameters that depend on node parameters
-    rv=2*maxval(node(:)%da)
+    rv=2*maxval(node(:)%add)
 
 
     !Distribution of nodes in space
-    if(radi>0.and.radicel>0)               call epiteli(radi,radicel,zepi,node(1)%req,node(1)%reqs)
-    if(mradi>0.and.mradicel>0.and.layer>0) call mesenq(mradi,mradicel,layer,zmes,node(ndepi+1)%req)
+    if(radi>0.and.radicel>0)               call epiteli(radi,radicel,zepi,node(1)%eqd,node(1)%eqs)
+    if(mradi>0.and.mradicel>0.and.layer>0) call mesenq(mradi,mradicel,layer,zmes,node(ndepi+1)%eqd)
 
     do i=1,nd
       node(i)%orix=node(i)%x ; node(i)%oriy=node(i)%y ; node(i)%oriz=node(i)%z
@@ -1785,14 +2431,14 @@ subroutine invagination  !Changed some parameters, now there is only contraction
     !End distribution of nodes in space
 
     !Setting boundary nodes (they will be subject to an external force keeping them in their initial position)
-    node(:)%hold=0
+    node(:)%fix=0
 
    !******* #3 DEFINING CELL PARAMETERS *******
     !Epithelial
     if(radi>0.and.radicel>0)then
       do i=1,ncelsepi
         cels(i)%fase=0d0
-        mmae=node(cels(i)%node(1))%req
+        mmae=node(cels(i)%node(1))%eqd
         cels(i)%minsize_for_div=cels(i)%nunodes*2
         cels(i)%maxsize_for_div=10000 !>>> Is 5-2-14
       end do
@@ -1801,7 +2447,7 @@ subroutine invagination  !Changed some parameters, now there is only contraction
     if(mradi>0.and.mradicel>0.and.layer>0)then
       do i=ncelsepi+1,ncels
         cels(i)%fase=0d0
-        mmae=node(cels(i)%node(1))%req
+        mmae=node(cels(i)%node(1))%eqd
         cels(i)%minsize_for_div=cels(i)%nunodes*2
         cels(i)%maxsize_for_div=10000 !>>> Is 5-2-14
       end do
@@ -1818,28 +2464,28 @@ subroutine invagination  !Changed some parameters, now there is only contraction
       gen(2)%diffu=0.0d0 ; gen(2)%kindof=1 ; gen(2)%mu=0d0 ;! gen(2)%label="apically expressed gene, contraction"
 
     !Gene-behavior interactions
-      a=node(1)%da/node(1)%req
-!      gen(1)%wa(5)=0.1d0  !that is the maximal req possible
-!      gen(2)%wa(5)=-0.05d0
+      a=node(1)%add/node(1)%eqd
+!      gen(1)%e(5)=0.1d0  !that is the maximal req possible
+!      gen(2)%e(5)=-0.05d0
 
-      !gen(1)%wa(5)=9.0d0   ! >>> Is 28-6-14 !that is the maximal req possible
+      !gen(1)%e(5)=9.0d0   ! >>> Is 28-6-14 !that is the maximal req possible
 
-      gen(2)%wa(21)=-0.10d0 ! >>> Is 28-6-14
-      gen(2)%wa(6)=0.10d0
-      !gen(2)%wa(27)=-1d-1  !this affects plasticity and
-      !gen(2)%wa(28)=-1d2  !volume conservation of the contracting nodes
-      gen(1)%wa(21)=0.10d0 ! >>> Is 28-6-14
-      gen(1)%wa(6)=0.15d0
+      gen(2)%e(21)=-0.10d0 ! >>> Is 28-6-14
+      gen(2)%e(6)=0.10d0
+      !gen(2)%e(27)=-1d-1  !this affects plasticity and
+      !gen(2)%e(28)=-1d2  !volume conservation of the contracting nodes
+      gen(1)%e(21)=0.10d0 ! >>> Is 28-6-14
+      gen(1)%e(6)=0.15d0
 
 
-!      gen(1)%wa(7)=gen(1)%wa(5)*1.1  !that is the maximal da possible
-!      gen(2)%wa(7)=gen(2)%wa(5)*0.1
+!      gen(1)%e(7)=gen(1)%e(5)*1.1  !that is the maximal da possible
+!      gen(2)%e(7)=gen(2)%e(5)*0.1
 
 
     !Gene-gene interactions
 
-      gen(1)%w=0d0
-      gen(2)%w=0d0
+      gen(1)%t=0d0
+      gen(2)%t=0d0
 
     !Adhesion molecules
 
@@ -1861,7 +2507,7 @@ subroutine invagination  !Changed some parameters, now there is only contraction
       do i=1,nd
         j=node(i)%icel
         if (j<8) then
-          node(i)%kplast=0d0
+          node(i)%pla=0d0
           node(i)%kvol=0d0
           if (node(i)%tipus==1) then
             gex(i,1)=1.0d0
@@ -1874,8 +2520,8 @@ subroutine invagination  !Changed some parameters, now there is only contraction
     call update_npag
 
     node(:)%talone=0.0d0
-    ramax=maxval(node(:)%da)*3
-    node(:)%diffe=0.0d0
+    ramax=maxval(node(:)%add)*3
+    node(:)%dif=0.0d0
 end subroutine
 !*************************************************************************************************************************************
 
@@ -1946,7 +2592,7 @@ subroutine polarized
     nda=nd+10
 	ncals=ncels+10
     
-    if(radi==1.or.mradi==1) ffu(1)=1
+    if(radi==1.or.mradi==1) ffu(1)=0
   !End initializing dimension parameters
 
 !  print*,"nodecel",nodecel,"ncelsepi",ncelsepi,"ncelsmes",ncelsmes,"ndepi",ndepi,"ndmes",ndmes
@@ -1988,12 +2634,11 @@ subroutine polarized
     
     ffu=0
      !spring of the ellipse
-    ffu(2)=0 !to quite if there are too many cells
-    ffu(3)=0 !screening
-    ffu(4)=0 !torsion
-    ffu(5)=0 !external signal source
-    ffu(6)=0 !eggshell miguel4-1-13
-    ffu(22)=0 !0 = noise biased by energies , 1 = unbiased noise
+    ffu(2)=0 !screening
+    ffu(3)=0 !torsion
+    
+    
+    ffu(15)=1 !1 = noise biased by energies , 0 = unbiased noise
 
 
    !******* #2 DEFINING NODE MECHANIC PARAMETERS *******
@@ -2001,14 +2646,14 @@ subroutine polarized
     if(radi>0.and.radicel>0)then
       do i=1,ndepi
         node(i)%you=1.2d1  ;node(i)%adh=1.0d1         	!>>Miquel 26-10-12
-        node(i)%rep=1d1    ;node(i)%repcel=1d1	        !>>Miquel 8-10-12
-        node(i)%req=0.25d0 ; node(i)%reqcr=node(i)%req !;node(i)%reqcel=0.25d0     	!>>Miquel 26-10-12!de
-        node(i)%reqs=0.5d0
-        node(i)%da=node(i)%req*1.20  
-        node(i)%ke=1d1
-        node(i)%tor=1d-1
-        !node(i)%stor=1d1
-        node(i)%mo=temp
+        node(i)%rep=1d1    ;node(i)%rec=1d1	        !>>Miquel 8-10-12
+        node(i)%eqd=0.25d0 ; node(i)%grd=node(i)%eqd !;node(i)%codel=0.25d0     	!>>Miquel 26-10-12!de
+        node(i)%eqs=0.5d0
+        node(i)%add=node(i)%eqd*1.20  
+        node(i)%hoo=1d1
+        node(i)%erp=1d-1
+        !node(i)%est=1d1
+        node(i)%mov=temp
         node(i)%dmo=desmax
       end do
     end if
@@ -2017,26 +2662,26 @@ subroutine polarized
     if(mradi>0.and.mradicel>0.and.layer>0)then
       do i=ndepi+1,nd
         node(i)%you=0d0;node(i)%adh=0d0 	!>>Miquel 26-10-12
-        node(i)%rep=0d0;node(i)%repcel=0d0	!>>Miquel 8-10-12
-        node(i)%req=0d0 !;node(i)%reqcel=0d0	!>>Miquel 26-10-12!de
-        node(i)%reqs=0d0
-        node(i)%da=0d0 
-        node(i)%ke=0d0   !only for epithelium
-        node(i)%tor=1d0  !only for epithelium
-        !node(i)%stor=1d1 !only for epithelium
+        node(i)%rep=0d0;node(i)%rec=0d0	!>>Miquel 8-10-12
+        node(i)%eqd=0d0 !;node(i)%codel=0d0	!>>Miquel 26-10-12!de
+        node(i)%eqs=0d0
+        node(i)%add=0d0 
+        node(i)%hoo=0d0   !only for epithelium
+        node(i)%erp=1d0  !only for epithelium
+        !node(i)%est=1d1 !only for epithelium
         node(i)%altre=0  !only for epithelium
-        node(i)%mo=temp
+        node(i)%mov=temp
         node(i)%dmo=desmax
       end do
     end if
 
     !General parameters that depend on node parameters
-    rv=2*maxval(node(:)%da)
+    rv=2*maxval(node(:)%add)
 
 
     !Distribution of nodes in space
-    if(radi>0.and.radicel>0)               call epiteli(radi,radicel,zepi,node(1)%req,node(1)%reqs)
-    if(mradi>0.and.mradicel>0.and.layer>0) call mesenq(mradi,mradicel,layer,zmes,node(ndepi+1)%req)
+    if(radi>0.and.radicel>0)               call epiteli(radi,radicel,zepi,node(1)%eqd,node(1)%eqs)
+    if(mradi>0.and.mradicel>0.and.layer>0) call mesenq(mradi,mradicel,layer,zmes,node(ndepi+1)%eqd)
 
     do i=1,nd
       node(i)%orix=node(i)%x ; node(i)%oriy=node(i)%y ; node(i)%oriz=node(i)%z
@@ -2044,7 +2689,7 @@ subroutine polarized
     !End distribution of nodes in space
 
     !Setting boundary nodes (they will be subject to an external force keeping them in their initial position)
-    node(:)%hold=0
+    node(:)%fix=0
 
 
    !******* #3 DEFINING CELL PARAMETERS *******
@@ -2052,7 +2697,7 @@ subroutine polarized
     if(radi>0.and.radicel>0)then
       do i=1,ncelsepi
         cels(i)%fase=0d0
-        mmae=node(cels(i)%node(1))%req
+        mmae=node(cels(i)%node(1))%eqd
         cels(i)%minsize_for_div=cels(i)%nunodes*2
         cels(i)%maxsize_for_div=10000 !>>> Is 5-2-14
       end do
@@ -2061,7 +2706,7 @@ subroutine polarized
     if(mradi>0.and.mradicel>0.and.layer>0)then
       do i=ncelsepi+1,ncels
         cels(i)%fase=0d0
-        mmae=node(cels(i)%node(1))%req
+        mmae=node(cels(i)%node(1))%eqd
         cels(i)%minsize_for_div=cels(i)%nunodes*2
         cels(i)%maxsize_for_div=10000 !>>> Is 5-2-14
       end do
@@ -2077,7 +2722,7 @@ subroutine polarized
        gen(1)%kindof=0 ; gen(1)%diffu=0d0 ; gen(1)%mu=0d0
 
     !Gene-behavior interactions
-      gen(1)%wa(nparam_per_node+8)=1d0
+      gen(1)%e(nparam_per_node+8)=1d0
 
     !Gene-gene interactions
 
@@ -2101,8 +2746,8 @@ subroutine polarized
 
     call update_npag
     node(:)%talone=0.0d0
-    ramax=maxval(node(:)%da)*3
-    node(:)%diffe=0.0d0
+    ramax=maxval(node(:)%add)*3
+    node(:)%dif=0.0d0
 end subroutine
 
 !*************************************************************************
@@ -2172,7 +2817,7 @@ subroutine mesenchyme
     nda=nd+10
 	ncals=ncels+10
     
-    if(radi==1.or.mradi==1) ffu(1)=1
+    if(radi==1.or.mradi==1) ffu(1)=0
   !End initializing dimension parameters
 
   print*,"nodecel",nodecel,"ncelsepi",ncelsepi,"ncelsmes",ncelsmes,"ndepi",ndepi,"ndmes",ndmes
@@ -2215,12 +2860,11 @@ subroutine mesenchyme
     
     ffu=0
      !spring of the ellipse
-    ffu(2)=0 !to quite if there are too many cells
-    ffu(3)=0 !screening
-    ffu(4)=0 !torsion
-    ffu(5)=1 !external signal source
-    ffu(6)=0 !eggshell miguel4-1-13
-    ffu(22)=0 !0 = noise biased by energies , 1 = unbiased noise
+    ffu(2)=0 !screening
+    ffu(3)=0 !torsion
+    
+    
+    ffu(15)=1 !1 = noise biased by energies , 0 = unbiased noise
 
 
    !******* #2 DEFINING NODE MECHANIC PARAMETERS *******
@@ -2228,14 +2872,14 @@ subroutine mesenchyme
     if(radi>0.and.radicel>0)then
       do i=1,ndepi
         node(i)%you=0d0;node(i)%adh=0d0    	!>>Miquel 26-10-12
-        node(i)%rep=0d0;node(i)%repcel=0d0	!>>Miquel 8-10-12
-        node(i)%req=0d0 !;node(i)%reqcel=0d0	!>>Miquel 26-10-12!de
-        node(i)%reqs=0d0
-        node(i)%da=0d0
-        node(i)%ke=0d0
-        node(i)%tor=1d0
-        !node(i)%stor=1d1
-        node(i)%mo=temp
+        node(i)%rep=0d0;node(i)%rec=0d0	!>>Miquel 8-10-12
+        node(i)%eqd=0d0 !;node(i)%codel=0d0	!>>Miquel 26-10-12!de
+        node(i)%eqs=0d0
+        node(i)%add=0d0
+        node(i)%hoo=0d0
+        node(i)%erp=1d0
+        !node(i)%est=1d1
+        node(i)%mov=temp
         node(i)%dmo=desmax
       end do
     end if
@@ -2244,25 +2888,25 @@ subroutine mesenchyme
     if(mradi>0.and.mradicel>0.and.layer>0)then
       do i=ndepi+1,nd
         node(i)%you=1d1;node(i)%adh=1d0 	!>>Miquel 26-10-12
-        node(i)%rep=1d1;node(i)%repcel=1d1	!>>Miquel 8-10-12
-        node(i)%req=0.25d0 ; node(i)%reqcr=node(i)%req !;node(i)%reqcel=0.25d0	!>>Miquel 26-10-12!de
-        node(i)%reqs=0.5d0
-        node(i)%da=node(i)%req*1.25 
-        node(i)%ke=0d0   !only for epithelium
-        node(i)%tor=1d0  !only for epithelium
-        !node(i)%stor=1d1 !only for epithelium
+        node(i)%rep=1d1;node(i)%rec=1d1	!>>Miquel 8-10-12
+        node(i)%eqd=0.25d0 ; node(i)%grd=node(i)%eqd !;node(i)%codel=0.25d0	!>>Miquel 26-10-12!de
+        node(i)%eqs=0.5d0
+        node(i)%add=node(i)%eqd*1.25 
+        node(i)%hoo=0d0   !only for epithelium
+        node(i)%erp=1d0  !only for epithelium
+        !node(i)%est=1d1 !only for epithelium
         node(i)%altre=0  !only for epithelium
-        node(i)%mo=temp
+        node(i)%mov=temp
         node(i)%dmo=desmax
       end do
     end if
 
     !General parameters that depend on node parameters
-    rv=2*maxval(node(:)%da)
+    rv=2*maxval(node(:)%add)
 
     !Distribution of nodes in space
-    if(radi>0.and.radicel>0)               call epiteli(radi,radicel,zepi,node(1)%req,node(1)%reqs)
-    if(mradi>0.and.mradicel>0.and.layer>0) call mesenq(mradi,mradicel,layer,zmes,node(ndepi+1)%req)
+    if(radi>0.and.radicel>0)               call epiteli(radi,radicel,zepi,node(1)%eqd,node(1)%eqs)
+    if(mradi>0.and.mradicel>0.and.layer>0) call mesenq(mradi,mradicel,layer,zmes,node(ndepi+1)%eqd)
 
     do i=1,nd
       node(i)%orix=node(i)%x ; node(i)%oriy=node(i)%y ; node(i)%oriz=node(i)%z
@@ -2270,7 +2914,7 @@ subroutine mesenchyme
     !End distribution of nodes in space
 
     !Setting boundary nodes (they will be subject to an external force keeping them in their initial position)
-    node(:)%hold=0
+    node(:)%fix=0
 
 
    !******* #3 DEFINING CELL PARAMETERS *******
@@ -2278,7 +2922,7 @@ subroutine mesenchyme
     if(radi>0.and.radicel>0)then
       do i=1,ncelsepi
         cels(i)%fase=0d0
-        mmae=node(cels(i)%node(1))%req
+        mmae=node(cels(i)%node(1))%eqd
         cels(i)%minsize_for_div=cels(i)%nunodes*2
         cels(i)%maxsize_for_div=10000 !>>> Is 5-2-14
       end do
@@ -2287,7 +2931,7 @@ subroutine mesenchyme
     if(mradi>0.and.mradicel>0.and.layer>0)then
       do i=ncelsepi+1,ncels
         cels(i)%fase=0d0
-        mmae=node(cels(i)%node(1))%req
+        mmae=node(cels(i)%node(1))%eqd
         cels(i)%minsize_for_div=cels(i)%nunodes*2
         cels(i)%maxsize_for_div=10000 !>>> Is 5-2-14
       end do
@@ -2327,8 +2971,8 @@ subroutine mesenchyme
 
     call update_npag
     node(:)%talone=0.0d0
-    ramax=maxval(node(:)%da)*3
-    node(:)%diffe=0.0d0
+    ramax=maxval(node(:)%add)*3
+    node(:)%dif=0.0d0
 end subroutine mesenchyme
 
 !**********************************************************************************************************
@@ -2455,15 +3099,13 @@ subroutine mes_ecm_degradation
     
     ffu=0
      !spring of the ellipse
-    ffu(2)=0 !to quite if there are too many cells
-    ffu(3)=0 !screening
-    ffu(4)=0 !torsion
-    ffu(5)=0 !external signal source
-    ffu(6)=0 !eggshell miguel4-1-13
-    ffu(7)=0 !
-    ffu(8)=0 !
-    ffu(9)=0 !>>> Is 5-2-14
-    ffu(22)=0 !0 = noise biased by energies , 1 = unbiased noise
+    ffu(2)=0 !screening
+    ffu(3)=0 !torsion
+    
+    
+    ffu(4)=0 !
+    ffu(5)=0 !>>> Is 5-2-14
+    ffu(15)=1 !1 = noise biased by energies , 0 = unbiased noise
 
 
    !******* #2 DEFINING NODE MECHANIC PARAMETERS *******
@@ -2471,14 +3113,14 @@ subroutine mes_ecm_degradation
     if(radi>0.and.radicel>0)then
       do i=1,ndepi
         node(i)%you=0d0;node(i)%adh=0d0    	!>>Miquel 26-10-12
-        node(i)%rep=0d0;node(i)%repcel=0d0	!>>Miquel 8-10-12
-        node(i)%req=0d0 !;node(i)%reqcel=0d0	!>>Miquel 26-10-12!de
-        node(i)%reqs=0d0
-        node(i)%da=0d0
-        node(i)%ke=0d0
-        node(i)%tor=1d0
-        !node(i)%stor=1d1
-        node(i)%mo=temp
+        node(i)%rep=0d0;node(i)%rec=0d0	!>>Miquel 8-10-12
+        node(i)%eqd=0d0 !;node(i)%codel=0d0	!>>Miquel 26-10-12!de
+        node(i)%eqs=0d0
+        node(i)%add=0d0
+        node(i)%hoo=0d0
+        node(i)%erp=1d0
+        !node(i)%est=1d1
+        node(i)%mov=temp
         node(i)%dmo=desmax
       end do
     end if
@@ -2487,15 +3129,15 @@ subroutine mes_ecm_degradation
     if(mradi>0.and.mradicel>0.and.layer>0)then
       do i=ndepi+1,nd
         node(i)%you=1d1;node(i)%adh=0d0 	!>>Miquel 26-10-12
-        node(i)%rep=1d1;node(i)%repcel=1d1	!>>Miquel 8-10-12
-        node(i)%req=0.25d0 ; node(i)%reqcr=node(i)%req !;node(i)%reqcel=0.25d0	!>>Miquel 26-10-12!de
-        node(i)%reqs=0d0
-        node(i)%da=node(i)%req*1.40 
-        node(i)%ke=0d0   !only for epithelium
-        node(i)%tor=1d0  !only for epithelium
-        !node(i)%stor=1d1 !only for epithelium
+        node(i)%rep=1d1;node(i)%rec=1d1	!>>Miquel 8-10-12
+        node(i)%eqd=0.25d0 ; node(i)%grd=node(i)%eqd !;node(i)%codel=0.25d0	!>>Miquel 26-10-12!de
+        node(i)%eqs=0d0
+        node(i)%add=node(i)%eqd*1.40 
+        node(i)%hoo=0d0   !only for epithelium
+        node(i)%erp=1d0  !only for epithelium
+        !node(i)%est=1d1 !only for epithelium
         node(i)%altre=0  !only for epithelium
-        node(i)%mo=temp
+        node(i)%mov=temp
         node(i)%dmo=desmax
       end do
     end if
@@ -2504,25 +3146,25 @@ subroutine mes_ecm_degradation
     if(xradi>0.and.xlayer>0)then
       do i=ndepi+ndmes+1,nd
         node(i)%you=1d1;node(i)%adh=0d0 	!>>Miquel 26-10-12
-        node(i)%rep=1d1;node(i)%repcel=1d1	!>>Miquel 8-10-12
-        node(i)%req=0.25d0 ; node(i)%reqcr=node(i)%req !;node(i)%reqcel=0.25d0	!>>Miquel 26-10-12!de
-        node(i)%reqs=0d0
-        node(i)%da=node(i)%req*1.20 
-        node(i)%ke=0d0   !only for epithelium
-        node(i)%tor=1d0  !only for epithelium
-        !node(i)%stor=1d1 !only for epithelium
+        node(i)%rep=1d1;node(i)%rec=1d1	!>>Miquel 8-10-12
+        node(i)%eqd=0.25d0 ; node(i)%grd=node(i)%eqd !;node(i)%codel=0.25d0	!>>Miquel 26-10-12!de
+        node(i)%eqs=0d0
+        node(i)%add=node(i)%eqd*1.20 
+        node(i)%hoo=0d0   !only for epithelium
+        node(i)%erp=1d0  !only for epithelium
+        !node(i)%est=1d1 !only for epithelium
         node(i)%altre=0  !only for epithelium
-        node(i)%mo=temp
+        node(i)%mov=temp
         node(i)%dmo=desmax
       end do
     end if
 
     !General parameters that depend on node parameters
-    rv=2*maxval(node(:)%da)
+    rv=2*maxval(node(:)%add)
 
     !Distribution of nodes in space
-    if(radi>0.and.radicel>0)               call epiteli(radi,radicel,zepi,node(1)%req,node(1)%reqs)
-    if(mradi>0.and.mradicel>0.and.layer>0) call mesenq(mradi,mradicel,layer,zmes,node(ndepi+1)%req)
+    if(radi>0.and.radicel>0)               call epiteli(radi,radicel,zepi,node(1)%eqd,node(1)%eqs)
+    if(mradi>0.and.mradicel>0.and.layer>0) call mesenq(mradi,mradicel,layer,zmes,node(ndepi+1)%eqd)
     if(xradi>0.and.xlayer>0)               call matrix(xradi,xlayer,zx)
 
     do i=1,nd
@@ -2531,7 +3173,7 @@ subroutine mes_ecm_degradation
     !End distribution of nodes in space
 
     !Setting boundary nodes (they will be subject to an external force keeping them in their initial position)
-    node(:)%hold=0
+    node(:)%fix=0
 
 
    !******* #3 DEFINING CELL PARAMETERS *******
@@ -2539,7 +3181,7 @@ subroutine mes_ecm_degradation
     if(radi>0.and.radicel>0)then
       do i=1,ncelsepi
         cels(i)%fase=0d0
-        mmae=node(cels(i)%node(1))%req
+        mmae=node(cels(i)%node(1))%eqd
         cels(i)%minsize_for_div=cels(i)%nunodes*2
         cels(i)%maxsize_for_div=10000 !>>> Is 5-2-14
       end do
@@ -2548,7 +3190,7 @@ subroutine mes_ecm_degradation
     if(mradi>0.and.mradicel>0.and.layer>0)then
       do i=ncelsepi+1,ncels
         cels(i)%fase=0d0
-        mmae=node(cels(i)%node(1))%req
+        mmae=node(cels(i)%node(1))%eqd
         cels(i)%minsize_for_div=cels(i)%nunodes*2
         cels(i)%maxsize_for_div=10000 !>>> Is 5-2-14
       end do
@@ -2571,17 +3213,17 @@ subroutine mes_ecm_degradation
 
 
     !Gene-behavior interactions
-      gen(1)%wa(1)=1
-      gen(3)%wa(1)=2
-      gen(2)%wa(nparam_per_node+14)=5d-3
+      gen(1)%e(1)=1
+      gen(3)%e(1)=2
+      gen(2)%e(nparam_per_node+14)=5d-3
 
     !Gene-gene interactions
-      gen(1)%w(1)=1.0d1
+      gen(1)%t(1)=1.0d1
 
       gen(1)%nww=1
-      gen(1)%ww(1,1)=1
-      gen(1)%ww(1,2)=2
-      gen(1)%ww(1,3)=1.0d0
+      gen(1)%r(1,1)=1
+      gen(1)%r(1,2)=2
+      gen(1)%r(1,3)=1.0d0
 
     !Adhesion molecules
 
@@ -2605,8 +3247,8 @@ subroutine mes_ecm_degradation
     call update_npag
 
     node(:)%talone=0.0d0
-    ramax=maxval(node(:)%da)*3
-    node(:)%diffe=0.0d0
+    ramax=maxval(node(:)%add)*3
+    node(:)%dif=0.0d0
 end subroutine
 
 !***********************************************************************************************************************
@@ -2628,7 +3270,6 @@ subroutine mes_cell_sorting
     !ECM dimension parameters?
 
 !************************************************
-
 
     !Initializing dimension parameters
     if(radi>0.and.radicel>0)then
@@ -2675,7 +3316,7 @@ subroutine mes_cell_sorting
     nda=nd+10
 	ncals=ncels+10
     
-    if(radi==1.or.mradi==1) ffu(1)=1
+    if(radi==1.or.mradi==1) ffu(1)=0
   !End initializing dimension parameteers
 
 !  print*,"nodecel",nodecel,"ncelsepi",ncelsepi,"ncelsmes",ncelsmes,"ndepi",ndepi,"ndmes",ndmes
@@ -2719,31 +3360,31 @@ subroutine mes_cell_sorting
     
     ffu=0
      !spring of the ellipse
-    ffu(2)=0 !to quite if there are too many cells
-    ffu(3)=1 !screening
-    ffu(4)=0 !torsion
-    ffu(5)=0 !external signal source
-    ffu(6)=0 !eggshell miguel4-1-13
-    ffu(12)=1
-    ffu(22)=0 !0 = noise biased by energies , 1 = unbiased noise
+    ffu(2)=0 !>>> TT no screening !screening
+    ffu(3)=0 !torsion
+    
+    
+    ffu(7)=1
+    ffu(15)=1 !1 = noise biased by energies , 0 = unbiased noise
 
-    ffu(9)=1 !integration method 0=euler , 1=runge-kutta forces , 2=runge-kutta forces+genes
-    ffu(19)=0 !adaptive time step 0=no , 1=yes for forces , 2=yes for forces+genes
-
+    ffu(5)=0 !integration method 0=euler , 1=runge-kutta forces , 2=runge-kutta forces+genes
+    ffu(12)=0 !adaptive time step 0=no , 1=yes for forces , 2=yes for forces+genes
+    ffu(20)=0      !!>> HC 16-12-2020
+    maxad=50.0d0  !!>> HC 16-12-2020
 
    !******* #2 DEFINING NODE MECHANIC PARAMETERS *******
     !Epithelium
     if(radi>0.and.radicel>0)then
       do i=1,ndepi
         node(i)%you=0d0;node(i)%adh=0d0    	!>>Miquel 26-10-12
-        node(i)%rep=0d0;node(i)%repcel=0d0	!>>Miquel 8-10-12
-        node(i)%req=0d0 ;node(i)%reqcr=node(i)%req
-        node(i)%reqs=0d0
-        node(i)%da=0d0 
-        node(i)%ke=0d0
-        node(i)%tor=1d0
-        node(i)%stor=1d1
-        node(i)%mo=temp
+        node(i)%rep=0d0;node(i)%rec=0d0	!>>Miquel 8-10-12
+        node(i)%eqd=0d0 ;node(i)%grd=node(i)%eqd
+        node(i)%eqs=0d0
+        node(i)%add=0d0 
+        node(i)%hoo=0d0
+        node(i)%erp=1d0
+        node(i)%est=1d1
+        node(i)%mov=temp
         node(i)%dmo=desmax
       end do
     end if
@@ -2752,26 +3393,26 @@ subroutine mes_cell_sorting
     if(mradi>0.and.mradicel>0.and.layer>0)then
       do i=ndepi+1,nd
         node(i)%you=6d1;node(i)%adh=0d0 	!>>Miquel 26-10-12
-        node(i)%rep=6d1;node(i)%repcel=8d1	!>>Miquel 8-10-12
-        node(i)%req=0.25d0 ;node(i)%reqcr=node(i)%req
-        node(i)%reqs=0.25d0
-        node(i)%da=node(i)%req*2.0d0 
-        node(i)%ke=0d0   !only for epithelium
-        node(i)%tor=1d0  !only for epithelium
-        node(i)%stor=0d0 !only for epithelium
+        node(i)%rep=6d1;node(i)%rec=8d1	!>>Miquel 8-10-12
+        node(i)%eqd=0.25d0 ;node(i)%grd=node(i)%eqd
+        node(i)%eqs=0.25d0
+        node(i)%add=node(i)%eqd*2.0d0 
+        node(i)%hoo=0d0   !only for epithelium
+        node(i)%erp=1d0  !only for epithelium
+        node(i)%est=0d0 !only for epithelium
         node(i)%altre=0  !only for epithelium
-        node(i)%mo=5d0
+        node(i)%mov=5d0
         node(i)%dmo=5d-2
       end do
     end if
 
     !General parameters that depend on node parameters
-    rv=2*maxval(node(:)%da)
+    rv=2*maxval(node(:)%add)
 
 
     !Distribution of nodes in space
-    if(radi>0.and.radicel>0)               call epiteli(radi,radicel,zepi,node(1)%req,node(1)%reqs)
-    if(mradi>0.and.mradicel>0.and.layer>0) call mesenq(mradi,mradicel,layer,zmes,node(ndepi+1)%req)!mesenq_cell_sorting(mradi,ncels)
+    if(radi>0.and.radicel>0)               call epiteli(radi,radicel,zepi,node(1)%eqd,node(1)%eqs)
+    if(mradi>0.and.mradicel>0.and.layer>0) call mesenq(mradi,mradicel,layer,zmes,node(ndepi+1)%eqd)!mesenq_cell_sorting(mradi,ncels)
 
     do i=1,nd
       node(i)%orix=node(i)%x ; node(i)%oriy=node(i)%y ; node(i)%oriz=node(i)%z
@@ -2779,7 +3420,7 @@ subroutine mes_cell_sorting
     !End distribution of nodes in space
 
     !Setting boundary nodes (they will be subject to an external force keeping them in their initial position)
-    node(:)%hold=0
+    node(:)%fix=0
 
 
    !******* #3 DEFINING CELL PARAMETERS *******
@@ -2787,7 +3428,7 @@ subroutine mes_cell_sorting
     if(radi>0.and.radicel>0)then
       do i=1,ncelsepi
         cels(i)%fase=0d0
-        mmae=node(cels(i)%node(1))%req
+        mmae=node(cels(i)%node(1))%eqd
         cels(i)%minsize_for_div=cels(i)%nunodes*2
         cels(i)%maxsize_for_div=10000 !>>> Is 5-2-14
       end do
@@ -2796,7 +3437,7 @@ subroutine mes_cell_sorting
     if(mradi>0.and.mradicel>0.and.layer>0)then
       do i=ncelsepi+1,ncels
         cels(i)%fase=0d0
-        mmae=node(cels(i)%node(1))%req
+        mmae=node(cels(i)%node(1))%eqd
         cels(i)%minsize_for_div=cels(i)%nunodes*2
         cels(i)%maxsize_for_div=10000 !>>> Is 5-2-14
       end do
@@ -2814,8 +3455,8 @@ subroutine mes_cell_sorting
 
 
     !Gene-behavior interactions
-       gen(1)%wa(1)=1d0
-       gen(2)%wa(1)=2d0
+       gen(1)%e(1)=1d0
+       gen(2)%e(1)=2d0
 
 
     !Gene-gene interactions
@@ -2859,8 +3500,8 @@ subroutine mes_cell_sorting
 
     call update_npag
     node(:)%talone=0.0d0
-    ramax=maxval(node(:)%da)*3
-    node(:)%diffe=0.0d0
+    ramax=maxval(node(:)%add)*3
+    node(:)%dif=0.0d0
 end subroutine mes_cell_sorting
 
 
@@ -2931,7 +3572,7 @@ subroutine teloblast ! miguel4-11-13 (subtitution of the previous mes_shell)
     nda=nd+10
 	ncals=ncels+10
     
-    if(radi==1.or.mradi==1) ffu(1)=1
+    if(radi==1.or.mradi==1) ffu(1)=0
   !End initializing dimension parameters
 
 !  print*,"nodecel",nodecel,"ncelsepi",ncelsepi,"ncelsmes",ncelsmes,"ndepi",ndepi,"ndmes",ndmes
@@ -2974,15 +3615,11 @@ subroutine teloblast ! miguel4-11-13 (subtitution of the previous mes_shell)
     
     ffu=0
      !spring of the ellipse
-    ffu(2)=0 !to quite if there are too many cells
-    ffu(3)=1 !screening
-    ffu(4)=0 !torsion
-    ffu(5)=2 !external signal source in !>>> Is 4-2-14 Miguel version
-    ffu(6)=0 !eggshell
-    ffu(7)=0 ! !external signal gradient in z
-    ffu(8)=0
-    ffu(9)=0 !>>> Is 5-2-14
-    ffu(22)=0 !0 = noise biased by energies , 1 = unbiased noise
+    ffu(2)=0 !>>> TT no screening !screening
+    ffu(3)=0 !torsion
+    ffu(4)=0
+    ffu(5)=0 !>>> Is 5-2-14
+    ffu(15)=1 !1 = noise biased by energies , 0 = unbiased noise
 
 
    !******* #2 DEFINING NODE MECHANIC PARAMETERS *******
@@ -2990,14 +3627,14 @@ subroutine teloblast ! miguel4-11-13 (subtitution of the previous mes_shell)
     if(radi>0.and.radicel>0)then
       do i=1,ndepi
         node(i)%you=0d0;node(i)%adh=0d0    	!>>Miquel 26-10-12
-        node(i)%rep=0d0;node(i)%repcel=0d0	!>>Miquel 8-10-12
-        node(i)%req=0d0 !;node(i)%reqcel=0d0	!>>Miquel 26-10-12!de
-        node(i)%reqs=0d0
-        node(i)%da=0d0
-        node(i)%ke=0d0
-        node(i)%tor=1d0
-        !node(i)%stor=1d1
-        node(i)%mo=temp
+        node(i)%rep=0d0;node(i)%rec=0d0	!>>Miquel 8-10-12
+        node(i)%eqd=0d0 !;node(i)%codel=0d0	!>>Miquel 26-10-12!de
+        node(i)%eqs=0d0
+        node(i)%add=0d0
+        node(i)%hoo=0d0
+        node(i)%erp=1d0
+        !node(i)%est=1d1
+        node(i)%mov=temp
         node(i)%dmo=desmax
       end do
     end if
@@ -3006,25 +3643,25 @@ subroutine teloblast ! miguel4-11-13 (subtitution of the previous mes_shell)
     if(mradi>0.and.mradicel>0.and.layer>0)then
       do i=ndepi+1,nd
         node(i)%you=1d1;node(i)%adh=1d0 	!>>Miquel 26-10-12
-        node(i)%rep=1d1;node(i)%repcel=1d1	!>>Miquel 8-10-12
-        node(i)%req=0.25d0 ; node(i)%reqcr=node(i)%req !;node(i)%reqcel=0.25d0	!>>Miquel 26-10-12!de
-        node(i)%reqs=0d0
-        node(i)%da=node(i)%req*1.60d0 
-        node(i)%ke=0d0   !only for epithelium
-        node(i)%tor=1d0  !only for epithelium
-        !node(i)%stor=1d1 !only for epithelium
+        node(i)%rep=1d1;node(i)%rec=1d1	!>>Miquel 8-10-12
+        node(i)%eqd=0.25d0 ; node(i)%grd=node(i)%eqd !;node(i)%codel=0.25d0	!>>Miquel 26-10-12!de
+        node(i)%eqs=0d0
+        node(i)%add=node(i)%eqd*1.60d0 
+        node(i)%hoo=0d0   !only for epithelium
+        node(i)%erp=1d0  !only for epithelium
+        !node(i)%est=1d1 !only for epithelium
         node(i)%altre=0  !only for epithelium
-        node(i)%mo=temp
+        node(i)%mov=temp
         node(i)%dmo=desmax
       end do
     end if
 
     !General parameters that depend on node parameters
-    rv=2*maxval(node(:)%da)
+    rv=2*maxval(node(:)%add)
 
     !Distribution of nodes in space
-    if(radi>0.and.radicel>0)               call epiteli(radi,radicel,zepi,node(1)%req,node(1)%reqs)
-    if(mradi>0.and.mradicel>0.and.layer>0) call mesenq(mradi,mradicel,layer,zmes,node(ndepi+1)%req)
+    if(radi>0.and.radicel>0)               call epiteli(radi,radicel,zepi,node(1)%eqd,node(1)%eqs)
+    if(mradi>0.and.mradicel>0.and.layer>0) call mesenq(mradi,mradicel,layer,zmes,node(ndepi+1)%eqd)
 
 
     do i=1,nd
@@ -3036,7 +3673,7 @@ subroutine teloblast ! miguel4-11-13 (subtitution of the previous mes_shell)
     !End distribution of nodes in space
 
     !Setting boundary nodes (they will be subject to an external force keeping them in their initial position)
-    node(:)%hold=0
+    node(:)%fix=0
 
 
    !******* eggshell initialization 
@@ -3046,7 +3683,7 @@ subroutine teloblast ! miguel4-11-13 (subtitution of the previous mes_shell)
     if(radi>0.and.radicel>0)then
       do i=1,ncelsepi
         cels(i)%fase=0d0
-        mmae=node(cels(i)%node(1))%req
+        mmae=node(cels(i)%node(1))%eqd
         cels(i)%minsize_for_div=cels(i)%nunodes*2
         cels(i)%maxsize_for_div=10000 !>>> Is 5-2-14
       end do
@@ -3055,7 +3692,7 @@ subroutine teloblast ! miguel4-11-13 (subtitution of the previous mes_shell)
     if(mradi>0.and.mradicel>0.and.layer>0)then
       do i=ncelsepi+1,ncels
         cels(i)%fase=0d0
-        mmae=node(cels(i)%node(1))%req
+        mmae=node(cels(i)%node(1))%eqd
         cels(i)%minsize_for_div=10 !cels(i)%nunodes*2
         cels(i)%maxsize_for_div=10000 !>>> Is 5-2-14
       end do
@@ -3079,16 +3716,16 @@ subroutine teloblast ! miguel4-11-13 (subtitution of the previous mes_shell)
     gen(1)%diffu=0d0 ; gen(1)%kindof=0 ; gen(1)%mu=0.0d0 ! miguel 14-10-13
     gen(2)%diffu=0d0 ; gen(2)%kindof=0 ; gen(2)%mu=0.0d0
 
-    gen(2)%wa(nparam_per_node+1)=1d-3 !  miguel 14-10-13 (growth)
-    gen(2)%wa(nparam_per_node+2)=1d-2 !  miguel 14-10-13 (cell cycle)    
+    gen(2)%e(nparam_per_node+1)=1d-3 !  miguel 14-10-13 (growth)
+    gen(2)%e(nparam_per_node+2)=1d-2 !  miguel 14-10-13 (cell cycle)    
 
-    gen(1)%wa(nparam_per_node+12)=1d0 ! div asimétrica
-    gen(1)%wa(nparam_per_node+11)=1d0 ! dependencia polarizacion quimica
-    gen(1)%wa(nparam_per_node+8)=1d0  ! polarizacion quimica (grad Z)
-    !gen(3)%wa(nparam_per_node+8)=1d0  ! polarizacion quimica (cell-contact)
+    gen(1)%e(nparam_per_node+12)=1d0 ! div asimétrica
+    gen(1)%e(nparam_per_node+11)=1d0 ! dependencia polarizacion quimica
+    gen(1)%e(nparam_per_node+8)=1d0  ! polarizacion quimica (grad Z)
+    !gen(3)%e(nparam_per_node+8)=1d0  ! polarizacion quimica (cell-contact)
     
     !Gene-behavior interactions
-    !gen(2)%wa(1)=1
+    !gen(2)%e(1)=1
 
     !Gene-gene interactions
 
@@ -3114,8 +3751,8 @@ subroutine teloblast ! miguel4-11-13 (subtitution of the previous mes_shell)
     call update_npag
 
     node(:)%talone=0.0d0
-    ramax=maxval(node(:)%da)*3
-    node(:)%diffe=0.0d0
+    ramax=maxval(node(:)%add)*3
+    node(:)%dif=0.0d0
 end subroutine teloblast
 
 !************************************************************
@@ -3126,12 +3763,11 @@ call mes_ecm
 
     ffu=0
      !spring of the ellipse
-    ffu(2)=0 !to quite if there are too many cells
-    ffu(3)=0 !screening
-    ffu(4)=0 !torsion
-    ffu(5)=0 !external signal source
-    ffu(6)=0 !eggshell miguel4-1-13
-    ffu(8)=1
+    ffu(2)=0 !screening
+    ffu(3)=0 !torsion
+    
+    
+    ffu(4)=1
 
 goto 24
 
@@ -3198,7 +3834,7 @@ goto 24
     nda=nd+10
 	ncals=ncels+10
     
-    if(radi==1.or.mradi==1) ffu(1)=1
+    if(radi==1.or.mradi==1) ffu(1)=0
   !End initializing dimension parameters
 
 !  print*,"nodecel",nodecel,"ncelsepi",ncelsepi,"ncelsmes",ncelsmes,"ndepi",ndepi,"ndmes",ndmes
@@ -3241,13 +3877,12 @@ goto 24
     
     ffu=0
      !spring of the ellipse
-    ffu(2)=0 !to quite if there are too many cells
-    ffu(3)=1 !screening
-    ffu(4)=0 !torsion
-    ffu(5)=0 !external signal source
-    ffu(6)=0 !eggshell miguel4-1-13
-    ffu(12)=1
-    ffu(22)=0 !0 = noise biased by energies , 1 = unbiased noise
+    ffu(2)=0 !>>> TT no screening !screening
+    ffu(3)=0 !torsion
+    
+    
+    ffu(7)=1
+    ffu(15)=1 !1 = noise biased by energies , 0 = unbiased noise
 
 
    !******* #2 DEFINING NODE MECHANIC PARAMETERS *******
@@ -3255,14 +3890,14 @@ goto 24
     if(radi>0.and.radicel>0)then
       do i=1,ndepi
         node(i)%you=0d0;node(i)%adh=0d0    	!>>Miquel 26-10-12
-        node(i)%rep=0d0;node(i)%repcel=0d0	!>>Miquel 8-10-12
-        node(i)%req=0d0 !;node(i)%reqcel=0d0	!>>Miquel 26-10-12!de
-        node(i)%reqs=0d0
-        node(i)%da=0d0
-        node(i)%ke=0d0
-        node(i)%tor=1d0
-        !node(i)%stor=1d1
-        node(i)%mo=temp
+        node(i)%rep=0d0;node(i)%rec=0d0	!>>Miquel 8-10-12
+        node(i)%eqd=0d0 !;node(i)%codel=0d0	!>>Miquel 26-10-12!de
+        node(i)%eqs=0d0
+        node(i)%add=0d0
+        node(i)%hoo=0d0
+        node(i)%erp=1d0
+        !node(i)%est=1d1
+        node(i)%mov=temp
         node(i)%dmo=desmax
       end do
     end if
@@ -3271,26 +3906,26 @@ goto 24
     if(mradi>0.and.mradicel>0.and.layer>0)then
       do i=ndepi+1,nd
         node(i)%you=1d1;node(i)%adh=1d0 	!>>Miquel 26-10-12
-        node(i)%rep=1d1;node(i)%repcel=1d1	!>>Miquel 8-10-12
-        node(i)%req=0.30d0 !;node(i)%reqcel=0.25d0	!>>Miquel 26-10-12!de
-        node(i)%reqs=0.25d0
-        node(i)%da=node(i)%req*1.30 
-        node(i)%ke=0d0   !only for epithelium
-        node(i)%tor=1d0  !only for epithelium
-        !node(i)%stor=1d1 !only for epithelium
+        node(i)%rep=1d1;node(i)%rec=1d1	!>>Miquel 8-10-12
+        node(i)%eqd=0.30d0 !;node(i)%codel=0.25d0	!>>Miquel 26-10-12!de
+        node(i)%eqs=0.25d0
+        node(i)%add=node(i)%eqd*1.30 
+        node(i)%hoo=0d0   !only for epithelium
+        node(i)%erp=1d0  !only for epithelium
+        !node(i)%est=1d1 !only for epithelium
         node(i)%altre=0  !only for epithelium
-        node(i)%mo=temp
+        node(i)%mov=temp
         node(i)%dmo=desmax
       end do
     end if
 
     !General parameters that depend on node parameters
-    rv=2*maxval(node(:)%da)
+    rv=2*maxval(node(:)%add)
 
 
     !Distribution of nodes in space
-    if(radi>0.and.radicel>0)               call epiteli(radi,radicel,zepi,node(1)%req,node(1)%reqs)
-    if(mradi>0.and.mradicel>0.and.layer>0) call mesenq(mradi,mradicel,layer,zmes,node(ndepi+1)%req)
+    if(radi>0.and.radicel>0)               call epiteli(radi,radicel,zepi,node(1)%eqd,node(1)%eqs)
+    if(mradi>0.and.mradicel>0.and.layer>0) call mesenq(mradi,mradicel,layer,zmes,node(ndepi+1)%eqd)
 
     do i=1,nd
       node(i)%orix=node(i)%x ; node(i)%oriy=node(i)%y ; node(i)%oriz=node(i)%z
@@ -3298,7 +3933,7 @@ goto 24
     !End distribution of nodes in space
 
     !Setting boundary nodes (they will be subject to an external force keeping them in their initial position)
-    node(:)%hold=0
+    node(:)%fix=0
 
 
    !******* #3 DEFINING CELL PARAMETERS *******
@@ -3306,7 +3941,7 @@ goto 24
     if(radi>0.and.radicel>0)then
       do i=1,ncelsepi
         cels(i)%fase=0d0
-        mmae=node(cels(i)%node(1))%req
+        mmae=node(cels(i)%node(1))%eqd
         cels(i)%minsize_for_div=cels(i)%nunodes*2
         cels(i)%maxsize_for_div=10000 !>>> Is 5-2-14
       end do
@@ -3315,7 +3950,7 @@ goto 24
     if(mradi>0.and.mradicel>0.and.layer>0)then
       do i=ncelsepi+1,ncels
         cels(i)%fase=0d0
-        mmae=node(cels(i)%node(1))%req
+        mmae=node(cels(i)%node(1))%eqd
         cels(i)%minsize_for_div=cels(i)%nunodes*2
         cels(i)%maxsize_for_div=10000 !>>> Is 5-2-14
       end do
@@ -3332,9 +3967,9 @@ goto 24
 
     !Gene-behavior interactions
 24     do i=1,ng
-         gen(i)%wa=0.0d0
+         gen(i)%e=0.0d0
        end do
-       gen(1)%wa(nparam_per_node+3)=5d-1   !apoptosis
+       gen(1)%e(nparam_per_node+3)=5d-1   !apoptosis
 
     !Gene-gene interactions
 
@@ -3405,8 +4040,8 @@ goto 24
 
     call update_npag
     node(:)%talone=0.0d0
-    ramax=maxval(node(:)%da)*3
-    node(:)%diffe=0.0d0
+    ramax=maxval(node(:)%add)*3
+    node(:)%dif=0.0d0
 end subroutine
 
 !***********************************************************************************************************************
@@ -4305,7 +4940,7 @@ real*8,dimension(:)::p1(3),p2(3),vector(3)
 real*8             ::beta,angle,alt,de,di,zepi
 
     di=1.0d0
-    de=2d0*node(1)%req  !miguel 14-10-13
+    de=2d0*node(1)%eqd  !miguel 14-10-13
     vector=0.0d0
     beta=2d0*pi/6d0
 
@@ -4316,7 +4951,7 @@ real*8             ::beta,angle,alt,de,di,zepi
 
     do i=1,layer
       ii=ii+1
-      alt=zepi-real(i-1)*2*node(1)%req
+      alt=zepi-real(i-1)*2*node(1)%eqd
       node(ii)%x=0.0d0;node(ii)%y=0d0;node(ii)%z=alt
       node(ii)%tipus=4
       node(ii)%icel=-ii
@@ -4467,7 +5102,7 @@ di=5.5d0*de                    ! radius of the bulk of cells
     realtime=0
     reqmin=0.05d0 
 
-    mmae=node(1)%req
+    mmae=node(1)%eqd
 
     cels(:)%fase=0.0d0
     cels(:)%minsize_for_div=cels(:)%nunodes*2
@@ -4475,8 +5110,8 @@ di=5.5d0*de                    ! radius of the bulk of cells
     dmax=1
     screen_radius=1.0d0
     node(:)%talone=0.0d0
-    ramax=maxval(node(:)%da)*3
-    node(:)%diffe=0.0d0
+    ramax=maxval(node(:)%add)*3
+    node(:)%dif=0.0d0
 end subroutine mesenq_cell_sorting
 !*************************************************************************************************************
 
@@ -4493,18 +5128,18 @@ end subroutine mesenq_cell_sorting
 !
 !	do i=1,nd		!veins i parametres mecanics
 !		node(i)%you=1d1;node(i)%adh=1d1
-!		node(i)%rep=1d2;node(i)%repcel=1d2
-!		node(i)%req=0.5d0 !;node(i)%reqcel=0.5d0 !de
-!                node(i)%reqs=1d0
-!		node(i)%da=node(i)%req*1.25!+da 
-!                node(i)%ke=1d1
+!		node(i)%rep=1d2;node(i)%rec=1d2
+!		node(i)%eqd=0.5d0 !;node(i)%codel=0.5d0 !de
+!                node(i)%eqs=1d0
+!		node(i)%add=node(i)%eqd*1.25!+da 
+!                node(i)%hoo=1d1
 !		ii=node(i)%icel
 !		if(node(i)%tipus==1)then
 !   		  node(i)%altre=i-nodecel/2
 !		else
 !		  node(i)%altre=i+nodecel/2
 !		end if
-!                node(i)%tor=1d0
+!                node(i)%erp=1d0
 !	end do
 !        do i=1,nd
 !          node(i)%marge=1
@@ -4557,11 +5192,10 @@ end subroutine mesenq_cell_sorting
 !    
 !    ffu=0
 !     !spring of the ellipse
-!    ffu(2)=0 !to quite if there are too many cells
-!    ffu(3)=0 !screening
-!    ffu(4)=0 !torsion
-!    ffu(5)=0 !external signal source !miguel4-11-13
-!    ffu(6)=0 !eggshell miguel4-1-13
+!    ffu(2)=0 !screening
+!    ffu(3)=0 !torsion
+!     !miguel4-11-13
+!    
 !    !number of params
 !    !nparam=32
 !    nvarglobal_out=5
@@ -4575,20 +5209,20 @@ end subroutine mesenq_cell_sorting
 !    if (allocated(kadh)) deallocate(kadh)
 !    allocate(kadh(ntipusadh,ntipusadh))
 !    kadh=0d0
-!    gen(1)%wa(1)=1
+!    gen(1)%e(1)=1
 !    prop_noise=0.01d0    
 !    realtime=0
 !    reqmin=0.05d0 
 !
-!    mmae=node(1)%req
+!    mmae=node(1)%eqd
 !
 !    cels(:)%fase=0.0d0
 !    cels(:)%minsize_for_div=cels(:)%nunodes*2
 !    cels(i)%maxsize_for_div=10000 !>>> Is 5-2-14
 !    dmax=2
 !    node(:)%talone=0.0d0
-!    ramax=maxval(node(:)%da)*3
-!    node(:)%diffe=0.0d0
+!    ramax=maxval(node(:)%add)*3
+!    node(:)%dif=0.0d0
 !end subroutine
 
 !***************************************************************************************************************
@@ -4632,21 +5266,21 @@ real*8             ::beta,angle,alt,de,di
 
 	do i=1,nd		!veins i parametres mecanics
 		node(i)%you=1d4;node(i)%adh=1d2
-		node(i)%rep=1d4;node(i)%repcel=1d3
-		node(i)%req=0.5d0 !;node(i)%reqcel=0.5d0
-		node(i)%da=node(i)%req*1.5d0
-		node(i)%reqs=1.0d0
-        node(i)%ke=1d5
-        node(i)%tor=0d0
-        !node(i)%stor=1d3
-		node(i)%req=0.5d0!;node(i)%reqcel=0.5d0
+		node(i)%rep=1d4;node(i)%rec=1d3
+		node(i)%eqd=0.5d0 !;node(i)%codel=0.5d0
+		node(i)%add=node(i)%eqd*1.5d0
+		node(i)%eqs=1.0d0
+        node(i)%hoo=1d5
+        node(i)%erp=0d0
+        !node(i)%est=1d3
+		node(i)%eqd=0.5d0!;node(i)%codel=0.5d0
 	end do
 
 
 
 
 	!!!!!!!posició experimental dels nodes
-	node(1)%req=0.75d0;node(2)%req=0.75d0
+	node(1)%eqd=0.75d0;node(2)%eqd=0.75d0
 
 
 !		node(1)%x=node(1)%x-0.2d0;node(2)%x=node(2)%x+0.2d0
@@ -4654,15 +5288,15 @@ real*8             ::beta,angle,alt,de,di
 !		node(2)%x=0.1d0;node(2)%y=0d0;node(2)%z=-0.5d0
 !		node(4)%x=0.1d0;node(4)%y=0d0;node(4)%z=0.5d0
 
-!		node(3)%req=0.3d0;node(4)%req=0.3d0;node(3)%reqcel=0.3d0;node(4)%reqcel=0.3d0
-!		node(1)%req=1d0;node(2)%req=1d0;node(1)%reqcel=1d0;node(2)%reqcel=1d0
-!		node(1)%da=node(1)%req*1.5;node(2)%da=node(2)%req*1.5
-!		node(:)%da=node(1)%req*1.5
+!		node(3)%eqd=0.3d0;node(4)%eqd=0.3d0;node(3)%codel=0.3d0;node(4)%codel=0.3d0
+!		node(1)%eqd=1d0;node(2)%eqd=1d0;node(1)%codel=1d0;node(2)%codel=1d0
+!		node(1)%add=node(1)%eqd*1.5;node(2)%add=node(2)%eqd*1.5
+!		node(:)%add=node(1)%eqd*1.5
 
 
 
-!		node(3)%req=0.5d0*node(3)%req;node(3)%reqcel=0.5d0*node(3)%reqcel
-!		node(1)%req=1.2d0*node(1)%req;node(1)%reqcel=1.2d0*node(1)%reqcel
+!		node(3)%eqd=0.5d0*node(3)%eqd;node(3)%codel=0.5d0*node(3)%codel
+!		node(1)%eqd=1.2d0*node(1)%eqd;node(1)%codel=1.2d0*node(1)%codel
 
 
 	!define the cell's centroid
@@ -4704,25 +5338,24 @@ real*8             ::beta,angle,alt,de,di
     
     ffu=0
      !spring of the ellipse
-    ffu(2)=0 !to quite if there are too many cells
-    ffu(3)=0 !screening
-    ffu(4)=0 !torsion
-    ffu(5)=0 !external signal source ! miguel4-11-13
-    ffu(6)=0 !eggshell miguel4-1-13
-    ffu(22)=0 !0 = noise biased by energies , 1 = unbiased noise
+    ffu(2)=0 !screening
+    ffu(3)=0 !torsion
+     ! miguel4-11-13
+    
+    ffu(15)=1 !1 = noise biased by energies , 0 = unbiased noise
 
     !number of params
     !nparam=32
     nvarglobal_out=5
 
     ntipusadh=1
-    gen(1)%wa(1)=1
+    gen(1)%e(1)=1
     if (allocated(kadh)) deallocate(kadh)
     allocate(kadh(ntipusadh,ntipusadh))
 realtime=0
     reqmin=0.05d0 
 
-    mmae=node(1)%req
+    mmae=node(1)%eqd
 
     cels(:)%fase=0.0d0
     cels(:)%minsize_for_div=cels(:)%nunodes*2
@@ -4730,8 +5363,8 @@ realtime=0
     dmax=1
     screen_radius=1.0d0
     node(:)%talone=0.0d0
-    ramax=maxval(node(:)%da)*3
-    node(:)%diffe=0.0d0
+    ramax=maxval(node(:)%add)*3
+    node(:)%dif=0.0d0
 end subroutine
 
 !*********************************************************************************************************************
@@ -4778,11 +5411,11 @@ ndq=side**2                                         ! total number of nodes
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
             do i=ndmes+1,nd 		               !veins i parametres mecanics
 		node(i)%you=1d0;node(i)%adh=1d0
-		node(i)%rep=1d0;node(i)%repcel=1d0
-		node(i)%req=1d0 !;node(i)%reqcel=0.1d0 !de
-                node(i)%reqs=1d0
-		node(i)%da=2*de
-                node(i)%ke=1d1		
+		node(i)%rep=1d0;node(i)%rec=1d0
+		node(i)%eqd=1d0 !;node(i)%codel=0.1d0 !de
+                node(i)%eqs=1d0
+		node(i)%add=2*de
+                node(i)%hoo=1d1		
 	    end do
 
     prop_noise=0.01d0    
@@ -4790,8 +5423,8 @@ realtime=0
     dmax=1
     screen_radius=1.0d0
     node(:)%talone=0.0d0
-    ramax=maxval(node(:)%da)*3
-    node(:)%diffe=0.0d0
+    ramax=maxval(node(:)%add)*3
+    node(:)%dif=0.0d0
 end subroutine basal
 
 !***********************************************************************
@@ -4827,7 +5460,7 @@ print *,""
 	mradi=14     !number of nodes per cell
 	mradicel=2   !number of radial cell layers
 	layer=1      !number of planar cell layers
-	zmes=1.7d0   !z-position of uppermost layer
+	zmes=1.4d0   !z-position of uppermost layer
 
     !ECM dimension parameters?
 
@@ -4879,7 +5512,7 @@ print *,""
     nda=nd+10
 	ncals=ncels+10
     
-    if(radi==1.or.mradi==1) ffu(1)=1
+    if(radi==1.or.mradi==1) ffu(1)=0
   !End initializing dimension parameters
 
   print*,"nodecel",nodecel,"ncelsepi",ncelsepi,"ncelsmes",ncelsmes,"ndepi",ndepi,"ndmes",ndmes
@@ -4921,31 +5554,33 @@ print *,""
     
     ffu=0
      !spring of the ellipse
-    ffu(2)=0 !to quite if there are too many cells
-    ffu(3)=1 !screening
-    ffu(4)=0 !torsion
-    ffu(5)=0 !external signal source
-    ffu(6)=0 !eggshell miguel4-1-13
-    ffu(12)=1
-    ffu(22)=0 !0 = noise biased by energies , 1 = unbiased noise
-
-    ffu(9)=0   !euler or runge-kutta
-    ffu(19)=0  !adaptive delta
-
+    ffu(5)=0   !!>> HC 13-7-2021 0= Runge-Kutta integration 
+    ffu(6)=0   !!>> HC 13-7-2021 0= plasticity
+    ffu(9)=0   !!>> HC 13-7-2021 0= NEW VERSION 2021
+    ffu(10)=0  !!>> HC 13-7-2021 0= volume conservation
+    ffu(15)=0  !!>> HC 13-7-2021 1= unbiased random noise (faster)
+    ffu(19)=0  !!>> HC 13-7-2021 0= polarization and polarized division controled by same wa
+    ffu(20)=0  !!>> HC 13-7-2021 0= Maximum value for adhesion (maxad)
+    ffu(23)=0  !!>> HC 13-7-2021 0= only neighbors are the neighbors in ADD range
+    ffu(24)=0  !!>> HC 13-7-2021 0= We recover the lost ADD neighbors
+    ffu(25)=0  !!>> HC 13-7-2021 0= Nutrients limited, maximum global cell cycle increase (maxcycl)
+    ffu(26)=0  !!>> HC 13-7-2021 0= Gradual implementation of cell properties and behaviors
+    ffu(27)=0  !!>> HC 13-7-2021 0= We call to neighbor_build only once in Runge-Kutta
+    maxad=5.00d0  !!>> HC 16-12-2020
 
    !******* #2 DEFINING NODE MECHANIC PARAMETERS *******
     !Epithelium
     if(radi>0.and.radicel>0)then
       do i=1,ndepi
         node(i)%you=5d1;node(i)%adh=0d0	!>>Miquel 26-10-12
-        node(i)%rep=1d1;node(i)%repcel=1d1 !>>Miquel 8-10-12
-        node(i)%req=0.25d0 ; node(i)%reqcr=node(i)%req !;node(i)%reqcel=0.28d0	!>>Miquel 26-10-12!de
-        node(i)%da=node(i)%req*1.40 
-        node(i)%reqs=0.25d0
-        node(i)%ke=1d1
-        node(i)%tor=1d1
-        node(i)%stor=1d1
-        node(i)%mo=0d0
+        node(i)%rep=1d1;node(i)%rec=1d1 !>>Miquel 8-10-12
+        node(i)%eqd=0.25d0 ; node(i)%grd=node(i)%eqd !;node(i)%codel=0.28d0	!>>Miquel 26-10-12!de
+        node(i)%add=node(i)%eqd*1.40 
+        node(i)%eqs=0.25d0
+        node(i)%hoo=1d1
+        node(i)%erp=1d1
+        node(i)%est=1d1
+        node(i)%mov=0d0
         node(i)%dmo=0d0
       end do
     end if
@@ -4954,15 +5589,15 @@ print *,""
     if(mradi>0.and.mradicel>0.and.layer>0)then
       do i=ndepi+1,nd
         node(i)%you=6d1;node(i)%adh=0d0 	!>>Miquel 26-10-12
-        node(i)%rep=2d1;node(i)%repcel=3.0d1	!>>Miquel 8-10-12
-        node(i)%req=0.25d0 ;node(i)%reqcr=node(i)%req
-        node(i)%reqs=0d0
-        node(i)%da=node(i)%req*2.0d0 
-        node(i)%ke=0d0   !only for epithelium
-        node(i)%tor=1d0  !only for epithelium
-        !node(i)%stor=1d1 !only for epithelium
+        node(i)%rep=2d1;node(i)%rec=3.0d1	!>>Miquel 8-10-12
+        node(i)%eqd=0.25d0 ;node(i)%grd=node(i)%eqd
+        node(i)%eqs=0d0
+        node(i)%add=node(i)%eqd*2.0d0 
+        node(i)%hoo=0d0   !only for epithelium
+        node(i)%erp=1d0  !only for epithelium
+        !node(i)%est=1d1 !only for epithelium
         node(i)%altre=0  !only for epithelium
-        node(i)%mo=1d0
+        node(i)%mov=1d0
         node(i)%dmo=1d-1
       end do
     end if
@@ -4971,12 +5606,12 @@ print *,""
 
 
     !General parameters that depend on node parameters
-    rv=2*maxval(node(:)%da)
+    rv=2*maxval(node(:)%add)
 
 
     !Distribution of nodes in space
-    if(radi>0.and.radicel>0)               call epiteli(radi,radicel,zepi,node(1)%req,node(1)%reqs)
-    if(mradi>0.and.mradicel>0.and.layer>0) call mesenq(mradi,mradicel,layer,zmes,node(ndepi+1)%req)
+    if(radi>0.and.radicel>0)               call epiteli(radi,radicel,zepi,node(1)%eqd,node(1)%eqs)
+    if(mradi>0.and.mradicel>0.and.layer>0) call mesenq(mradi,mradicel,layer,zmes,node(ndepi+1)%eqd)
 
     do i=1,nd
       node(i)%orix=node(i)%x ; node(i)%oriy=node(i)%y ; node(i)%oriz=node(i)%z
@@ -4990,7 +5625,7 @@ print *,""
     !End distribution of nodes in space
 
     !Setting boundary nodes (they will be subject to an external force keeping them in their initial position)
-    node(:)%hold=0
+    node(:)%fix=0
 
 
    !******* #3 DEFINING CELL PARAMETERS *******
@@ -4998,7 +5633,7 @@ print *,""
     if(radi>0.and.radicel>0)then
       do i=1,ncelsepi
         cels(i)%fase=0d0
-        mmae=node(cels(i)%node(1))%req
+        mmae=node(cels(i)%node(1))%eqd
         cels(i)%minsize_for_div=cels(i)%nunodes*2
         cels(i)%maxsize_for_div=10000 !>>> Is 5-2-14
       end do
@@ -5007,7 +5642,7 @@ print *,""
     if(mradi>0.and.mradicel>0.and.layer>0)then
       do i=ncelsepi+1,ncels
         cels(i)%fase=0d0
-        mmae=node(cels(i)%node(1))%req
+        mmae=node(cels(i)%node(1))%eqd
         cels(i)%minsize_for_div=cels(i)%nunodes*2
         cels(i)%maxsize_for_div=10000 !>>> Is 5-2-14
       end do
@@ -5026,12 +5661,12 @@ print *,""
 
 
     !Gene-behavior interactions
-      gen(1)%wa(1)=1  !adhesion
-      gen(2)%wa(1)=2  !adhesion
-      gen(3)%wa(1)=3  !adhesion
+      gen(1)%e(1)=1  !adhesion
+      gen(2)%e(1)=2  !adhesion
+      gen(3)%e(1)=3  !adhesion
 
-      !gen(2)%wa(6)=0.1d0           !this is da (keep expression levels at one so this will be the actual value
-      !gen(2)%wa(16)=0.1d0   !this is dmo (keep expression levels at one so this will be the actual value
+      !gen(2)%e(6)=0.1d0           !this is da (keep expression levels at one so this will be the actual value
+      !gen(2)%e(16)=0.1d0   !this is dmo (keep expression levels at one so this will be the actual value
 
     !Gene-gene interactions
 
@@ -5047,9 +5682,9 @@ print *,""
       !Adhesion molecules interactions
 
        !kadh(1,2)=3d1 !adhesion table
-       kadh(2,1)=5d0 ; kadh(1,2)=kadh(2,1)!adhesion table THIS HAS TO BE SYMMETRIC
-       kadh(3,3)=5.0d1
-       kadh(2,2)=5d0  ! HI HA ALGO QUE NO VA
+       kadh(2,1)=10d0 ; kadh(1,2)=kadh(2,1)!adhesion table THIS HAS TO BE SYMMETRIC
+       kadh(3,3)=10.0d1
+       kadh(2,2)=10d0  ! HI HA ALGO QUE NO VA
        kadh(3,2)=0d0  ! HI HA ALGO QUE NO VA
        kadh(2,3)=0d0  ! HI HA ALGO QUE NO VA
 
@@ -5075,11 +5710,11 @@ print *,""
 
     call update_npag
     node(:)%talone=0.0d0
-    ramax=maxval(node(:)%da)*3
-    node(:)%diffe=0.0d0
+    ramax=maxval(node(:)%add)*3
+    node(:)%dif=0.0d0
  
     do i=1,ndepi
-      node(i)%hold=2
+      node(i)%fix=2
     end do
 
 !    node(ndepi+1:nd)%z=node(ndepi+1:nd)%z-0.3
@@ -5107,7 +5742,6 @@ subroutine epi_apoptosis   !>>>>>>>>>>>> Miquel 18-6-13
     !ECM dimension parameters?
 
 !************************************************
-
 
     !Initializing dimension parameters
     if(radi>0.and.radicel>0)then
@@ -5154,7 +5788,7 @@ subroutine epi_apoptosis   !>>>>>>>>>>>> Miquel 18-6-13
     nda=nd+10
 	ncals=ncels+10
     
-    if(radi==1.or.mradi==1) ffu(1)=1
+    if(radi==1.or.mradi==1) ffu(1)=0
   !End initializing dimension parameters
 
 
@@ -5196,33 +5830,34 @@ subroutine epi_apoptosis   !>>>>>>>>>>>> Miquel 18-6-13
     
     
     ffu=0
-     !spring of the ellipse
-    ffu(2)=0 !to quite if there are too many cells
-    ffu(3)=1 !screening
-    ffu(4)=0 !torsion
-    ffu(5)=0 !external signal source
-    ffu(6)=0 !eggshell miguel4-1-13
-    ffu(12)=1
-    ffu(13)=0 !neighboring by triangulation
-    ffu(22)=0 !0 = noise biased by energies , 1 = unbiased noise
-
-    ffu(9)=1 !integration method 0=euler , 1=runge-kutta forces , 2=runge-kutta forces+genes
-    ffu(19)=0 !adaptive time step 0=no , 1=yes for forces , 2=yes for forces+genes
-
+    ffu(5)=0   !!>> HC 13-7-2021 0= Runge-Kutta integration 
+    ffu(6)=0   !!>> HC 13-7-2021 0= plasticity
+    ffu(9)=0   !!>> HC 13-7-2021 0= NEW VERSION 2021
+    ffu(10)=0  !!>> HC 13-7-2021 0= volume conservation
+    ffu(15)=0  !!>> HC 13-7-2021 0= unbiased random noise (faster)
+    ffu(19)=0  !!>> HC 13-7-2021 0= polarization and polarized division controled by same wa
+    ffu(20)=0  !!>> HC 13-7-2021 0= Maximum value for adhesion (maxad)
+    ffu(23)=0  !!>> HC 13-7-2021 0= only neighbors are the neighbors in ADD range
+    ffu(24)=0  !!>> HC 13-7-2021 0= We recover the lost ADD neighbors
+    ffu(25)=0  !!>> HC 13-7-2021 0= Nutrients limited, maximum global cell cycle increase (maxcycl)
+    ffu(26)=0  !!>> HC 13-7-2021 0= Gradual implementation of cell properties and behaviors
+    ffu(27)=0  !!>> HC 13-7-2021 0= We call to neighbor_build only once in Runge-Kutta
+    maxad=5.0d0
+     !>>> TT
     
    !******* #2 DEFINING NODE MECHANIC PARAMETERS *******
     !Epithelium
     if(radi>0.and.radicel>0)then
       do i=1,ndepi
-        node(i)%you=2.0d1;node(i)%adh=8d0	!>>Miquel 26-10-12
-        node(i)%rep=1.0d1;node(i)%repcel=1d1	!>>Miquel 8-10-12
-        node(i)%req=0.25d0 ; node(i)%reqcr=node(i)%req !;node(i)%reqcel=0.25d0	!>>Miquel 26-10-12!de
-        node(i)%reqs=0.5d0
-		node(i)%da=node(i)%req*1.50 
-        node(i)%ke=1d1
-        node(i)%tor=1d0
-        node(i)%stor=1d0
-        node(i)%mo=1d0
+        node(i)%you=5.0d0;node(i)%adh=5d0	!>>Miquel 26-10-12  !!>>HC 13-7-2021
+        node(i)%rep=5d1;node(i)%rec=5d1	!>>Miquel 8-10-12   !!>>HC 13-7-2021
+        node(i)%eqd=0.25d0 ; node(i)%grd=node(i)%eqd !;node(i)%codel=0.25d0	!>>Miquel 26-10-12!de
+        node(i)%eqs=0.5d0
+		node(i)%add=node(i)%eqd*1.50 
+        node(i)%hoo=1d1
+        node(i)%erp=20d0  !!>>HC 13-7-2021
+        node(i)%est=60d0  !!>>HC 13-7-2021
+        node(i)%mov=1d0
         node(i)%dmo=5d-3
       end do
     end if
@@ -5231,26 +5866,26 @@ subroutine epi_apoptosis   !>>>>>>>>>>>> Miquel 18-6-13
     if(mradi>0.and.mradicel>0.and.layer>0)then
       do i=ndepi+1,nd
         node(i)%you=0d0;node(i)%adh=0d0 	!>>Miquel 26-10-12
-        node(i)%rep=0d0;node(i)%repcel=0d0	!>>Miquel 8-10-12
-        node(i)%req=0d0 !;node(i)%reqcel=0d0	!>>Miquel 26-10-12!de
-        node(i)%reqs=0d0
-        node(i)%da=0d0
-        node(i)%ke=0d0   !only for epithelium
-        node(i)%tor=1d0  !only for epithelium
-        node(i)%stor=1d1 !only for epithelium
+        node(i)%rep=0d0;node(i)%rec=0d0	!>>Miquel 8-10-12
+        node(i)%eqd=0d0 !;node(i)%codel=0d0	!>>Miquel 26-10-12!de
+        node(i)%eqs=0d0
+        node(i)%add=0d0
+        node(i)%hoo=0d0   !only for epithelium
+        node(i)%erp=1d0  !only for epithelium
+        node(i)%est=1d1 !only for epithelium
         node(i)%altre=0  !only for epithelium
-        node(i)%mo=temp
+        node(i)%mov=temp
         node(i)%dmo=desmax
       end do
     end if
 
     !General parameters that depend on node parameters
-    rv=2*maxval(node(:)%da)
+    rv=2*maxval(node(:)%add)
 
 
     !Distribution of nodes in space
-    if(radi>0.and.radicel>0)               call epiteli(radi,radicel,zepi,node(1)%req,node(1)%reqs)
-    if(mradi>0.and.mradicel>0.and.layer>0) call mesenq(mradi,mradicel,layer,zmes,node(ndepi+1)%req)
+    if(radi>0.and.radicel>0)               call epiteli(radi,radicel,zepi,node(1)%eqd,node(1)%eqs)
+    if(mradi>0.and.mradicel>0.and.layer>0) call mesenq(mradi,mradicel,layer,zmes,node(ndepi+1)%eqd)
 
     do i=1,nd
       node(i)%orix=node(i)%x ; node(i)%oriy=node(i)%y ; node(i)%oriz=node(i)%z
@@ -5258,7 +5893,7 @@ subroutine epi_apoptosis   !>>>>>>>>>>>> Miquel 18-6-13
     !End distribution of nodes in space
 
     !Setting boundary nodes (they will be subject to an external force keeping them in their initial position)
-    node(:)%hold=0
+    node(:)%fix=0
 
 
    !******* #3 DEFINING CELL PARAMETERS *******
@@ -5266,7 +5901,7 @@ subroutine epi_apoptosis   !>>>>>>>>>>>> Miquel 18-6-13
     if(radi>0.and.radicel>0)then
       do i=1,ncelsepi
         cels(i)%fase=0d0
-        mmae=node(cels(i)%node(1))%req
+        mmae=node(cels(i)%node(1))%eqd
         cels(i)%minsize_for_div=cels(i)%nunodes*2
         cels(i)%maxsize_for_div=10000 !>>> Is 5-2-14
       end do
@@ -5275,7 +5910,7 @@ subroutine epi_apoptosis   !>>>>>>>>>>>> Miquel 18-6-13
     if(mradi>0.and.mradicel>0.and.layer>0)then
       do i=ncelsepi+1,ncels
         cels(i)%fase=0d0
-        mmae=node(cels(i)%node(1))%req
+        mmae=node(cels(i)%node(1))%eqd
         cels(i)%minsize_for_div=cels(i)%nunodes*2
         cels(i)%maxsize_for_div=10000 !>>> Is 5-2-14
       end do
@@ -5292,7 +5927,7 @@ subroutine epi_apoptosis   !>>>>>>>>>>>> Miquel 18-6-13
 
 
     !Gene-behavior interactions
-      gen(1)%wa(nparam_per_node+3)=5d-1   !apoptosis
+      gen(1)%e(nparam_per_node+3)=5d-1   !apoptosis
 
     !Gene-gene interactions
 
@@ -5330,8 +5965,8 @@ subroutine epi_apoptosis   !>>>>>>>>>>>> Miquel 18-6-13
 
     call update_npag
     node(:)%talone=0.0d0
-    ramax=maxval(node(:)%da)*3
-    node(:)%diffe=0.0d0
+    ramax=maxval(node(:)%add)*3
+    node(:)%dif=0.0d0
     
 
 end subroutine epi_apoptosis
@@ -5618,11 +6253,11 @@ real*8,allocatable::cmalla(:,:),cveci(:,:),primers(:)
 
 	do i=1,ndepi		!veins i parametres mecanics
 		node(i)%you=1d1;node(i)%adh=1d1
-		node(i)%rep=1d2;node(i)%repcel=1d2
-		node(i)%req=0.25d0 ; node(i)%reqcr=node(i)%req !;node(i)%reqcel=0.25d0 !de
-            node(i)%reqs=0.5d0
-		node(i)%da=node(i)%req*1.25!+da 
-        node(i)%ke=1d1
+		node(i)%rep=1d2;node(i)%rec=1d2
+		node(i)%eqd=0.25d0 ; node(i)%grd=node(i)%eqd !;node(i)%codel=0.25d0 !de
+            node(i)%eqs=0.5d0
+		node(i)%add=node(i)%eqd*1.25!+da 
+        node(i)%hoo=1d1
 !        node(i)%tipus=3
 !        node(i)%icel=i
 	end do
@@ -5632,8 +6267,8 @@ real*8,allocatable::cmalla(:,:),cveci(:,:),primers(:)
     dmax=1
     screen_radius=1.0d0
     node(:)%talone=0.0d0
-    ramax=maxval(node(:)%da)*3
-    node(:)%diffe=0.0d0
+    ramax=maxval(node(:)%add)*3
+    node(:)%dif=0.0d0
 end subroutine epiteli_sphere
 
 !**********************************************************************************************
@@ -5728,13 +6363,12 @@ subroutine epi_sphere
     
     ffu=0
      !spring of the ellipse
-    ffu(1)=1
-    ffu(2)=0 !to quite if there are too many cells
-    ffu(3)=0 !screening
-    ffu(4)=0 !torsion
-    ffu(5)=0 !external signal source !miguel4-11-13
-    ffu(6)=0 !eggshell miguel4-1-13
-    ffu(22)=0 !0 = noise biased by energies , 1 = unbiased noise
+    ffu(1)=0
+    ffu(2)=0 !screening
+    ffu(3)=0 !torsion
+     !miguel4-11-13
+    
+    ffu(15)=1 !1 = noise biased by energies , 0 = unbiased noise
 
 
     !number of params
@@ -5755,34 +6389,34 @@ subroutine epi_sphere
 
     do i=1,nd		!veins i parametres mecanics
       node(i)%you=1.3d1;node(i)%adh=8d0	!>>Miquel 26-10-12
-      node(i)%rep=1.3d1;node(i)%repcel=1.8d1	!>>Miquel 8-10-12
-      node(i)%req=0.25d0 ; node(i)%reqcr=node(i)%req !;node(i)%reqcel=0.25d0	!>>Miquel 26-10-12!de
-      node(i)%reqs=0.5d0
-      node(i)%da=node(i)%req*1.35  
-      node(i)%ke=1d2
-      node(i)%tor=1d0
-      !node(i)%stor=1d1
+      node(i)%rep=1.3d1;node(i)%rec=1.8d1	!>>Miquel 8-10-12
+      node(i)%eqd=0.25d0 ; node(i)%grd=node(i)%eqd !;node(i)%codel=0.25d0	!>>Miquel 26-10-12!de
+      node(i)%eqs=0.5d0
+      node(i)%add=node(i)%eqd*1.35  
+      node(i)%hoo=1d2
+      node(i)%erp=1d0
+      !node(i)%est=1d1
       node(i)%orix=node(i)%x ; node(i)%oriy=node(i)%y ; node(i)%oriz=node(i)%z
       ii=node(i)%icel
 
       if(node(i)%tipus==1)then
-        node(i)%req=0.35d0
-!        node(i)%reqcel=0.35d0
-        node(i)%da=node(i)%req*1.35d0
+        node(i)%eqd=0.35d0
+!        node(i)%codel=0.35d0
+        node(i)%add=node(i)%eqd*1.35d0
       end if
       node(i)%dmo=desmax
-      node(i)%mo=temp
+      node(i)%mov=temp
 
     end do
 
-    rv=2*node(1)%da;  print*,"rv",rv
+    rv=2*node(1)%add;  print*,"rv",rv
 
     ng=1
 
     call initiate_gene
-    gen(1)%wa(1)=1
+    gen(1)%e(1)=1
 
-    gen(1)%wa(15)=1d-4
+    gen(1)%e(15)=1d-4
     do i=1,nd
       gex(i,1)=0.0d0	!no growth
     end do
@@ -5794,8 +6428,8 @@ subroutine epi_sphere
 
     realtime=0
     node(:)%talone=0.0d0
-    ramax=maxval(node(:)%da)*3
-    node(:)%diffe=0.0d0
+    ramax=maxval(node(:)%add)*3
+    node(:)%dif=0.0d0
 end subroutine epi_sphere
 
 !***************************************************************************************************************
@@ -5865,7 +6499,7 @@ subroutine epi_mes_ecm
     nda=nd+10
 	ncals=ncels+10
     
-    if(radi==1.or.mradi==1) ffu(1)=1
+    if(radi==1.or.mradi==1) ffu(1)=0
   !End initializing dimension parameters
 
 
@@ -5905,40 +6539,41 @@ subroutine epi_mes_ecm
     
     
     ffu=0
-     !spring of the ellipse
-    ffu(2)=0 !to quite if there are too many cells
-    ffu(3)=1 !screening
-    ffu(4)=0 !torsion
-    ffu(5)=0 !external signal source
-    ffu(8)=0
-    ffu(11)=1
-    ffu(12)=1
-    ffu(13)=0
-    ffu(17)=1
-    ffu(22)=1 !0 = noise biased by energies , 1 = unbiased noise
-    ffu(24)=1
+    ffu(5)=0   !!>> HC 13-7-2021 0= Runge-Kutta integration 
+    ffu(6)=0   !!>> HC 13-7-2021 0= plasticity
+    ffu(9)=0   !!>> HC 13-7-2021 0= NEW VERSION 2021
+    ffu(10)=0  !!>> HC 13-7-2021 0= volume conservation
+    ffu(15)=0  !!>> HC 13-7-2021 0= unbiased random noise (faster)
+    ffu(19)=0  !!>> HC 13-7-2021 0= polarization and polarized division controled by same wa
+    ffu(20)=0  !!>> HC 13-7-2021 0= Maximum value for adhesion (maxad)
+    ffu(23)=0  !!>> HC 13-7-2021 0= only neighbors are the neighbors in ADD range
+    ffu(24)=0  !!>> HC 13-7-2021 0= We recover the lost ADD neighbors
+    ffu(25)=0  !!>> HC 13-7-2021 0= Nutrients limited, maximum global cell cycle increase (maxcycl)
+    ffu(26)=0  !!>> HC 13-7-2021 0= Gradual implementation of cell properties and behaviors
+    ffu(27)=0  !!>> HC 13-7-2021 0= We call to neighbor_build only once in Runge-Kutta
 
-    ffu(9)=0 !integration method 0=euler , 1=runge-kutta forces , 2=runge-kutta forces+genes
-    ffu(19)=0 !adaptive time step 0=no , 1=yes for forces , 2=yes for forces+genes
-
+    ffu(5)=0 !integration method 0=euler , 1=runge-kutta forces , 2=runge-kutta forces+genes
+    ffu(12)=0 !adaptive time step 0=no , 1=yes for forces , 2=yes for forces+genes
+     !>>> TT
+    maxad=0.50d0  !!>> HC 16-12-2020
 
    !******* #2 DEFINING NODE MECHANIC PARAMETERS *******
     !Epithelium
     if(radi>0.and.radicel>0)then
       do i=1,ndepi
         node(i)%you=1d1;node(i)%adh=0d0	!>>Miquel 26-10-12
-        node(i)%rep=1d1;node(i)%repcel=2d1	!>>Miquel 8-10-12
-        node(i)%req=0.25d0 ; node(i)%reqcr=node(i)%req !;node(i)%reqcel=0.25d0	!>>Miquel 26-10-12!de
-        node(i)%reqs=0.25d0
-        node(i)%da=node(i)%req*1.50
-        node(i)%ke=1d1
-        node(i)%tor=5d0
-        node(i)%stor=1d1
-        node(i)%mo=temp
+        node(i)%rep=1d1;node(i)%rec=2d1	!>>Miquel 8-10-12
+        node(i)%eqd=0.25d0 ; node(i)%grd=node(i)%eqd !;node(i)%codel=0.25d0	!>>Miquel 26-10-12!de
+        node(i)%eqs=0.25d0
+        node(i)%add=node(i)%eqd*1.50
+        node(i)%hoo=1d1
+        node(i)%erp=5d0
+        node(i)%est=1d1
+        node(i)%mov=temp
         node(i)%dmo=desmax
-        node(i)%kplast=1d0
+        node(i)%pla=1d0
         node(i)%kvol=1d0
-        node(i)%acecm=0d0
+        node(i)%ecm=0d0
       end do
     end if
 
@@ -5946,33 +6581,33 @@ subroutine epi_mes_ecm
     if(mradi>0.and.mradicel>0.and.layer>0)then
       do i=ndepi+1,nd
         node(i)%you=1d1;node(i)%adh=0d0	!>>Miquel 26-10-12
-        node(i)%rep=1d1;node(i)%repcel=2d1	!>>Miquel 8-10-12
-        node(i)%req=0.25d0 ; node(i)%reqcr=node(i)%req !;node(i)%reqcel=0.25d0	!>>Miquel 26-10-12!de
-        node(i)%reqs=0d0
-		node(i)%da=node(i)%req*1.90; 
-        node(i)%ke=0d0   !only for epithelium
-        node(i)%tor=0d0  !only for epithelium
-        node(i)%stor=0d0 !only for epithelium
+        node(i)%rep=1d1;node(i)%rec=2d1	!>>Miquel 8-10-12
+        node(i)%eqd=0.25d0 ; node(i)%grd=node(i)%eqd !;node(i)%codel=0.25d0	!>>Miquel 26-10-12!de
+        node(i)%eqs=0d0
+		node(i)%add=node(i)%eqd*1.90; 
+        node(i)%hoo=0d0   !only for epithelium
+        node(i)%erp=0d0  !only for epithelium
+        node(i)%est=0d0 !only for epithelium
         node(i)%altre=0  !only for epithelium
-        node(i)%mo=temp
+        node(i)%mov=temp
         node(i)%dmo=desmax
-        node(i)%acecm=0d0
+        node(i)%ecm=0d0
       end do
     end if
 
     !General parameters that depend on node parameters
-    rv=2*maxval(node(:)%da)
+    rv=2*maxval(node(:)%add)
 
     !Distribution of nodes in space
-    if(radi>0.and.radicel>0)               call epiteli(radi,radicel,zepi,node(1)%req,node(1)%reqs)
-    if(mradi>0.and.mradicel>0.and.layer>0) call mesenq(mradi,mradicel,layer,zmes,node(ndepi+1)%req)
+    if(radi>0.and.radicel>0)               call epiteli(radi,radicel,zepi,node(1)%eqd,node(1)%eqs)
+    if(mradi>0.and.mradicel>0.and.layer>0) call mesenq(mradi,mradicel,layer,zmes,node(ndepi+1)%eqd)
     do i=1,nd
       node(i)%orix=node(i)%x ; node(i)%oriy=node(i)%y ; node(i)%oriz=node(i)%z
     end do
     !End distribution of nodes in space
 
     !Setting boundary nodes (they will be subject to an external force keeping them in their initial position)
-    node(:)%hold=0
+    node(:)%fix=0
 
 
    !******* #3 DEFINING CELL PARAMETERS *******
@@ -5980,7 +6615,7 @@ subroutine epi_mes_ecm
     if(radi>0.and.radicel>0)then
       do i=1,ncelsepi
         cels(i)%fase=0d0
-        mmae=node(cels(i)%node(1))%req
+        mmae=node(cels(i)%node(1))%eqd
         cels(i)%minsize_for_div=cels(i)%nunodes*2
         cels(i)%maxsize_for_div=10000 !>>> Is 5-2-14
       end do
@@ -5989,7 +6624,7 @@ subroutine epi_mes_ecm
     if(mradi>0.and.mradicel>0.and.layer>0)then
       do i=ncelsepi+1,ncels
         cels(i)%fase=0d0
-        mmae=node(cels(i)%node(1))%req
+        mmae=node(cels(i)%node(1))%eqd
         cels(i)%minsize_for_div=cels(i)%nunodes*2
         cels(i)%maxsize_for_div=10000 !>>> Is 5-2-14
       end do
@@ -6011,16 +6646,16 @@ subroutine epi_mes_ecm
 !       gen(5)%npost=1   ; allocate(gen(5)%post(1)) ; gen(5)%post(1)=1
 
     !Gene-behavior interactions
-      gen(1)%wa(1)=1
-      gen(2)%wa(1)=2
-      !gen(3)%wa(1)=3
-      gen(4)%wa(nparam_per_node+4)=2d-1 
-      gen(1)%wa(nparam_per_node+5)=1d0
-      gen(4)%wa(nparam_per_node+6)=2d1
-      gen(4)%wa(nparam_per_node+7)=0.10d0
+      gen(1)%e(1)=1
+      gen(2)%e(1)=2
+      !gen(3)%e(1)=3
+      gen(4)%e(nparam_per_node+4)=2d-1 
+      gen(1)%e(nparam_per_node+5)=1d0
+      gen(4)%e(nparam_per_node+6)=2d1
+      gen(4)%e(nparam_per_node+7)=0.10d0
 
     !Gene-gene interactions
-      gen(1)%w(4)=1.0d4
+      gen(1)%t(4)=1.0d4
       !gene 4 induces the synthesis of the secreted gene
 
     !Adhesion molecules
@@ -6061,8 +6696,8 @@ subroutine epi_mes_ecm
     call update_npag
 
     node(:)%talone=0.0d0
-    ramax=maxval(node(:)%da)*3
-    node(:)%diffe=0.0d0
+    ramax=maxval(node(:)%add)*3
+    node(:)%dif=0.0d0
 end subroutine epi_mes_ecm
 
 !***************************************************************************************************
@@ -6131,7 +6766,7 @@ subroutine mes_ecm
     nda=nd+10
 	ncals=ncels+10
     
-    if(radi==1.or.mradi==1) ffu(1)=1
+    if(radi==1.or.mradi==1) ffu(1)=0
   !End initializing dimension parameters
 
 
@@ -6171,13 +6806,12 @@ subroutine mes_ecm
     
     ffu=0
      !spring of the ellipse
-    ffu(2)=0 !to quite if there are too many cells
-    ffu(3)=0 !screening
-    ffu(4)=0 !torsion
-    ffu(5)=0 !external signal source
-    ffu(6)=0 !eggshell miguel4-1-13
-    ffu(8)=1
-    ffu(22)=0 !0 = noise biased by energies , 1 = unbiased noise
+    ffu(2)=0 !screening
+    ffu(3)=0 !torsion
+    
+    
+    ffu(4)=1
+    ffu(15)=1 !1 = noise biased by energies , 0 = unbiased noise
 
 
    !******* #2 DEFINING NODE MECHANIC PARAMETERS *******
@@ -6185,16 +6819,16 @@ subroutine mes_ecm
     if(radi>0.and.radicel>0)then
       do i=1,ndepi
         node(i)%you=1d1;node(i)%adh=0d0	!>>Miquel 26-10-12
-        node(i)%rep=1d1;node(i)%repcel=1d1	!>>Miquel 8-10-12
-        node(i)%req=0.25d0 ; node(i)%reqcr=node(i)%req !;node(i)%reqcel=0.25d0	!>>Miquel 26-10-12!de
-        node(i)%reqs=0.25d0
-        node(i)%da=node(i)%req*1.25 
-        node(i)%ke=1d1
-        node(i)%tor=5d-1
-        !node(i)%stor=1d1
-        node(i)%mo=temp
+        node(i)%rep=1d1;node(i)%rec=1d1	!>>Miquel 8-10-12
+        node(i)%eqd=0.25d0 ; node(i)%grd=node(i)%eqd !;node(i)%codel=0.25d0	!>>Miquel 26-10-12!de
+        node(i)%eqs=0.25d0
+        node(i)%add=node(i)%eqd*1.25 
+        node(i)%hoo=1d1
+        node(i)%erp=5d-1
+        !node(i)%est=1d1
+        node(i)%mov=temp
         node(i)%dmo=desmax
-        node(i)%acecm=0d0
+        node(i)%ecm=0d0
       end do
     end if
 
@@ -6202,33 +6836,33 @@ subroutine mes_ecm
     if(mradi>0.and.mradicel>0.and.layer>0)then
       do i=ndepi+1,nd
         node(i)%you=1d1;node(i)%adh=0d0	!>>Miquel 26-10-12
-        node(i)%rep=1d1;node(i)%repcel=1d1	!>>Miquel 8-10-12
-        node(i)%req=0.25d0 ; node(i)%reqcr=node(i)%req !;node(i)%reqcel=0.25d0	!>>Miquel 26-10-12!de
-        node(i)%reqs=0d0
-	node(i)%da=node(i)%req*1.40; 
-        node(i)%ke=0d0   !only for epithelium
-        node(i)%tor=1d0  !only for epithelium
-        !node(i)%stor=1d1 !only for epithelium
+        node(i)%rep=1d1;node(i)%rec=1d1	!>>Miquel 8-10-12
+        node(i)%eqd=0.25d0 ; node(i)%grd=node(i)%eqd !;node(i)%codel=0.25d0	!>>Miquel 26-10-12!de
+        node(i)%eqs=0d0
+	node(i)%add=node(i)%eqd*1.40; 
+        node(i)%hoo=0d0   !only for epithelium
+        node(i)%erp=1d0  !only for epithelium
+        !node(i)%est=1d1 !only for epithelium
         node(i)%altre=0  !only for epithelium
-        node(i)%mo=temp
+        node(i)%mov=temp
         node(i)%dmo=desmax
-        node(i)%acecm=0d0
+        node(i)%ecm=0d0
       end do
     end if
 
     !General parameters that depend on node parameters
-    rv=2*maxval(node(:)%da)
+    rv=2*maxval(node(:)%add)
 
     !Distribution of nodes in space
-    if(radi>0.and.radicel>0)               call epiteli(radi,radicel,zepi,node(1)%req,node(1)%reqs)
-    if(mradi>0.and.mradicel>0.and.layer>0) call mesenq(mradi,mradicel,layer,zmes,node(ndepi+1)%req)
+    if(radi>0.and.radicel>0)               call epiteli(radi,radicel,zepi,node(1)%eqd,node(1)%eqs)
+    if(mradi>0.and.mradicel>0.and.layer>0) call mesenq(mradi,mradicel,layer,zmes,node(ndepi+1)%eqd)
     do i=1,nd
       node(i)%orix=node(i)%x ; node(i)%oriy=node(i)%y ; node(i)%oriz=node(i)%z
     end do
     !End distribution of nodes in space
 
     !Setting boundary nodes (they will be subject to an external force keeping them in their initial position)
-    node(:)%hold=0
+    node(:)%fix=0
 
 
    !******* #3 DEFINING CELL PARAMETERS *******
@@ -6236,7 +6870,7 @@ subroutine mes_ecm
     if(radi>0.and.radicel>0)then
       do i=1,ncelsepi
         cels(i)%fase=0d0
-        mmae=node(cels(i)%node(1))%req
+        mmae=node(cels(i)%node(1))%eqd
         cels(i)%minsize_for_div=cels(i)%nunodes*2
         cels(i)%maxsize_for_div=10000 !>>> Is 5-2-14
       end do
@@ -6245,7 +6879,7 @@ subroutine mes_ecm
     if(mradi>0.and.mradicel>0.and.layer>0)then
       do i=ncelsepi+1,ncels
         cels(i)%fase=0d0
-        mmae=node(cels(i)%node(1))%req
+        mmae=node(cels(i)%node(1))%eqd
         cels(i)%minsize_for_div=cels(i)%nunodes*2
         cels(i)%maxsize_for_div=10000 !>>> Is 5-2-14
       end do
@@ -6259,10 +6893,10 @@ subroutine mes_ecm
 
 
     !Gene-behavior interactions
-      gen(1)%wa(nparam_per_node+4)=1d1 
-      gen(1)%wa(nparam_per_node+5)=1d1
-      gen(1)%wa(nparam_per_node+6)=1d2
-      gen(1)%wa(nparam_per_node+7)=0.15d0
+      gen(1)%e(nparam_per_node+4)=1d1 
+      gen(1)%e(nparam_per_node+5)=1d1
+      gen(1)%e(nparam_per_node+6)=1d2
+      gen(1)%e(nparam_per_node+7)=0.15d0
 
 
     !Adhesion molecules
@@ -6285,11 +6919,11 @@ subroutine mes_ecm
 
     end if
 
-    gen(1)%wa(1)=1
-    gen(2)%wa(1)=2
-    gen(3)%wa(1)=3
-    gen(4)%wa(1)=4
-    gen(5)%wa(1)=5
+    gen(1)%e(1)=1
+    gen(2)%e(1)=2
+    gen(3)%e(1)=3
+    gen(4)%e(1)=4
+    gen(5)%e(1)=5
 
     !Gene expression on nodes
       do i=1,nd
@@ -6302,8 +6936,8 @@ subroutine mes_ecm
     call update_npag
 
     node(:)%talone=0.0d0
-    ramax=maxval(node(:)%da)*3
-    node(:)%diffe=0.0d0
+    ramax=maxval(node(:)%add)*3
+    node(:)%dif=0.0d0
 end subroutine mes_ecm
 
 !*************************************************************************************************
@@ -6372,7 +7006,7 @@ subroutine neg_adh
     nda=nd+10
 	ncals=ncels+10
     
-    if(radi==1.or.mradi==1) ffu(1)=1
+    if(radi==1.or.mradi==1) ffu(1)=0
   !End initializing dimension parameters
 
 
@@ -6412,12 +7046,11 @@ subroutine neg_adh
     
     ffu=0
      !spring of the ellipse
-    ffu(2)=0 !to quite if there are too many cells
-    ffu(3)=0 !screening
-    ffu(4)=0 !torsion
-    ffu(5)=0 !external signal source
-    ffu(6)=0 !eggshell miguel4-1-13
-    ffu(22)=0 !0 = noise biased by energies , 1 = unbiased noise
+    ffu(2)=0 !screening
+    ffu(3)=0 !torsion
+    
+    
+    ffu(15)=1 !1 = noise biased by energies , 0 = unbiased noise
 
 
    !******* #2 DEFINING NODE MECHANIC PARAMETERS *******
@@ -6425,16 +7058,16 @@ subroutine neg_adh
     if(radi>0.and.radicel>0)then
       do i=1,ndepi
         node(i)%you=1d2;node(i)%adh=0d0	!>>Miquel 26-10-12
-        node(i)%rep=1d2;node(i)%repcel=1d2	!>>Miquel 8-10-12
-        node(i)%req=0.25d0 ; node(i)%reqcr=node(i)%req !;node(i)%reqcel=0.25d0	!>>Miquel 26-10-12!de
-        node(i)%reqs=0.5d0
-        node(i)%da=node(i)%req*1.25 
-        node(i)%ke=1d2
-        node(i)%tor=5d-1
-        !node(i)%stor=1d1
-        node(i)%mo=temp
+        node(i)%rep=1d2;node(i)%rec=1d2	!>>Miquel 8-10-12
+        node(i)%eqd=0.25d0 ; node(i)%grd=node(i)%eqd !;node(i)%codel=0.25d0	!>>Miquel 26-10-12!de
+        node(i)%eqs=0.5d0
+        node(i)%add=node(i)%eqd*1.25 
+        node(i)%hoo=1d2
+        node(i)%erp=5d-1
+        !node(i)%est=1d1
+        node(i)%mov=temp
         node(i)%dmo=desmax
-        node(i)%acecm=0d0
+        node(i)%ecm=0d0
       end do
     end if
 
@@ -6442,33 +7075,33 @@ subroutine neg_adh
     if(mradi>0.and.mradicel>0.and.layer>0)then
       do i=ndepi+1,nd
         node(i)%you=1d2;node(i)%adh=0d0	!>>Miquel 26-10-12
-        node(i)%rep=1d2;node(i)%repcel=1d2	!>>Miquel 8-10-12
-        node(i)%req=0.25d0 ; node(i)%reqcr=node(i)%req !;node(i)%reqcel=0.25d0	!>>Miquel 26-10-12!de
-        node(i)%reqs=0d0
-		node(i)%da=node(i)%req*1.40; 
-        node(i)%ke=0d0   !only for epithelium
-        node(i)%tor=1d0  !only for epithelium
-        !node(i)%stor=1d1 !only for epithelium
+        node(i)%rep=1d2;node(i)%rec=1d2	!>>Miquel 8-10-12
+        node(i)%eqd=0.25d0 ; node(i)%grd=node(i)%eqd !;node(i)%codel=0.25d0	!>>Miquel 26-10-12!de
+        node(i)%eqs=0d0
+		node(i)%add=node(i)%eqd*1.40; 
+        node(i)%hoo=0d0   !only for epithelium
+        node(i)%erp=1d0  !only for epithelium
+        !node(i)%est=1d1 !only for epithelium
         node(i)%altre=0  !only for epithelium
-        node(i)%mo=temp
+        node(i)%mov=temp
         node(i)%dmo=desmax
-        node(i)%acecm=0d0
+        node(i)%ecm=0d0
       end do
     end if
 
     !General parameters that depend on node parameters
-    rv=2*maxval(node(:)%da)
+    rv=2*maxval(node(:)%add)
 
     !Distribution of nodes in space
-    if(radi>0.and.radicel>0)               call epiteli(radi,radicel,zepi,node(1)%req,node(1)%reqs)
-    if(mradi>0.and.mradicel>0.and.layer>0) call mesenq(mradi,mradicel,layer,zmes,node(ndepi+1)%req)
+    if(radi>0.and.radicel>0)               call epiteli(radi,radicel,zepi,node(1)%eqd,node(1)%eqs)
+    if(mradi>0.and.mradicel>0.and.layer>0) call mesenq(mradi,mradicel,layer,zmes,node(ndepi+1)%eqd)
     do i=1,nd
       node(i)%orix=node(i)%x ; node(i)%oriy=node(i)%y ; node(i)%oriz=node(i)%z
     end do
     !End distribution of nodes in space
 
     !Setting boundary nodes (they will be subject to an external force keeping them in their initial position)
-    node(:)%hold=0
+    node(:)%fix=0
 
 
    !******* #3 DEFINING CELL PARAMETERS *******
@@ -6476,7 +7109,7 @@ subroutine neg_adh
     if(radi>0.and.radicel>0)then
       do i=1,ncelsepi
         cels(i)%fase=0d0
-        mmae=node(cels(i)%node(1))%req
+        mmae=node(cels(i)%node(1))%eqd
         cels(i)%minsize_for_div=cels(i)%nunodes*2
         cels(i)%maxsize_for_div=10000 !>>> Is 5-2-14
       end do
@@ -6485,7 +7118,7 @@ subroutine neg_adh
     if(mradi>0.and.mradicel>0.and.layer>0)then
       do i=ncelsepi+1,ncels
         cels(i)%fase=0d0
-        mmae=node(cels(i)%node(1))%req
+        mmae=node(cels(i)%node(1))%eqd
         cels(i)%minsize_for_div=cels(i)%nunodes*2
         cels(i)%maxsize_for_div=10000 !>>> Is 5-2-14
       end do
@@ -6499,11 +7132,11 @@ subroutine neg_adh
 
 
     !Gene-behavior interactions
-    gen(1)%wa(1)=1
-    gen(2)%wa(1)=2
-    gen(3)%wa(1)=3
-    gen(4)%wa(1)=4
-    gen(5)%wa(1)=5
+    gen(1)%e(1)=1
+    gen(2)%e(1)=2
+    gen(3)%e(1)=3
+    gen(4)%e(1)=4
+    gen(5)%e(1)=5
 
     !Adhesion molecules
 
@@ -6535,8 +7168,8 @@ subroutine neg_adh
     call update_npag
 
     node(:)%talone=0.0d0
-    ramax=maxval(node(:)%da)*3
-    node(:)%diffe=0.0d0
+    ramax=maxval(node(:)%add)*3
+    node(:)%dif=0.0d0
 end subroutine
 
 
@@ -6570,17 +7203,17 @@ integer::i,j,k,ii,jj,kk,sel !,radi,radicel,layer,mradi,mradicel
     kadh(1,:)=(/5d0,1d1,1d1/)
     kadh(2,:)=(/1d1,1d1,5d0/)
     kadh(3,:)=(/1d1,5d0,5d1/)
-    gen(1)%wa(1)=1           ! Is 29-10-13
-    gen(2)%wa(1)=2           ! Is 29-10-13
-    gen(3)%wa(1)=3           ! Is 29-10-13
+    gen(1)%e(1)=1           ! Is 29-10-13
+    gen(2)%e(1)=2           ! Is 29-10-13
+    gen(3)%e(1)=3           ! Is 29-10-13
 
     call initiate_gene
-    gen(1)%wa(nparam_per_node+4)=5d-4
-    gen(1)%wa(nparam_per_node+5)=1d0
-    gen(1)%wa(nparam_per_node+6)=1d2
-    gen(1)%wa(nparam_per_node+7)=2*1.25d0
+    gen(1)%e(nparam_per_node+4)=5d-4
+    gen(1)%e(nparam_per_node+5)=1d0
+    gen(1)%e(nparam_per_node+6)=1d2
+    gen(1)%e(nparam_per_node+7)=2*1.25d0
 
-    node(:)%acecm=0.0d0
+    node(:)%ecm=0.0d0
 
     do i=1,nd
       if(node(i)%tipus==3)then
@@ -6598,7 +7231,7 @@ integer::i,j,k,ii,jj,kk,sel !,radi,radicel,layer,mradi,mradicel
     realtime=0
     reqmin=0.05d0 
 
-    mmae=node(1)%req
+    mmae=node(1)%eqd
 
     cels(:)%fase=0.0d0
     cels(:)%minsize_for_div=cels(:)%nunodes*2
@@ -6606,8 +7239,8 @@ integer::i,j,k,ii,jj,kk,sel !,radi,radicel,layer,mradi,mradicel
     dmax=1
     screen_radius=1.0d0
     node(:)%talone=0.0d0
-    ramax=maxval(node(:)%da)*3
-    node(:)%diffe=0.0d0
+    ramax=maxval(node(:)%add)*3
+    node(:)%dif=0.0d0
 end subroutine
 
 !***********************************************************************
@@ -6621,61 +7254,60 @@ subroutine epi_polar_growth_conc !here the polarization comes from a signal emmi
     
     ffu=0
      !spring of the ellipse
-    ffu(2)=0 !to quite if there are too many cells
-    ffu(3)=0 !screening
-    ffu(4)=0 !torsion
-!    ffu(5)=1 !external signal source
-    ffu(6)=0 !eggshell miguel4-1-13
-    ffu(22)=0 !0 = noise biased by energies , 1 = unbiased noise
+    ffu(2)=0 !screening
+    ffu(3)=0 !torsion
+!    
+    
+    ffu(15)=1 !1 = noise biased by energies , 0 = unbiased noise
 
 
     do i=1,nd		!veins i parametres mecanics
       node(i)%you=1.3d1;node(i)%adh=8d0	!>>Miquel 26-10-12
-      node(i)%rep=1.3d1;node(i)%repcel=1.5d1	!>>Miquel 8-10-12
-      node(i)%req=0.25d0 ; node(i)%reqcr=node(i)%req !;node(i)%reqcel=0.25d0	!>>Miquel 26-10-12!de
-      node(i)%reqs=0.5d0
-      node(i)%da=node(i)%req*1.30  
-      node(i)%ke=1d2
-      node(i)%tor=1d0
-      !node(i)%stor=1d1
+      node(i)%rep=1.3d1;node(i)%rec=1.5d1	!>>Miquel 8-10-12
+      node(i)%eqd=0.25d0 ; node(i)%grd=node(i)%eqd !;node(i)%codel=0.25d0	!>>Miquel 26-10-12!de
+      node(i)%eqs=0.5d0
+      node(i)%add=node(i)%eqd*1.30  
+      node(i)%hoo=1d2
+      node(i)%erp=1d0
+      !node(i)%est=1d1
       node(i)%orix=node(i)%x ; node(i)%oriy=node(i)%y ; node(i)%oriz=node(i)%z
       ii=node(i)%icel
       node(i)%dmo=desmax
-      node(i)%mo=temp
+      node(i)%mov=temp
     end do
 
-    rv=node(1)%da*2.0d0 !miguel 22-5-13
+    rv=node(1)%add*2.0d0 !miguel 22-5-13
     urv=1d0/rv
     ng=6                !miguel 22-5-13
 
     call initiate_gene  !miguel 22-5-13
 
-    mmae=node(1)%req
+    mmae=node(1)%eqd
 
-    gen(1)%wa=0.0d0
-    gen(2)%wa=0.0d0
-    gen(3)%wa=0.0d0
-    gen(4)%wa=0.0d0
-    gen(5)%wa=0.0d0
-    gen(6)%wa(nparam_per_node+1)=5.0d3  
-    gen(6)%wa(nparam_per_node+2)=5.0d-2  
-    gen(3)%wa(nparam_per_node+8)=1.0d0  
-    gen(6)%wa(nparam_per_node+9)=1.0d0
+    gen(1)%e=0.0d0
+    gen(2)%e=0.0d0
+    gen(3)%e=0.0d0
+    gen(4)%e=0.0d0
+    gen(5)%e=0.0d0
+    gen(6)%e(nparam_per_node+1)=5.0d3  
+    gen(6)%e(nparam_per_node+2)=5.0d-2  
+    gen(3)%e(nparam_per_node+8)=1.0d0  
+    gen(6)%e(nparam_per_node+9)=1.0d0
 
-    gen(1)%w(1)=1.0d0
+    gen(1)%t(1)=1.0d0
     gen(1)%mu=0.1d0
     gen(1)%idiffu=1.0d0
     gen(1)%kindof=0
     gen(1)%nww=2
-    gen(1)%ww(1,1)=2
-    gen(1)%ww(1,2)=3
-    gen(1)%ww(1,3)=0.1d0
-    gen(1)%ww(2,1)=4
-    gen(1)%ww(2,2)=5
-    gen(1)%ww(2,3)=0.1d0
+    gen(1)%r(1,1)=2
+    gen(1)%r(1,2)=3
+    gen(1)%r(1,3)=0.1d0
+    gen(1)%r(2,1)=4
+    gen(1)%r(2,2)=5
+    gen(1)%r(2,3)=0.1d0
 
 
-    gen(2)%w(1)=1.0d0
+    gen(2)%t(1)=1.0d0
     gen(2)%mu=0.1d0
     gen(2)%idiffu=1.0d0
     gen(2)%kindof=1
@@ -6683,7 +7315,7 @@ subroutine epi_polar_growth_conc !here the polarization comes from a signal emmi
     allocate(gen(2)%post(1))
     gen(2)%post(1)=3
 
-    gen(3)%w(2)=1.0d0
+    gen(3)%t(2)=1.0d0
     gen(3)%mu=0.1d0
     gen(3)%idiffu=0.0d0
     gen(3)%diffu=0.5d0
@@ -6694,7 +7326,7 @@ subroutine epi_polar_growth_conc !here the polarization comes from a signal emmi
     gen(3)%pre(1)=2
 
     gex(:,4)=1.0d0
-    gen(4)%w(4)=1.0d0
+    gen(4)%t(4)=1.0d0
     gen(4)%mu=0.1d0
     gen(4)%idiffu=0.0d0
     gen(4)%diffu=0.0d0
@@ -6704,7 +7336,7 @@ subroutine epi_polar_growth_conc !here the polarization comes from a signal emmi
     gen(4)%post(1)=5
     gen(4)%npre=0
 
-    gen(5)%w(3)=1.0d0
+    gen(5)%t(3)=1.0d0
     gen(5)%mu=0.0d0
     gen(5)%idiffu=0.0d0
     gen(5)%diffu=0.0d0
@@ -6740,7 +7372,7 @@ subroutine epi_polar_growth_conc !here the polarization comes from a signal emmi
     realtime=0
 
     reqmin=0.05d0 
-    mmae=node(1)%req
+    mmae=node(1)%eqd
 
     cels(:)%fase=0.0d0
     cels(:)%minsize_for_div=cels(:)%nunodes*2
@@ -6751,8 +7383,8 @@ subroutine epi_polar_growth_conc !here the polarization comes from a signal emmi
     dmax=1
     screen_radius=1.0d0
     node(:)%talone=0.0d0
-    ramax=maxval(node(:)%da)*3
-    node(:)%diffe=0.0d0
+    ramax=maxval(node(:)%add)*3
+    node(:)%dif=0.0d0
 end subroutine
 
 !*******************************************************************************************
@@ -6822,7 +7454,7 @@ subroutine epi_polar_growth			!>>Miquel 14-10-12
     nda=nd+10
 	ncals=ncels+10
     
-    if(radi==1.or.mradi==1) ffu(1)=1
+    if(radi==1.or.mradi==1) ffu(1)=0
   !End initializing dimension parameters
 
 !  print*,"nodecel",nodecel,"ncelsepi",ncelsepi,"ncelsmes",ncelsmes,"ndepi",ndepi,"ndmes",ndmes
@@ -6864,30 +7496,35 @@ subroutine epi_polar_growth			!>>Miquel 14-10-12
     
     ffu=0
      !spring of the ellipse
-    ffu(2)=0 !to quite if there are too many cells
-    ffu(3)=1 !screening
-    ffu(4)=0 !torsion
-    ffu(5)=1 !external signal source
-    ffu(6)=0 !eggshell miguel4-1-13
-    ffu(12)=1
-    ffu(9)=0
-    ffu(22)=1 !0 = noise biased by energies , 1 = unbiased noise
+    ffu(1)=1   !!>> HC 15-7-2021 1= multi-node cells
+    ffu(5)=0   !!>> HC 13-7-2021 0= Runge-Kutta integration 
+    ffu(6)=0   !!>> HC 13-7-2021 0= plasticity
+    ffu(9)=0   !!>> HC 13-7-2021 0= NEW VERSION 2021
+    ffu(10)=0  !!>> HC 13-7-2021 0= volume conservation
+    ffu(15)=0  !!>> HC 13-7-2021 0= unbiased random noise (faster)
+    ffu(19)=0  !!>> HC 13-7-2021 0= polarization and polarized division controled by same wa
+    ffu(20)=0  !!>> HC 13-7-2021 0= Maximum value for adhesion (maxad)
+    ffu(23)=0  !!>> HC 13-7-2021 0= only neighbors are the neighbors in ADD range
+    ffu(24)=0  !!>> HC 13-7-2021 0= We recover the lost ADD neighbors
+    ffu(25)=0  !!>> HC 13-7-2021 0= Nutrients limited, maximum global cell cycle increase (maxcycl)
+    ffu(26)=0  !!>> HC 13-7-2021 0= Gradual implementation of cell properties and behaviors
+    ffu(27)=0  !!>> HC 13-7-2021 0= We call to neighbor_build only once in Runge-Kutta
+    maxad=0.5
 
-
-!ffu(13)=1
+!ffu(8)=1
    !******* #2 DEFINING NODE MECHANIC PARAMETERS *******
     !Epithelium
     if(radi>0.and.radicel>0)then
       do i=1,ndepi
         node(i)%you=1.3d1;node(i)%adh=6d0	!>>Miquel 26-10-12
-        node(i)%rep=1.3d1;node(i)%repcel=1.5d1	!>>Miquel 8-10-12
-        node(i)%req=0.25d0 ; node(i)%reqcr=node(i)%req !;node(i)%reqcel=0.25d0	!>>Miquel 26-10-12!de
-        node(i)%reqs=0.25d0
-        node(i)%da=node(i)%req*1.60  
-        node(i)%ke=1d1
-        node(i)%tor=1d0
-        node(i)%stor=1d1
-        node(i)%mo=temp
+        node(i)%rep=1.3d1;node(i)%rec=1.5d1	!>>Miquel 8-10-12
+        node(i)%eqd=0.25d0 ; node(i)%grd=node(i)%eqd !;node(i)%codel=0.25d0	!>>Miquel 26-10-12!de
+        node(i)%eqs=0.25d0
+        node(i)%add=node(i)%eqd*1.60  
+        node(i)%hoo=1d1
+        node(i)%erp=1d0
+        node(i)%est=1d1
+        node(i)%mov=temp
         node(i)%dmo=desmax
       end do
     end if
@@ -6896,26 +7533,26 @@ subroutine epi_polar_growth			!>>Miquel 14-10-12
     if(mradi>0.and.mradicel>0.and.layer>0)then
       do i=ndepi+1,nd
         node(i)%you=1.3d1;node(i)%adh=6d0 	!>>Miquel 26-10-12
-        node(i)%rep=1.3d1;node(i)%repcel=1.5d1	!>>Miquel 8-10-12
-        node(i)%req=0.25d0 ; node(i)%reqcr=node(i)%req !;node(i)%reqcel=0.25d0	!>>Miquel 26-10-12!de
-        node(i)%reqs=0d0
-        node(i)%da=node(i)%req*1.40
-        node(i)%ke=0d0   !only for epithelium
-        node(i)%tor=0d0  !only for epithelium
-        node(i)%stor=0d0 !only for epithelium
+        node(i)%rep=1.3d1;node(i)%rec=1.5d1	!>>Miquel 8-10-12
+        node(i)%eqd=0.25d0 ; node(i)%grd=node(i)%eqd !;node(i)%codel=0.25d0	!>>Miquel 26-10-12!de
+        node(i)%eqs=0d0
+        node(i)%add=node(i)%eqd*1.40
+        node(i)%hoo=0d0   !only for epithelium
+        node(i)%erp=0d0  !only for epithelium
+        node(i)%est=0d0 !only for epithelium
         node(i)%altre=0  !only for epithelium
-        node(i)%mo=temp
+        node(i)%mov=temp
         node(i)%dmo=desmax
       end do
     end if
 
     !General parameters that depend on node parameters
-    rv=2*maxval(node(:)%da)
+    rv=2*maxval(node(:)%add)
 
 
     !Distribution of nodes in space
-    if(radi>0.and.radicel>0)               call epiteli(radi,radicel,zepi,node(1)%req,node(1)%reqs)
-    if(mradi>0.and.mradicel>0.and.layer>0) call mesenq(mradi,mradicel,layer,zmes,node(ndepi+1)%req)
+    if(radi>0.and.radicel>0)               call epiteli(radi,radicel,zepi,node(1)%eqd,node(1)%eqs)
+    if(mradi>0.and.mradicel>0.and.layer>0) call mesenq(mradi,mradicel,layer,zmes,node(ndepi+1)%eqd)
 
     do i=1,nd
       node(i)%orix=node(i)%x ; node(i)%oriy=node(i)%y ; node(i)%oriz=node(i)%z
@@ -6923,7 +7560,7 @@ subroutine epi_polar_growth			!>>Miquel 14-10-12
     !End distribution of nodes in space
 
     !Setting boundary nodes (they will be subject to an external force keeping them in their initial position)
-    node(:)%hold=0
+    node(:)%fix=0
 
 
    !******* #3 DEFINING CELL PARAMETERS *******
@@ -6931,7 +7568,7 @@ subroutine epi_polar_growth			!>>Miquel 14-10-12
     if(radi>0.and.radicel>0)then
       do i=1,ncelsepi
         cels(i)%fase=0d0
-        mmae=node(cels(i)%node(1))%req
+        mmae=node(cels(i)%node(1))%eqd
         cels(i)%minsize_for_div=cels(i)%nunodes*2
         cels(i)%maxsize_for_div=10000 !>>> Is 5-2-14
       end do
@@ -6940,7 +7577,7 @@ subroutine epi_polar_growth			!>>Miquel 14-10-12
     if(mradi>0.and.mradicel>0.and.layer>0)then
       do i=ncelsepi+1,ncels
         cels(i)%fase=0d0
-        mmae=node(cels(i)%node(1))%req
+        mmae=node(cels(i)%node(1))%eqd
         cels(i)%minsize_for_div=cels(i)%nunodes*2
         cels(i)%maxsize_for_div=10000 !>>> Is 5-2-14
       end do
@@ -6964,14 +7601,14 @@ subroutine epi_polar_growth			!>>Miquel 14-10-12
       gen(2)%diffu=1d1 ; gen(2)%kindof=0 ; gen(2)%mu=0.0d0 ! miguel 14-10-13
 
     !Gene-behavior interactions
-      gen(2)%wa(nparam_per_node+1)=5.0d-1
-      gen(2)%wa(nparam_per_node+2)=3.0d-1  
-      gen(1)%wa(nparam_per_node+8)=1.0d0  
-      gen(2)%wa(nparam_per_node+9)=0.5d0   
-      gen(2)%wa(nparam_per_node+11)=1.0d0   
+      gen(2)%e(nparam_per_node+1)=5.0d-1
+      gen(2)%e(nparam_per_node+2)=3.0d-1  
+      gen(1)%e(nparam_per_node+8)=1.0d0  
+      gen(2)%e(nparam_per_node+9)=0.5d0   
+      gen(2)%e(nparam_per_node+11)=1.0d0   
 
     !Gene-gene interactions
-      gen(2)%w(2)=0.0d0
+      gen(2)%t(2)=0.0d0
 
     !Adhesion molecules
 
@@ -6992,8 +7629,8 @@ subroutine epi_polar_growth			!>>Miquel 14-10-12
 
     call update_npag
     node(:)%talone=0.0d0
-    ramax=maxval(node(:)%da)*3
-    node(:)%diffe=0.0d0
+    ramax=maxval(node(:)%add)*3
+    node(:)%dif=0.0d0
 end subroutine
 
 
@@ -7074,7 +7711,7 @@ subroutine epi_polar_growth_single			!>>Miquel 14-10-12
     allocate(node(nda),cels(ncals)) 
     call iniarrays
     !End Allocatations
-    if(radi==1.or.mradi==1) ffu(1)=1
+    if(radi==1.or.mradi==1) ffu(1)=0
 
 
    !******* #2 DEFINING MODEL PARAMETERS *******
@@ -7105,34 +7742,33 @@ subroutine epi_polar_growth_single			!>>Miquel 14-10-12
     
     ffu=0
      !spring of the ellipse
-    ffu(1)=1
-    ffu(2)=0 !to quite if there are too many cells
-    ffu(3)=1 !screening
-    ffu(4)=0 !torsion
-    ffu(5)=0 !external signal source
-    ffu(6)=0 !eggshell miguel4-1-13
-    ffu(12)=1
-    ffu(9)=0
-    ffu(22)=1 !0 = noise biased by energies , 1 = unbiased noise
-    ffu(24)=1 
+    ffu(1)=0
+    ffu(2)=0 !>>> TT no screening !screening
+    ffu(3)=0 !torsion
+    
+    
+    ffu(7)=1
+    ffu(5)=0
+    ffu(15)=1 !1 = noise biased by energies , 0 = unbiased noise
+    ffu(17)=1 
 
-    ffu(25)=1 
+    ffu(18)=0 
 
 
-!ffu(13)=1
+!ffu(8)=1
    !******* #2 DEFINING NODE MECHANIC PARAMETERS *******
     !Epithelium
     if(radi>0.and.radicel>0)then
       do i=1,ndepi
         node(i)%you=1.3d1;node(i)%adh=6d0	!>>Miquel 26-10-12
-        node(i)%rep=1.3d1;node(i)%repcel=1.5d1	!>>Miquel 8-10-12
-        node(i)%req=0.25d0 ; node(i)%reqcr=node(i)%req !;node(i)%reqcel=0.25d0	!>>Miquel 26-10-12!de
-        node(i)%reqs=0.25d0
-        node(i)%da=node(i)%req*1.60  
-        node(i)%ke=1d1
-        node(i)%tor=1d0
-        node(i)%stor=1d1
-        node(i)%mo=temp
+        node(i)%rep=1.3d1;node(i)%rec=1.5d1	!>>Miquel 8-10-12
+        node(i)%eqd=0.25d0 ; node(i)%grd=node(i)%eqd !;node(i)%codel=0.25d0	!>>Miquel 26-10-12!de
+        node(i)%eqs=0.25d0
+        node(i)%add=node(i)%eqd*1.60  
+        node(i)%hoo=1d1
+        node(i)%erp=1d0
+        node(i)%est=1d1
+        node(i)%mov=temp
         node(i)%dmo=desmax
       end do
     end if
@@ -7141,26 +7777,26 @@ subroutine epi_polar_growth_single			!>>Miquel 14-10-12
     if(mradi>0.and.mradicel>0.and.layer>0)then
       do i=ndepi+1,nd
         node(i)%you=1.3d1;node(i)%adh=6d0 	!>>Miquel 26-10-12
-        node(i)%rep=1.3d1;node(i)%repcel=1.5d1	!>>Miquel 8-10-12
-        node(i)%req=0.25d0 ; node(i)%reqcr=node(i)%req !;node(i)%reqcel=0.25d0	!>>Miquel 26-10-12!de
-        node(i)%reqs=0d0
-        node(i)%da=node(i)%req*1.40
-        node(i)%ke=0d0   !only for epithelium
-        node(i)%tor=0d0  !only for epithelium
-        node(i)%stor=0d0 !only for epithelium
+        node(i)%rep=1.3d1;node(i)%rec=1.5d1	!>>Miquel 8-10-12
+        node(i)%eqd=0.25d0 ; node(i)%grd=node(i)%eqd !;node(i)%codel=0.25d0	!>>Miquel 26-10-12!de
+        node(i)%eqs=0d0
+        node(i)%add=node(i)%eqd*1.40
+        node(i)%hoo=0d0   !only for epithelium
+        node(i)%erp=0d0  !only for epithelium
+        node(i)%est=0d0 !only for epithelium
         node(i)%altre=0  !only for epithelium
-        node(i)%mo=temp
+        node(i)%mov=temp
         node(i)%dmo=desmax
       end do
     end if
 
     !General parameters that depend on node parameters
-    rv=2*maxval(node(:)%da)
+    rv=2*maxval(node(:)%add)
 
 
     !Distribution of nodes in space
-    if(radi>0.and.radicel>0)               call epiteli(radi,radicel,zepi,node(1)%req,node(1)%reqs)
-    if(mradi>0.and.mradicel>0.and.layer>0) call mesenq(mradi,mradicel,layer,zmes,node(ndepi+1)%req)
+    if(radi>0.and.radicel>0)               call epiteli(radi,radicel,zepi,node(1)%eqd,node(1)%eqs)
+    if(mradi>0.and.mradicel>0.and.layer>0) call mesenq(mradi,mradicel,layer,zmes,node(ndepi+1)%eqd)
 
     do i=1,nd
       node(i)%orix=node(i)%x ; node(i)%oriy=node(i)%y ; node(i)%oriz=node(i)%z
@@ -7168,7 +7804,7 @@ subroutine epi_polar_growth_single			!>>Miquel 14-10-12
     !End distribution of nodes in space
 
     !Setting boundary nodes (they will be subject to an external force keeping them in their initial position)
-    node(:)%hold=0
+    node(:)%fix=0
 
 
    !******* #3 DEFINING CELL PARAMETERS *******
@@ -7176,7 +7812,7 @@ subroutine epi_polar_growth_single			!>>Miquel 14-10-12
     if(radi>0.and.radicel>0)then
       do i=1,ncelsepi
         cels(i)%fase=0d0
-        mmae=node(cels(i)%node(1))%req
+        mmae=node(cels(i)%node(1))%eqd
         cels(i)%minsize_for_div=cels(i)%nunodes*2
         cels(i)%maxsize_for_div=10000 !>>> Is 5-2-14
       end do
@@ -7185,7 +7821,7 @@ subroutine epi_polar_growth_single			!>>Miquel 14-10-12
     if(mradi>0.and.mradicel>0.and.layer>0)then
       do i=ncelsepi+1,ncels
         cels(i)%fase=0d0
-        mmae=node(cels(i)%node(1))%req
+        mmae=node(cels(i)%node(1))%eqd
         cels(i)%minsize_for_div=cels(i)%nunodes*2
         cels(i)%maxsize_for_div=10000 !>>> Is 5-2-14
       end do
@@ -7209,14 +7845,14 @@ subroutine epi_polar_growth_single			!>>Miquel 14-10-12
       gen(2)%diffu=1d1 ; gen(2)%kindof=0 ; gen(2)%mu=0.0d0 ! miguel 14-10-13
 
     !Gene-behavior interactions
-      gen(2)%wa(nparam_per_node+1)=5.0d-1
-      gen(2)%wa(nparam_per_node+2)=1.0d-1  
-      !gen(1)%wa(nparam_per_node+8)=1.0d0  
-      !gen(2)%wa(nparam_per_node+9)=0.5d0   
-      !gen(2)%wa(nparam_per_node+11)=1.0d0   
+      gen(2)%e(nparam_per_node+1)=5.0d-1
+      gen(2)%e(nparam_per_node+2)=1.0d-1  
+      !gen(1)%e(nparam_per_node+8)=1.0d0  
+      !gen(2)%e(nparam_per_node+9)=0.5d0   
+      !gen(2)%e(nparam_per_node+11)=1.0d0   
 
     !Gene-gene interactions
-      gen(2)%w(2)=0.0d0
+      gen(2)%t(2)=0.0d0
 
     !Adhesion molecules
 
@@ -7237,8 +7873,8 @@ subroutine epi_polar_growth_single			!>>Miquel 14-10-12
 
     call update_npag
     node(:)%talone=0.0d0
-    ramax=maxval(node(:)%da)*3
-    node(:)%diffe=0.0d0
+    ramax=maxval(node(:)%add)*3
+    node(:)%dif=0.0d0
 end subroutine
 
 
@@ -7312,7 +7948,7 @@ subroutine differential_growth_mes
     nda=nd+10
 	ncals=ncels+10
     
-    if(radi==1.or.mradi==1) ffu(1)=1
+    if(radi==1.or.mradi==1) ffu(1)=0
   !End initializing dimension parameters
 
 
@@ -7356,13 +7992,12 @@ subroutine differential_growth_mes
     
     ffu=0
      !spring of the ellipse
-    ffu(2)=0 !to quite if there are too many cells
-    ffu(3)=1 !screening
-    ffu(4)=0 !torsion
-    ffu(5)=0 !external signal source
-    ffu(6)=0 !eggshell miguel4-1-13
-    ffu(20)=1
-    ffu(22)=0 !0 = noise biased by energies , 1 = unbiased noise
+    ffu(2)=0 !>>> TT no screening !screening
+    ffu(3)=0 !torsion
+    
+    
+    ffu(13)=1
+    ffu(15)=1 !1 = noise biased by energies , 0 = unbiased noise
 
 
    !******* #2 DEFINING NODE MECHANIC PARAMETERS *******
@@ -7370,14 +8005,14 @@ subroutine differential_growth_mes
     if(radi>0.and.radicel>0)then
       do i=1,ndepi
         node(i)%you=0d0;node(i)%adh=0d0    	!>>Miquel 26-10-12
-        node(i)%rep=0d0;node(i)%repcel=0d0	!>>Miquel 8-10-12
-        node(i)%req=0d0 !;node(i)%reqcel=0d0	!>>Miquel 26-10-12!de
-        node(i)%reqs=0d0
-        node(i)%da=0d0
-        node(i)%ke=0d0
-        node(i)%tor=1d0
-        !node(i)%stor=1d1
-        node(i)%mo=temp
+        node(i)%rep=0d0;node(i)%rec=0d0	!>>Miquel 8-10-12
+        node(i)%eqd=0d0 !;node(i)%codel=0d0	!>>Miquel 26-10-12!de
+        node(i)%eqs=0d0
+        node(i)%add=0d0
+        node(i)%hoo=0d0
+        node(i)%erp=1d0
+        !node(i)%est=1d1
+        node(i)%mov=temp
         node(i)%dmo=desmax
       end do
     end if
@@ -7386,25 +8021,25 @@ subroutine differential_growth_mes
     if(mradi>0.and.mradicel>0.and.layer>0)then
       do i=ndepi+1,nd
 		node(i)%you=1d1;node(i)%adh=0d0	!>>Miquel 26-10-12
-		node(i)%rep=1d1;node(i)%repcel=1d1	!>>Miquel 8-10-12
-		node(i)%req=0.25d0 ; node(i)%reqcr=node(i)%req !;node(i)%reqcel=0.25d0	!>>Miquel 26-10-12!de
-        node(i)%reqs=0d0 !only for epithelium
-		node(i)%da=node(i)%req*1.3 
-        node(i)%ke=0d0   !only for epithelium
-        node(i)%tor=1d0  !only for epithelium
-        !node(i)%stor=1d1 !only for epithelium
+		node(i)%rep=1d1;node(i)%rec=1d1	!>>Miquel 8-10-12
+		node(i)%eqd=0.25d0 ; node(i)%grd=node(i)%eqd !;node(i)%codel=0.25d0	!>>Miquel 26-10-12!de
+        node(i)%eqs=0d0 !only for epithelium
+		node(i)%add=node(i)%eqd*1.3 
+        node(i)%hoo=0d0   !only for epithelium
+        node(i)%erp=1d0  !only for epithelium
+        !node(i)%est=1d1 !only for epithelium
         node(i)%altre=0  !only for epithelium
-        node(i)%mo=temp
+        node(i)%mov=temp
         node(i)%dmo=desmax
       end do
     end if
 
     !General parameters that depend on node parameters
-    rv=2*maxval(node(:)%da)
+    rv=2*maxval(node(:)%add)
 
     !Distribution of nodes in space
-    if(radi>0.and.radicel>0)               call epiteli(radi,radicel,zepi,node(1)%req,node(1)%reqs)
-    if(mradi>0.and.mradicel>0.and.layer>0) call mesenq(mradi,mradicel,layer,zmes,node(ndepi+1)%req)
+    if(radi>0.and.radicel>0)               call epiteli(radi,radicel,zepi,node(1)%eqd,node(1)%eqs)
+    if(mradi>0.and.mradicel>0.and.layer>0) call mesenq(mradi,mradicel,layer,zmes,node(ndepi+1)%eqd)
 
     do i=1,nd
       node(i)%orix=node(i)%x ; node(i)%oriy=node(i)%y ; node(i)%oriz=node(i)%z
@@ -7412,7 +8047,7 @@ subroutine differential_growth_mes
     !End distribution of nodes in space
 
     !Setting boundary nodes (they will be subject to an external force keeping them in their initial position)
-    node(:)%hold=0
+    node(:)%fix=0
 
 
    !******* #3 DEFINING CELL PARAMETERS *******
@@ -7420,7 +8055,7 @@ subroutine differential_growth_mes
     if(radi>0.and.radicel>0)then
       do i=1,ncelsepi
         cels(i)%fase=0d0
-        mmae=node(cels(i)%node(1))%req
+        mmae=node(cels(i)%node(1))%eqd
         cels(i)%minsize_for_div=cels(i)%nunodes*2
         cels(i)%maxsize_for_div=10000 !>>> Is 5-2-14
       end do
@@ -7429,7 +8064,7 @@ subroutine differential_growth_mes
     if(mradi>0.and.mradicel>0.and.layer>0)then
       do i=ncelsepi+1,ncels
         cels(i)%fase=0d0
-        mmae=node(cels(i)%node(1))%req
+        mmae=node(cels(i)%node(1))%eqd
         cels(i)%minsize_for_div=cels(i)%nunodes*2
         cels(i)%maxsize_for_div=mradi*2 !>>> Is 5-2-14
       end do
@@ -7441,18 +8076,18 @@ subroutine differential_growth_mes
     ng=4
     call initiate_gene
     !Gene parameters
-    gen(1)%w(1)=0.1d0
+    gen(1)%t(1)=0.1d0
     gen(1)%kindof=0 ; gen(1)%diffu=0.5d1 ; gen(1)%mu=1d-1
     gen(2)%kindof=0 ; gen(2)%diffu=0.5d1 ; gen(1)%mu=0d0
 
 
     !Gene-behavior interactions
-      gen(1)%wa(nparam_per_node+1)=1d-1 !0!d2
-      gen(1)%wa(nparam_per_node+2)=1d-4
-      gen(2)%wa(nparam_per_node+1)=0
-      gen(2)%wa(nparam_per_node+2)=1d-2
-      gen(3)%wa(1)=1
-      gen(4)%wa(1)=2
+      gen(1)%e(nparam_per_node+1)=1d-1 !0!d2
+      gen(1)%e(nparam_per_node+2)=1d-4
+      gen(2)%e(nparam_per_node+1)=0
+      gen(2)%e(nparam_per_node+2)=1d-2
+      gen(3)%e(1)=1
+      gen(4)%e(1)=2
 
     !Gene-gene interactions
 
@@ -7485,8 +8120,8 @@ subroutine differential_growth_mes
 
     call update_npag
     node(:)%talone=0.0d0
-    ramax=maxval(node(:)%da)*3
-    node(:)%diffe=0.0d0
+    ramax=maxval(node(:)%add)*3
+    node(:)%dif=0.0d0
 
     min_comp=-1d0
 
@@ -7519,37 +8154,37 @@ subroutine differential_growth_epi_mes
 
   kadh(1,2)=1.0d8
   kadh(2,1)=1.0d8
-  gen(1)%wa=0.0d0
-  gen(2)%wa=0.0d0
-  gen(1)%wa(1)=1.d0
-  gen(2)%wa(1)=1.d0
-  gen(1)%wa(nparam_per_node+1)=1.0d-3  
-  gen(1)%wa(nparam_per_node+2)=1.0d-3  
-  gen(2)%wa(nparam_per_node+1)=1.0d-7  
-  gen(2)%wa(nparam_per_node+2)=1.0d-7  
+  gen(1)%e=0.0d0
+  gen(2)%e=0.0d0
+  gen(1)%e(1)=1.d0
+  gen(2)%e(1)=1.d0
+  gen(1)%e(nparam_per_node+1)=1.0d-3  
+  gen(1)%e(nparam_per_node+2)=1.0d-3  
+  gen(2)%e(nparam_per_node+1)=1.0d-7  
+  gen(2)%e(nparam_per_node+2)=1.0d-7  
   gen(1)%diffu=0.5d0 ; gen(1)%kindof=0  ! miguel 14-10-13   
   gen(2)%diffu=0.5d0 ; gen(2)%kindof=0  ! miguel 14-10-13    
 
-  gen(1)%wa(1)=1           ! Is 29-10-13
-  gen(2)%wa(1)=2           ! Is 29-10-13
+  gen(1)%e(1)=1           ! Is 29-10-13
+  gen(2)%e(1)=2           ! Is 29-10-13
   call update_npag
 
   node(:)%dmo=desmax*4
-  node(:)%mo=temp*3
+  node(:)%mov=temp*3
 
   do i=1,nd		!veins i parametres mecanics
     if (node(i)%tipus<3) cycle
-    node(i)%tor=1d2
-    !node(i)%stor=1d2
+    node(i)%erp=1d2
+    !node(i)%est=1d2
     node(i)%dmo=desmax*4
-    node(i)%mo=temp*2
+    node(i)%mov=temp*2
   end do
 
 !  do i=15,15!26
 !    do j=1,cels(i)%nunodes
 !      k=cels(i)%node(j)
-!      node(k)%req=0.1d-8
-!      node(k)%da=0.1d-8
+!      node(k)%eqd=0.1d-8
+!      node(k)%add=0.1d-8
 !      gex(k,:)=0.0d0
 !    end do
 !  end do
@@ -7562,8 +8197,8 @@ subroutine differential_growth_epi_mes
     dmax=1
     screen_radius=1.0d0
     node(:)%talone=0.0d0
-    ramax=maxval(node(:)%da)*3
-    node(:)%diffe=0.0d0
+    ramax=maxval(node(:)%add)*3
+    node(:)%dif=0.0d0
 end subroutine
 
 !***********************************************************************
@@ -7636,7 +8271,7 @@ subroutine differential_growth_epi
     nda=nd+10
 	ncals=ncels+10
     
-    if(radi==1.or.mradi==1) ffu(1)=1
+    if(radi==1.or.mradi==1) ffu(1)=0
   !End initializing dimension parameters
 
 !  print*,"nodecel",nodecel,"ncelsepi",ncelsepi,"ncelsmes",ncelsmes,"ndepi",ndepi,"ndmes",ndmes
@@ -7678,12 +8313,11 @@ subroutine differential_growth_epi
     
     ffu=0
      !spring of the ellipse
-    ffu(2)=0 !to quite if there are too many cells
-    ffu(3)=0 !screening
-    ffu(4)=0 !torsion
-    ffu(5)=0 !external signal source
-    ffu(6)=0 !eggshell miguel4-1-13
-    ffu(22)=0 !0 = noise biased by energies , 1 = unbiased noise
+    ffu(2)=0 !screening
+    ffu(3)=0 !torsion
+    
+    
+    ffu(15)=1 !1 = noise biased by energies , 0 = unbiased noise
 
 
    !******* #2 DEFINING NODE MECHANIC PARAMETERS *******
@@ -7691,14 +8325,14 @@ subroutine differential_growth_epi
     if(radi>0.and.radicel>0)then
       do i=1,ndepi
         node(i)%you=1.3d1;node(i)%adh=8d0	!>>Miquel 26-10-12
-        node(i)%rep=1.3d1;node(i)%repcel=1.5d1	!>>Miquel 8-10-12
-        node(i)%req=0.25d0 ; node(i)%reqcr=node(i)%req !;node(i)%reqcel=0.25d0	!>>Miquel 26-10-12!de
-        node(i)%reqs=0.5d0
-        node(i)%da=node(i)%req*1.30  
-        node(i)%ke=1d1
-        node(i)%tor=1d1
-        !node(i)%stor=1d1
-        node(i)%mo=temp
+        node(i)%rep=1.3d1;node(i)%rec=1.5d1	!>>Miquel 8-10-12
+        node(i)%eqd=0.25d0 ; node(i)%grd=node(i)%eqd !;node(i)%codel=0.25d0	!>>Miquel 26-10-12!de
+        node(i)%eqs=0.5d0
+        node(i)%add=node(i)%eqd*1.30  
+        node(i)%hoo=1d1
+        node(i)%erp=1d1
+        !node(i)%est=1d1
+        node(i)%mov=temp
         node(i)%dmo=desmax
       end do
     end if
@@ -7707,26 +8341,26 @@ subroutine differential_growth_epi
     if(mradi>0.and.mradicel>0.and.layer>0)then
       do i=ndepi+1,nd
         node(i)%you=0d0;node(i)%adh=0d0 	!>>Miquel 26-10-12
-        node(i)%rep=0d0;node(i)%repcel=0d0	!>>Miquel 8-10-12
-        node(i)%req=0d0 !;node(i)%reqcel=0d0	!>>Miquel 26-10-12!de
-        node(i)%reqs=0d0
-        node(i)%da=0d0
-        node(i)%ke=0d0   !only for epithelium
-        node(i)%tor=1d2  !only for epithelium
-        !node(i)%stor=1d2 !only for epithelium
+        node(i)%rep=0d0;node(i)%rec=0d0	!>>Miquel 8-10-12
+        node(i)%eqd=0d0 !;node(i)%codel=0d0	!>>Miquel 26-10-12!de
+        node(i)%eqs=0d0
+        node(i)%add=0d0
+        node(i)%hoo=0d0   !only for epithelium
+        node(i)%erp=1d2  !only for epithelium
+        !node(i)%est=1d2 !only for epithelium
         node(i)%altre=0  !only for epithelium
-        node(i)%mo=temp
+        node(i)%mov=temp
         node(i)%dmo=desmax
       end do
     end if
 
     !General parameters that depend on node parameters
-    rv=2*maxval(node(:)%da)
+    rv=2*maxval(node(:)%add)
 
 
     !Distribution of nodes in space
-    if(radi>0.and.radicel>0)               call epiteli(radi,radicel,zepi,node(1)%req,node(1)%reqs)
-    if(mradi>0.and.mradicel>0.and.layer>0) call mesenq(mradi,mradicel,layer,zmes,node(ndepi+1)%req)
+    if(radi>0.and.radicel>0)               call epiteli(radi,radicel,zepi,node(1)%eqd,node(1)%eqs)
+    if(mradi>0.and.mradicel>0.and.layer>0) call mesenq(mradi,mradicel,layer,zmes,node(ndepi+1)%eqd)
 
     do i=1,nd
       node(i)%orix=node(i)%x ; node(i)%oriy=node(i)%y ; node(i)%oriz=node(i)%z
@@ -7734,7 +8368,7 @@ subroutine differential_growth_epi
     !End distribution of nodes in space
 
     !Setting boundary nodes (they will be subject to an external force keeping them in their initial position)
-    node(:)%hold=0
+    node(:)%fix=0
 
 
    !******* #3 DEFINING CELL PARAMETERS *******
@@ -7742,7 +8376,7 @@ subroutine differential_growth_epi
     if(radi>0.and.radicel>0)then
       do i=1,ncelsepi
         cels(i)%fase=0d0
-        mmae=node(cels(i)%node(1))%req
+        mmae=node(cels(i)%node(1))%eqd
         cels(i)%minsize_for_div=cels(i)%nunodes*2
         cels(i)%maxsize_for_div=10000 !>>> Is 5-2-14
       end do
@@ -7751,7 +8385,7 @@ subroutine differential_growth_epi
     if(mradi>0.and.mradicel>0.and.layer>0)then
       do i=ncelsepi+1,ncels
         cels(i)%fase=0d0
-        mmae=node(cels(i)%node(1))%req
+        mmae=node(cels(i)%node(1))%eqd
         cels(i)%minsize_for_div=cels(i)%nunodes*2
         cels(i)%maxsize_for_div=10000 !>>> Is 5-2-14
       end do
@@ -7770,12 +8404,12 @@ subroutine differential_growth_epi
       gen(3)%kindof=0 ; gen(4)%diffu=0.5d1 ; gen(4)%mu=0d0 ! miguel 14-10-13
 
     !Gene-behavior interactions
-      gen(1)%wa(nparam_per_node+1)=3.0d-1  
-      gen(1)%wa(nparam_per_node+2)=3.0d-4  
-      gen(2)%wa(nparam_per_node+1)=1.0d-4  
-      gen(2)%wa(nparam_per_node+2)=1.0d-4 
-      gen(3)%wa(1)=1
-      gen(4)%wa(1)=2
+      gen(1)%e(nparam_per_node+1)=3.0d-1  
+      gen(1)%e(nparam_per_node+2)=3.0d-4  
+      gen(2)%e(nparam_per_node+1)=1.0d-4  
+      gen(2)%e(nparam_per_node+2)=1.0d-4 
+      gen(3)%e(1)=1
+      gen(4)%e(1)=2
 
     !Gene-gene interactions
 
@@ -7817,8 +8451,8 @@ subroutine differential_growth_epi
 
     call update_npag
     node(:)%talone=0.0d0
-    ramax=maxval(node(:)%da)*3
-    node(:)%diffe=0.0d0
+    ramax=maxval(node(:)%add)*3
+    node(:)%dif=0.0d0
 end subroutine
 
 !****************************************************************************************
@@ -7852,11 +8486,11 @@ call mes_polar_growth
       gen(1)%diffu=1d1 ; gen(1)%kindof=0 ; gen(1)%mu=0.0d0 ! miguel 14-10-13
 
     !Gene-behavior interactions
-    gen(2)%wa(nparam_per_node+11)=1d0! miguel 14-10-13 (dependance of physical or chemical polarization)
-    gen(2)%wa(nparam_per_node+1)=1d-1! miguel 14-10-13 (growth)
-    gen(2)%wa(nparam_per_node+2)=1d-1! miguel 14-10-13 (cell cycle)    
-    gen(1)%wa(nparam_per_node+12)=1d4  ! miguel 14-10-13 ! assymetric division
-    gen(1)%wa(nparam_per_node+8)=1d0  ! miguel 14-10-13 ! cell polarization
+    gen(2)%e(nparam_per_node+11)=1d0! miguel 14-10-13 (dependance of physical or chemical polarization)
+    gen(2)%e(nparam_per_node+1)=1d-1! miguel 14-10-13 (growth)
+    gen(2)%e(nparam_per_node+2)=1d-1! miguel 14-10-13 (cell cycle)    
+    gen(1)%e(nparam_per_node+12)=1d4  ! miguel 14-10-13 ! assymetric division
+    gen(1)%e(nparam_per_node+8)=1d0  ! miguel 14-10-13 ! cell polarization
 
 
     !Gene-gene interactions
@@ -7883,8 +8517,8 @@ call mes_polar_growth
 
     call update_npag
     node(:)%talone=0.0d0
-    ramax=maxval(node(:)%da)*3
-    node(:)%diffe=0.0d0
+    ramax=maxval(node(:)%add)*3
+    node(:)%dif=0.0d0
 end subroutine
 
 !******************************************************************************************
@@ -7954,7 +8588,7 @@ subroutine mes_shell ! miguel4-11-13 (subtitution of the previous mes_shell)
     nda=nd+10
 	ncals=ncels+10
     
-    if(radi==1.or.mradi==1) ffu(1)=1
+    if(radi==1.or.mradi==1) ffu(1)=0
   !End initializing dimension parameters
 
   print*,"nodecel",nodecel,"ncelsepi",ncelsepi,"ncelsmes",ncelsmes,"ndepi",ndepi,"ndmes",ndmes
@@ -7997,12 +8631,10 @@ subroutine mes_shell ! miguel4-11-13 (subtitution of the previous mes_shell)
     
     ffu=0
      !spring of the ellipse
-    ffu(2)=0 !to quite if there are too many cells
-    ffu(3)=0 !screening
-    ffu(4)=0 !torsion
-    ffu(5)=0 !external signal source
-    ffu(6)=1 !eggshell
-    ffu(22)=0 !0 = noise biased by energies , 1 = unbiased noise
+    ffu(2)=0 !screening
+    ffu(3)=0 !torsion
+    
+    ffu(15)=1 !1 = noise biased by energies , 0 = unbiased noise
 
 
    !******* #2 DEFINING NODE MECHANIC PARAMETERS *******
@@ -8010,14 +8642,14 @@ subroutine mes_shell ! miguel4-11-13 (subtitution of the previous mes_shell)
     if(radi>0.and.radicel>0)then
       do i=1,ndepi
         node(i)%you=0d0;node(i)%adh=0d0    	!>>Miquel 26-10-12
-        node(i)%rep=0d0;node(i)%repcel=0d0	!>>Miquel 8-10-12
-        node(i)%req=0d0 !;node(i)%reqcel=0d0	!>>Miquel 26-10-12!de
-        node(i)%reqs=0d0
-        node(i)%da=0d0
-        node(i)%ke=0d0
-        node(i)%tor=1d0
-        !node(i)%stor=1d1
-        node(i)%mo=temp
+        node(i)%rep=0d0;node(i)%rec=0d0	!>>Miquel 8-10-12
+        node(i)%eqd=0d0 !;node(i)%codel=0d0	!>>Miquel 26-10-12!de
+        node(i)%eqs=0d0
+        node(i)%add=0d0
+        node(i)%hoo=0d0
+        node(i)%erp=1d0
+        !node(i)%est=1d1
+        node(i)%mov=temp
         node(i)%dmo=desmax
       end do
     end if
@@ -8026,25 +8658,25 @@ subroutine mes_shell ! miguel4-11-13 (subtitution of the previous mes_shell)
     if(mradi>0.and.mradicel>0.and.layer>0)then
       do i=ndepi+1,nd
         node(i)%you=1d3;node(i)%adh=0d0 	!>>Miquel 26-10-12
-        node(i)%rep=1d4;node(i)%repcel=1d5	!>>Miquel 8-10-12
-        node(i)%req=0.25d0 ; node(i)%reqcr=node(i)%req !;node(i)%reqcel=0.25d0	!>>Miquel 26-10-12!de
-        node(i)%reqs=0.5d0
-        node(i)%da=node(i)%req*1.5d0 
-        node(i)%ke=0d0   !only for epithelium
-        node(i)%tor=1d0  !only for epithelium
-        !node(i)%stor=1d1 !only for epithelium
+        node(i)%rep=1d4;node(i)%rec=1d5	!>>Miquel 8-10-12
+        node(i)%eqd=0.25d0 ; node(i)%grd=node(i)%eqd !;node(i)%codel=0.25d0	!>>Miquel 26-10-12!de
+        node(i)%eqs=0.5d0
+        node(i)%add=node(i)%eqd*1.5d0 
+        node(i)%hoo=0d0   !only for epithelium
+        node(i)%erp=1d0  !only for epithelium
+        !node(i)%est=1d1 !only for epithelium
         node(i)%altre=0  !only for epithelium
-        node(i)%mo=temp
+        node(i)%mov=temp
         node(i)%dmo=desmax
       end do
     end if
 
     !General parameters that depend on node parameters
-    rv=2*maxval(node(:)%da)
+    rv=2*maxval(node(:)%add)
 
     !Distribution of nodes in space
-    if(radi>0.and.radicel>0)               call epiteli(radi,radicel,zepi,node(1)%req,node(1)%reqs)
-    if(mradi>0.and.mradicel>0.and.layer>0) call mesenq(mradi,mradicel,layer,zmes,node(ndepi+1)%req)
+    if(radi>0.and.radicel>0)               call epiteli(radi,radicel,zepi,node(1)%eqd,node(1)%eqs)
+    if(mradi>0.and.mradicel>0.and.layer>0) call mesenq(mradi,mradicel,layer,zmes,node(ndepi+1)%eqd)
 
     do i=1,nd
       node(i)%orix=node(i)%x ; node(i)%oriy=node(i)%y ; node(i)%oriz=node(i)%z
@@ -8052,7 +8684,7 @@ subroutine mes_shell ! miguel4-11-13 (subtitution of the previous mes_shell)
     !End distribution of nodes in space
 
     !Setting boundary nodes (they will be subject to an external force keeping them in their initial position)
-    node(:)%hold=0
+    node(:)%fix=0
 
 
    !******* #3 DEFINING CELL PARAMETERS *******
@@ -8060,7 +8692,7 @@ subroutine mes_shell ! miguel4-11-13 (subtitution of the previous mes_shell)
     if(radi>0.and.radicel>0)then
       do i=1,ncelsepi
         cels(i)%fase=0d0
-        mmae=node(cels(i)%node(1))%req
+        mmae=node(cels(i)%node(1))%eqd
         cels(i)%minsize_for_div=cels(i)%nunodes*2
         cels(i)%maxsize_for_div=10000 !>>> Is 5-2-14
       end do
@@ -8069,7 +8701,7 @@ subroutine mes_shell ! miguel4-11-13 (subtitution of the previous mes_shell)
     if(mradi>0.and.mradicel>0.and.layer>0)then
       do i=ncelsepi+1,ncels
         cels(i)%fase=0d0
-        mmae=node(cels(i)%node(1))%req
+        mmae=node(cels(i)%node(1))%eqd
         cels(i)%minsize_for_div=cels(i)%nunodes*2
         cels(i)%maxsize_for_div=10000 !>>> Is 5-2-14
       end do
@@ -8087,8 +8719,8 @@ call shellinicial
     
     !Gene-behavior interactions
     gen(1)%diffu=1d-5 ; gen(1)%kindof=0 ; gen(1)%mu=0.0d0 ! miguel 14-10-13
-    gen(1)%wa(nparam_per_node+1)=1d-6! miguel 14-10-13 (growth)
-    gen(1)%wa(nparam_per_node+2)=1d-6! miguel 14-10-13 (cell cycle)    
+    gen(1)%e(nparam_per_node+1)=1d-6! miguel 14-10-13 (growth)
+    gen(1)%e(nparam_per_node+2)=1d-6! miguel 14-10-13 (cell cycle)    
     
     !Gene-behavior interactions
 
@@ -8116,8 +8748,8 @@ call shellinicial
 
     call update_npag
     node(:)%talone=0.0d0
-    ramax=maxval(node(:)%da)*3
-    node(:)%diffe=0.0d0
+    ramax=maxval(node(:)%add)*3
+    node(:)%dif=0.0d0
 end subroutine mes_shell
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -8125,21 +8757,20 @@ end subroutine mes_shell
 
 subroutine grn_test
   call epi_polar_growth
-  ffu(5)=0
-  gen(1)%wa(:)=0
-  gen(2)%wa(:)=0
+  gen(1)%e(:)=0
+  gen(2)%e(:)=0
 !  gen(1)%mu=0.1d0
   gen(2)%mu=0.1d0
   gex=0.0d0
   gex(40:60,1)=1.0d0
   gex(40:50,2)=1.0d0
-  gen(1)%w(1)=1d0
-  gen(1)%w(2)=-1d0
+  gen(1)%t(1)=1d0
+  gen(1)%t(2)=-1d0
   call update_npag    !miguel 22-5-13
   dmax=2
     node(:)%talone=0.0d0
-    ramax=maxval(node(:)%da)*3
-    node(:)%diffe=0.0d0
+    ramax=maxval(node(:)%add)*3
+    node(:)%dif=0.0d0
 end subroutine
 
 !****************************************************************************
@@ -8150,11 +8781,11 @@ subroutine reaction_test
   ng=3
   call initiate_gene  !Is 15-5-13 It has to be called here because we want to give values to g and w
   node(:)%you=1.2d4
-  gen(1)%wa=0.0d0
-  gen(2)%wa=0.0d0
-!  gen(3)%wa=0.0d0
+  gen(1)%e=0.0d0
+  gen(2)%e=0.0d0
+!  gen(3)%e=0.0d0
   ffu(5)=0
-!  gen(1)%w(1)=1.1d0
+!  gen(1)%t(1)=1.1d0
   gen(:)%mu=0.01d0
   gex=0.0d0
   gex(nd,1)=1.0d0
@@ -8164,9 +8795,9 @@ subroutine reaction_test
   gen(:)%idiffu=0.1d0
   gen(1)%kindof=0
   gen(1)%nww=1
-  gen(1)%ww(1,1)=2
-  gen(1)%ww(1,2)=3
-  gen(1)%ww(1,3)=0.1d0
+  gen(1)%r(1,1)=2
+  gen(1)%r(1,2)=3
+  gen(1)%r(1,3)=0.1d0
   gen(2)%kindof=1
   gen(3)%kindof=2
   gen(:)%npost=0
@@ -8178,16 +8809,16 @@ subroutine reaction_test
   gen(3)%npre=1
   allocate(gen(3)%pre(1))
   gen(3)%pre(1)=2
-  gen(1)%w(1)=10.1d0
-  gen(2)%w(1)=10.1d0
-  gen(3)%w(2)=10.1d0
+  gen(1)%t(1)=10.1d0
+  gen(2)%t(1)=10.1d0
+  gen(3)%t(2)=10.1d0
   deltamax=1d-2
   call update_npag    !miguel 22-5-13
   dmax=2
   screen_radius=1.0d0
     node(:)%talone=0.0d0
-    ramax=maxval(node(:)%da)*3
-    node(:)%diffe=0.0d0
+    ramax=maxval(node(:)%add)*3
+    node(:)%dif=0.0d0
 end subroutine
 
 !************************************************************************************************************
@@ -8260,7 +8891,7 @@ subroutine epi_reaction_diffusion
     nda=nd+10
 	ncals=ncels+10
     
-    if(radi==1.or.mradi==1) ffu(1)=1
+    if(radi==1.or.mradi==1) ffu(1)=0
   !End initializing dimension parameters
 
 !  print*,"nodecel",nodecel,"ncelsepi",ncelsepi,"ncelsmes",ncelsmes,"ndepi",ndepi,"ndmes",ndmes
@@ -8302,11 +8933,10 @@ subroutine epi_reaction_diffusion
     
     ffu=0
      !spring of the ellipse
-    ffu(2)=0 !to quite if there are too many cells
-    ffu(3)=0 !screening
-    ffu(4)=0 !torsion
-    ffu(5)=0 !external signal source
-    ffu(22)=0 !0 = noise biased by energies , 1 = unbiased noise
+    ffu(2)=0 !screening
+    ffu(3)=0 !torsion
+    
+    ffu(15)=1 !1 = noise biased by energies , 0 = unbiased noise
 
 
    !******* #2 DEFINING NODE MECHANIC PARAMETERS *******
@@ -8314,14 +8944,14 @@ subroutine epi_reaction_diffusion
     if(radi>0.and.radicel>0)then
       do i=1,ndepi
         node(i)%you=1.2d1;node(i)%adh=8d1    	!>>Miquel 26-10-12
-        node(i)%rep=1d1;node(i)%repcel=1d5	!>>Miquel 8-10-12
-        node(i)%req=0.25d0 ; node(i)%reqcr=node(i)%req !;node(i)%reqcel=0.25d0;	!>>Miquel 26-10-12!de
-        node(i)%reqs=0.5d0
-        node(i)%da=node(i)%req*1.25; 
-        node(i)%ke=1d2
-        node(i)%tor=1d1
-        !node(i)%stor=1d1
-        node(i)%mo=temp
+        node(i)%rep=1d1;node(i)%rec=1d5	!>>Miquel 8-10-12
+        node(i)%eqd=0.25d0 ; node(i)%grd=node(i)%eqd !;node(i)%codel=0.25d0;	!>>Miquel 26-10-12!de
+        node(i)%eqs=0.5d0
+        node(i)%add=node(i)%eqd*1.25; 
+        node(i)%hoo=1d2
+        node(i)%erp=1d1
+        !node(i)%est=1d1
+        node(i)%mov=temp
         node(i)%dmo=desmax
       end do
     end if
@@ -8330,26 +8960,26 @@ subroutine epi_reaction_diffusion
     if(mradi>0.and.mradicel>0.and.layer>0)then
       do i=ndepi+1,nd
         node(i)%you=0d0;node(i)%adh=0d0 	!>>Miquel 26-10-12
-        node(i)%rep=0d0;node(i)%repcel=0d0	!>>Miquel 8-10-12
-        node(i)%req=0d0 !;node(i)%reqcel=0d0	!>>Miquel 26-10-12!de
-        node(i)%reqs=0d0
-        node(i)%da=0d0
-        node(i)%ke=0d0   !only for epithelium
-        node(i)%tor=1d0  !only for epithelium
-        !node(i)%stor=1d1 !only for epithelium
+        node(i)%rep=0d0;node(i)%rec=0d0	!>>Miquel 8-10-12
+        node(i)%eqd=0d0 !;node(i)%codel=0d0	!>>Miquel 26-10-12!de
+        node(i)%eqs=0d0
+        node(i)%add=0d0
+        node(i)%hoo=0d0   !only for epithelium
+        node(i)%erp=1d0  !only for epithelium
+        !node(i)%est=1d1 !only for epithelium
         node(i)%altre=0  !only for epithelium
-        node(i)%mo=temp
+        node(i)%mov=temp
         node(i)%dmo=desmax
       end do
     end if
 
     !General parameters that depend on node parameters
-    rv=2*maxval(node(:)%da)
+    rv=2*maxval(node(:)%add)
 
 
     !Distribution of nodes in space
-    if(radi>0.and.radicel>0)               call epiteli(radi,radicel,zepi,node(1)%req,node(1)%reqs)
-    if(mradi>0.and.mradicel>0.and.layer>0) call mesenq(mradi,mradicel,layer,zmes,node(ndepi+1)%req)
+    if(radi>0.and.radicel>0)               call epiteli(radi,radicel,zepi,node(1)%eqd,node(1)%eqs)
+    if(mradi>0.and.mradicel>0.and.layer>0) call mesenq(mradi,mradicel,layer,zmes,node(ndepi+1)%eqd)
 
     do i=1,nd
       node(i)%orix=node(i)%x ; node(i)%oriy=node(i)%y ; node(i)%oriz=node(i)%z
@@ -8357,7 +8987,7 @@ subroutine epi_reaction_diffusion
     !End distribution of nodes in space
 
     !Setting boundary nodes (they will be subject to an external force keeping them in their initial position)
-    node(:)%hold=0
+    node(:)%fix=0
 
 
    !******* #3 DEFINING CELL PARAMETERS *******
@@ -8365,7 +8995,7 @@ subroutine epi_reaction_diffusion
     if(radi>0.and.radicel>0)then
       do i=1,ncelsepi
         cels(i)%fase=0d0
-        mmae=node(cels(i)%node(1))%req
+        mmae=node(cels(i)%node(1))%eqd
         cels(i)%minsize_for_div=cels(i)%nunodes*2
         cels(i)%maxsize_for_div=10000 !>>> Is 5-2-14
       end do
@@ -8374,7 +9004,7 @@ subroutine epi_reaction_diffusion
     if(mradi>0.and.mradicel>0.and.layer>0)then
       do i=ncelsepi+1,ncels
         cels(i)%fase=0d0
-        mmae=node(cels(i)%node(1))%req
+        mmae=node(cels(i)%node(1))%eqd
         cels(i)%minsize_for_div=cels(i)%nunodes*2
         cels(i)%maxsize_for_div=10000 !>>> Is 5-2-14
       end do
@@ -8404,15 +9034,15 @@ subroutine epi_reaction_diffusion
        !****a rellenar****
 
     !Gene-gene interactions
-      gen(1)%w(2)=1.0d0  !activator induces own secretion
-      gen(2)%w(4)=1.0d0  !activator extracell activates activator receptor
-      gen(4)%w(1)=5.0d0  !activator active receptor activates transcription of activator
-      gen(4)%w(5)=1.0d0  !activator active receptor activates transcription of inhibitor
-      gen(5)%w(6)=1.0d0  !inhibitor induces own secretion
-      gen(6)%w(8)=1.0d0  !inhibitor extracell activates inhibitor receptor
-      gen(8)%w(1)=-5.0d0 !inhibitor active receptor inhibits activator transcription
-      gen(9)%w(3)=1.0d0  !house-keeping induces expression of the activator receptor
-      gen(9)%w(7)=1.0d0  !house-keeping induces expression of the inhibitor receptor
+      gen(1)%t(2)=1.0d0  !activator induces own secretion
+      gen(2)%t(4)=1.0d0  !activator extracell activates activator receptor
+      gen(4)%t(1)=5.0d0  !activator active receptor activates transcription of activator
+      gen(4)%t(5)=1.0d0  !activator active receptor activates transcription of inhibitor
+      gen(5)%t(6)=1.0d0  !inhibitor induces own secretion
+      gen(6)%t(8)=1.0d0  !inhibitor extracell activates inhibitor receptor
+      gen(8)%t(1)=-5.0d0 !inhibitor active receptor inhibits activator transcription
+      gen(9)%t(3)=1.0d0  !house-keeping induces expression of the activator receptor
+      gen(9)%t(7)=1.0d0  !house-keeping induces expression of the inhibitor receptor
 
 
     !Adhesion molecules
@@ -8439,8 +9069,8 @@ subroutine epi_reaction_diffusion
     
     call update_npag
     node(:)%talone=0.0d0
-    ramax=maxval(node(:)%da)*3
-    node(:)%diffe=0.0d0
+    ramax=maxval(node(:)%add)*3
+    node(:)%dif=0.0d0
 end subroutine
 
 !***********************************************************************************
@@ -8511,7 +9141,7 @@ subroutine epi_active_transport
     nda=nd+10
 	ncals=ncels+10
     
-    if(radi==1.or.mradi==1) ffu(1)=1
+    if(radi==1.or.mradi==1) ffu(1)=0
   !End initializing dimension parameters
 
 !  print*,"nodecel",nodecel,"ncelsepi",ncelsepi,"ncelsmes",ncelsmes,"ndepi",ndepi,"ndmes",ndmes
@@ -8553,11 +9183,10 @@ subroutine epi_active_transport
     
     ffu=0
      !spring of the ellipse
-    ffu(2)=0 !to quite if there are too many cells
-    ffu(3)=0 !screening
-    ffu(4)=0 !torsion
-    ffu(5)=0 !external signal source
-    ffu(22)=0 !0 = noise biased by energies , 1 = unbiased noise
+    ffu(2)=0 !screening
+    ffu(3)=0 !torsion
+    
+    ffu(15)=1 !1 = noise biased by energies , 0 = unbiased noise
 
 
    !******* #2 DEFINING NODE MECHANIC PARAMETERS *******
@@ -8565,14 +9194,14 @@ subroutine epi_active_transport
     if(radi>0.and.radicel>0)then
       do i=1,ndepi
         node(i)%you=1.2d1;node(i)%adh=8d1    	!>>Miquel 26-10-12
-        node(i)%rep=1d1;node(i)%repcel=1d5	!>>Miquel 8-10-12
-        node(i)%req=0.25d0 ; node(i)%reqcr=node(i)%req !;node(i)%reqcel=0.25d0;	!>>Miquel 26-10-12!de
-        node(i)%reqs=0.5d0
-        node(i)%da=node(i)%req*1.25; 
-        node(i)%ke=1d2
-        node(i)%tor=1d1
-        !node(i)%stor=1d1
-        node(i)%mo=temp
+        node(i)%rep=1d1;node(i)%rec=1d5	!>>Miquel 8-10-12
+        node(i)%eqd=0.25d0 ; node(i)%grd=node(i)%eqd !;node(i)%codel=0.25d0;	!>>Miquel 26-10-12!de
+        node(i)%eqs=0.5d0
+        node(i)%add=node(i)%eqd*1.25; 
+        node(i)%hoo=1d2
+        node(i)%erp=1d1
+        !node(i)%est=1d1
+        node(i)%mov=temp
         node(i)%dmo=desmax
       end do
     end if
@@ -8581,26 +9210,26 @@ subroutine epi_active_transport
     if(mradi>0.and.mradicel>0.and.layer>0)then
       do i=ndepi+1,nd
         node(i)%you=0d0;node(i)%adh=0d0 	!>>Miquel 26-10-12
-        node(i)%rep=0d0;node(i)%repcel=0d0	!>>Miquel 8-10-12
-        node(i)%req=0d0 !;node(i)%reqcel=0d0	!>>Miquel 26-10-12!de
-        node(i)%reqs=0d0
-        node(i)%da=0d0
-        node(i)%ke=0d0   !only for epithelium
-        node(i)%tor=1d0  !only for epithelium
-        !node(i)%stor=1d1 !only for epithelium
+        node(i)%rep=0d0;node(i)%rec=0d0	!>>Miquel 8-10-12
+        node(i)%eqd=0d0 !;node(i)%codel=0d0	!>>Miquel 26-10-12!de
+        node(i)%eqs=0d0
+        node(i)%add=0d0
+        node(i)%hoo=0d0   !only for epithelium
+        node(i)%erp=1d0  !only for epithelium
+        !node(i)%est=1d1 !only for epithelium
         node(i)%altre=0  !only for epithelium
-        node(i)%mo=temp
+        node(i)%mov=temp
         node(i)%dmo=desmax
       end do
     end if
 
     !General parameters that depend on node parameters
-    rv=2*maxval(node(:)%da)
+    rv=2*maxval(node(:)%add)
 
 
     !Distribution of nodes in space
-    if(radi>0.and.radicel>0)               call epiteli(radi,radicel,zepi,node(1)%req,node(1)%reqs)
-    if(mradi>0.and.mradicel>0.and.layer>0) call mesenq(mradi,mradicel,layer,zmes,node(ndepi+1)%req)
+    if(radi>0.and.radicel>0)               call epiteli(radi,radicel,zepi,node(1)%eqd,node(1)%eqs)
+    if(mradi>0.and.mradicel>0.and.layer>0) call mesenq(mradi,mradicel,layer,zmes,node(ndepi+1)%eqd)
 
     do i=1,nd
       node(i)%orix=node(i)%x ; node(i)%oriy=node(i)%y ; node(i)%oriz=node(i)%z
@@ -8608,7 +9237,7 @@ subroutine epi_active_transport
     !End distribution of nodes in space
 
     !Setting boundary nodes (they will be subject to an external force keeping them in their initial position)
-    node(:)%hold=0
+    node(:)%fix=0
 
 
    !******* #3 DEFINING CELL PARAMETERS *******
@@ -8616,7 +9245,7 @@ subroutine epi_active_transport
     if(radi>0.and.radicel>0)then
       do i=1,ncelsepi
         cels(i)%fase=0d0
-        mmae=node(cels(i)%node(1))%req
+        mmae=node(cels(i)%node(1))%eqd
         cels(i)%minsize_for_div=cels(i)%nunodes*2
         cels(i)%maxsize_for_div=10000 !>>> Is 5-2-14
       end do
@@ -8625,7 +9254,7 @@ subroutine epi_active_transport
     if(mradi>0.and.mradicel>0.and.layer>0)then
       do i=ncelsepi+1,ncels
         cels(i)%fase=0d0
-        mmae=node(cels(i)%node(1))%req
+        mmae=node(cels(i)%node(1))%eqd
         cels(i)%minsize_for_div=cels(i)%nunodes*2
         cels(i)%maxsize_for_div=10000 !>>> Is 5-2-14
       end do
@@ -8648,7 +9277,7 @@ subroutine epi_active_transport
        !****a rellenar****
 
     !Gene-gene interactions
- !     gen(1)%w(1)=1.0d0  !activator induces own secretion
+ !     gen(1)%t(1)=1.0d0  !activator induces own secretion
 
 
     !Adhesion molecules
@@ -8671,8 +9300,8 @@ subroutine epi_active_transport
     
     call update_npag
     node(:)%talone=0.0d0
-    ramax=maxval(node(:)%da)*3
-    node(:)%diffe=0.0d0
+    ramax=maxval(node(:)%add)*3
+    node(:)%dif=0.0d0
 end subroutine
 
 
@@ -8743,7 +9372,7 @@ subroutine diffusion_test
     nda=nd+10
 	ncals=ncels+10
     
-    if(radi==1.or.mradi==1) ffu(1)=1
+    if(radi==1.or.mradi==1) ffu(1)=0
   !End initializing dimension parameters
 
   print*,"nodecel",nodecel,"ncelsepi",ncelsepi,"ncelsmes",ncelsmes,"ndepi",ndepi,"ndmes",ndmes
@@ -8785,13 +9414,12 @@ subroutine diffusion_test
     
     ffu=0
      !spring of the ellipse
-    ffu(2)=0 !to quite if there are too many cells
-    ffu(3)=0 !screening
-    ffu(4)=0 !torsion
-    ffu(5)=0 !external signal source
-    ffu(12)=0 !constant delta
-    ffu(13)=0 !neighboring by triangulation
-    ffu(22)=0 !0 = noise biased by energies , 1 = unbiased noise
+    ffu(2)=0 !screening
+    ffu(3)=0 !torsion
+    
+    ffu(7)=0 !constant delta
+    ffu(8)=0 !neighboring by triangulation
+    ffu(15)=1 !1 = noise biased by energies , 0 = unbiased noise
 
 
    !******* #2 DEFINING NODE MECHANIC PARAMETERS *******
@@ -8799,14 +9427,14 @@ subroutine diffusion_test
     if(radi>0.and.radicel>0)then
       do i=1,ndepi
         node(i)%you=1.2d1;node(i)%adh=8d1    	!>>Miquel 26-10-12
-        node(i)%rep=1d1;node(i)%repcel=1d1	!>>Miquel 8-10-12
-        node(i)%req=0.25d0 ; node(i)%reqcr=node(i)%req !;node(i)%reqcel=0.25d0;	!>>Miquel 26-10-12!de
-        node(i)%reqs=0.5d0
-        node(i)%da=node(i)%req*1.25; 
-        node(i)%ke=1d1
-        node(i)%tor=1d1
-        !node(i)%stor=1d1
-        node(i)%mo=temp
+        node(i)%rep=1d1;node(i)%rec=1d1	!>>Miquel 8-10-12
+        node(i)%eqd=0.25d0 ; node(i)%grd=node(i)%eqd !;node(i)%codel=0.25d0;	!>>Miquel 26-10-12!de
+        node(i)%eqs=0.5d0
+        node(i)%add=node(i)%eqd*1.25; 
+        node(i)%hoo=1d1
+        node(i)%erp=1d1
+        !node(i)%est=1d1
+        node(i)%mov=temp
         node(i)%dmo=desmax
       end do
     end if
@@ -8815,26 +9443,26 @@ subroutine diffusion_test
     if(mradi>0.and.mradicel>0.and.layer>0)then
       do i=ndepi+1,nd
         node(i)%you=0d0;node(i)%adh=0d0 	!>>Miquel 26-10-12
-        node(i)%rep=0d0;node(i)%repcel=0d0	!>>Miquel 8-10-12
-        node(i)%req=0d0 !;node(i)%reqcel=0d0	!>>Miquel 26-10-12!de
-        node(i)%reqs=0d0
-        node(i)%da=0d0
-        node(i)%ke=0d0   !only for epithelium
-        node(i)%tor=1d0  !only for epithelium
-        !node(i)%stor=1d1 !only for epithelium
+        node(i)%rep=0d0;node(i)%rec=0d0	!>>Miquel 8-10-12
+        node(i)%eqd=0d0 !;node(i)%codel=0d0	!>>Miquel 26-10-12!de
+        node(i)%eqs=0d0
+        node(i)%add=0d0
+        node(i)%hoo=0d0   !only for epithelium
+        node(i)%erp=1d0  !only for epithelium
+        !node(i)%est=1d1 !only for epithelium
         node(i)%altre=0  !only for epithelium
-        node(i)%mo=temp
+        node(i)%mov=temp
         node(i)%dmo=desmax
       end do
     end if
 
     !General parameters that depend on node parameters
-    rv=2*maxval(node(:)%da)
+    rv=2*maxval(node(:)%add)
 
 
     !Distribution of nodes in space
-    if(radi>0.and.radicel>0)               call epiteli(radi,radicel,zepi,node(1)%req,node(1)%reqs)
-    if(mradi>0.and.mradicel>0.and.layer>0) call mesenq(mradi,mradicel,layer,zmes,node(ndepi+1)%req)
+    if(radi>0.and.radicel>0)               call epiteli(radi,radicel,zepi,node(1)%eqd,node(1)%eqs)
+    if(mradi>0.and.mradicel>0.and.layer>0) call mesenq(mradi,mradicel,layer,zmes,node(ndepi+1)%eqd)
 
     do i=1,nd
       node(i)%orix=node(i)%x ; node(i)%oriy=node(i)%y ; node(i)%oriz=node(i)%z
@@ -8842,7 +9470,7 @@ subroutine diffusion_test
     !End distribution of nodes in space
 
     !Setting boundary nodes (they will be subject to an external force keeping them in their initial position)
-    node(:)%hold=0
+    node(:)%fix=0
 
 
    !******* #3 DEFINING CELL PARAMETERS *******
@@ -8850,7 +9478,7 @@ subroutine diffusion_test
     if(radi>0.and.radicel>0)then
       do i=1,ncelsepi
         cels(i)%fase=0d0
-        mmae=node(cels(i)%node(1))%req
+        mmae=node(cels(i)%node(1))%eqd
         cels(i)%minsize_for_div=cels(i)%nunodes*2
         cels(i)%maxsize_for_div=10000 !>>> Is 5-2-14
       end do
@@ -8859,7 +9487,7 @@ subroutine diffusion_test
     if(mradi>0.and.mradicel>0.and.layer>0)then
       do i=ncelsepi+1,ncels
         cels(i)%fase=0d0
-        mmae=node(cels(i)%node(1))%req
+        mmae=node(cels(i)%node(1))%eqd
         cels(i)%minsize_for_div=cels(i)%nunodes*2
         cels(i)%maxsize_for_div=10000 !>>> Is 5-2-14
       end do
@@ -8888,17 +9516,17 @@ subroutine diffusion_test
        !****a rellenar****
 
     !Gene-gene interactions
-      gen(1)%w(1)=1.0d1
-      gen(1)%w(2)=0.0d0
-      gen(2)%w(1)=1.0d1
+      gen(1)%t(1)=1.0d1
+      gen(1)%t(2)=0.0d0
+      gen(2)%t(1)=1.0d1
 !      do i=3,ng
-!        gen(i)%w(i)=1.0d1
+!        gen(i)%t(i)=1.0d1
 !      end do
       gen(1)%nww=1
-      !gen(1)%ww(1,1)=1
-      gen(1)%ww(1,1)=1
-      gen(1)%ww(1,2)=2
-      gen(1)%ww(1,3)=1d1
+      !gen(1)%r(1,1)=1
+      gen(1)%r(1,1)=1
+      gen(1)%r(1,2)=2
+      gen(1)%r(1,3)=1d1
       
 
     !Adhesion molecules
@@ -8920,8 +9548,8 @@ subroutine diffusion_test
     
     call update_npag
     node(:)%talone=0.0d0
-    ramax=maxval(node(:)%da)*3
-    node(:)%diffe=0.0d0
+    ramax=maxval(node(:)%add)*3
+    node(:)%dif=0.0d0
 end subroutine
 
 !*************************************************************************************
@@ -9006,7 +9634,7 @@ subroutine epi_mes_primordium
     nda=nd+10
 	ncals=ncels+10
     
-    if(radi==1.or.mradi==1) ffu(1)=1
+    if(radi==1.or.mradi==1) ffu(1)=0
   !End initializing dimension parameters
 
   print*,"nodecel",nodecel,"ncelsepi",ncelsepi,"ncelsmes",ncelsmes,"ndepi",ndepi,"ndmes",ndmes
@@ -9049,12 +9677,11 @@ subroutine epi_mes_primordium
     
     ffu=0
      !spring of the ellipse
-    ffu(2)=0 !to quite if there are too many cells
-    ffu(3)=0 !screening
-    ffu(4)=0 !torsion
-    ffu(5)=0 !external signal source
-    ffu(6)=0 !eggshell miguel4-1-13
-    ffu(22)=0 !0 = noise biased by energies , 1 = unbiased noise
+    ffu(2)=0 !screening
+    ffu(3)=0 !torsion
+    
+    
+    ffu(15)=1 !1 = noise biased by energies , 0 = unbiased noise
 
 
    !******* #2 DEFINING NODE MECHANIC PARAMETERS *******
@@ -9063,18 +9690,18 @@ subroutine epi_mes_primordium
       do i=1,ndepi
         if(node(i)%tipus==2)then  !basal
           node(i)%you=1d1 ; node(i)%adh=1d1
-          node(i)%rep=1d1 ; node(i)%repcel=1d1
+          node(i)%rep=1d1 ; node(i)%rec=1d1
         else                      !apical
           node(i)%you=1d1 ; node(i)%adh=1d1
-          node(i)%rep=1d1 ; node(i)%repcel=1d1
+          node(i)%rep=1d1 ; node(i)%rec=1d1
         end if
-        node(i)%req=0.25d0 ; node(i)%reqcr=node(i)%req
-        node(i)%reqs=0.25d0
-        node(i)%da=node(i)%req*1.30; 
-        node(i)%ke=1d1
-        node(i)%tor=5d0
-        !node(i)%stor=5d1
-        node(i)%mo=temp
+        node(i)%eqd=0.25d0 ; node(i)%grd=node(i)%eqd
+        node(i)%eqs=0.25d0
+        node(i)%add=node(i)%eqd*1.30; 
+        node(i)%hoo=1d1
+        node(i)%erp=5d0
+        !node(i)%est=5d1
+        node(i)%mov=temp
         node(i)%dmo=desmax
       end do
     end if
@@ -9083,28 +9710,28 @@ subroutine epi_mes_primordium
     if(mradi>0.and.mradicel>0.and.layer>0)then
       do i=ndepi+1,nd
         node(i)%you=1d1 ; node(i)%adh=1d1
-        node(i)%rep=1d1 ; node(i)%repcel=1d1
-        node(i)%req=0.25d0 ; node(i)%reqcr=node(i)%req
-        node(i)%reqs=0.5d0
-        node(i)%da=node(i)%req*1.15 
-        node(i)%ke=0d0   !only for epithelium
-        node(i)%tor=1d0  !only for epithelium
-        !node(i)%stor=1d1 !only for epithelium
+        node(i)%rep=1d1 ; node(i)%rec=1d1
+        node(i)%eqd=0.25d0 ; node(i)%grd=node(i)%eqd
+        node(i)%eqs=0.5d0
+        node(i)%add=node(i)%eqd*1.15 
+        node(i)%hoo=0d0   !only for epithelium
+        node(i)%erp=1d0  !only for epithelium
+        !node(i)%est=1d1 !only for epithelium
         node(i)%altre=0  !only for epithelium
-        node(i)%mo=temp
+        node(i)%mov=temp
         node(i)%dmo=desmax
       end do
     end if
 
     !General parameters that depend on node parameters
-    rv=2*maxval(node(:)%da)
+    rv=2*maxval(node(:)%add)
 
 
     !Distribution of nodes in space
-    if(radi>0.and.radicel>0)               call epiteli(radi,radicel,zepi,node(1)%req,node(1)%reqs)
+    if(radi>0.and.radicel>0)               call epiteli(radi,radicel,zepi,node(1)%eqd,node(1)%eqs)
     if(mradi>0.and.mradicel>0.and.layer>0)then
-                       if(packed==0)then ; call mesenq(mradi,mradicel,layer,zmes,node(ndepi+1)%req)
-                       else  ; call mesenq_packed(mradi,mradicel,layer,zmes,node(ndepi+1)%req) ; end if ; end if
+                       if(packed==0)then ; call mesenq(mradi,mradicel,layer,zmes,node(ndepi+1)%eqd)
+                       else  ; call mesenq_packed(mradi,mradicel,layer,zmes,node(ndepi+1)%eqd) ; end if ; end if
 
 
     do i=1,nd
@@ -9113,7 +9740,7 @@ subroutine epi_mes_primordium
     !End distribution of nodes in space
 
     !Setting boundary nodes (they will be subject to an external force keeping them in their initial position)
-    node(:)%hold=0
+    node(:)%fix=0
     !let's do it for the most external layer of cells
       j=0
       do i=1,radicel-2
@@ -9121,11 +9748,11 @@ subroutine epi_mes_primordium
       end do
       j=(6*j+1)*nodecel !this is the number of epithelial nodes wich are not external
       do i=j+1,ndepi
-        node(i)%hold=1
-        node(i)%rep=1d5;node(i)%repcel=1d5
-        node(i)%ke=1d5
-        node(i)%tor=1d5
-        !node(i)%stor=1d5
+        node(i)%fix=1
+        node(i)%rep=1d5;node(i)%rec=1d5
+        node(i)%hoo=1d5
+        node(i)%erp=1d5
+        !node(i)%est=1d5
       end do
 
 !      j=0
@@ -9134,9 +9761,9 @@ subroutine epi_mes_primordium
 !      end do
 !      j=(6*j+1)*mradi !this is the number of mesenchymal nodes wich are not external
       do i=ndepi+j+1,ndepi+ndmes
-        node(i)%hold=1
-        node(i)%rep=1d5;node(i)%repcel=1d5
-!        node(i)%req=0.30 ; node(i)%da=0.31 !I make them bigger so they make a wall and don't let anyone pass
+        node(i)%fix=1
+        node(i)%rep=1d5;node(i)%rec=1d5
+!        node(i)%eqd=0.30 ; node(i)%add=0.31 !I make them bigger so they make a wall and don't let anyone pass
       end do
     !end of setting boundary nodes
 
@@ -9146,7 +9773,7 @@ subroutine epi_mes_primordium
     if(radi>0.and.radicel>0)then
       do i=1,ncelsepi
         cels(i)%fase=0d0
-        mmae=node(cels(i)%node(1))%req
+        mmae=node(cels(i)%node(1))%eqd
         cels(i)%minsize_for_div=cels(i)%nunodes*2
         cels(i)%maxsize_for_div=10000 !>>> Is 5-2-14
       end do
@@ -9155,7 +9782,7 @@ subroutine epi_mes_primordium
     if(mradi>0.and.mradicel>0.and.layer>0)then
       do i=ncelsepi+1,ncels
         cels(i)%fase=0d0
-        mmae=node(cels(i)%node(1))%req
+        mmae=node(cels(i)%node(1))%eqd
         cels(i)%minsize_for_div=cels(i)%nunodes*2
         cels(i)%maxsize_for_div=10000 !>>> Is 5-2-14
       end do
@@ -9214,23 +9841,23 @@ subroutine epi_mes_primordium
 
     !Gene-behavior interactions
 
-       gen(8)%wa(nparam_per_node+1)=1d-3  !growth
-       gen(8)%wa(nparam_per_node+2)=1d-3  !cell division
+       gen(8)%e(nparam_per_node+1)=1d-3  !growth
+       gen(8)%e(nparam_per_node+2)=1d-3  !cell division
 
-       gen(10)%wa(nparam_per_node+1)=1d-5  !growth
-       gen(10)%wa(nparam_per_node+2)=1d-5  !cell division
+       gen(10)%e(nparam_per_node+1)=1d-5  !growth
+       gen(10)%e(nparam_per_node+2)=1d-5  !cell division
 
 
     !Gene-gene interactions
        gen(1)%nww=1
-       gen(1)%ww(1,2)=1d1 !1 autocatalyzes transcription
+       gen(1)%r(1,2)=1d1 !1 autocatalyzes transcription
        gen(2)%nww=1
-       gen(2)%ww(3,4)=1d1 !signal activates receptor
+       gen(2)%r(3,4)=1d1 !signal activates receptor
        gen(4)%nww=3
-       gen(4)%ww(5,6)=1d1 !active receptor activates TF
-       gen(4)%ww(7,8)=1d1 !active receptor activates cell prolif. factor
-       gen(4)%ww(9,10)=1d1 !active receptor activates cell prolif. factor
-       gen(6)%w(1)=1d1 !active TF promotes transcirption
+       gen(4)%r(5,6)=1d1 !active receptor activates TF
+       gen(4)%r(7,8)=1d1 !active receptor activates cell prolif. factor
+       gen(4)%r(9,10)=1d1 !active receptor activates cell prolif. factor
+       gen(6)%t(1)=1d1 !active TF promotes transcirption
 
 
     !Adhesion molecules
@@ -9264,8 +9891,8 @@ subroutine epi_mes_primordium
     call update_npag
 
     node(:)%talone=0.0d0
-    ramax=maxval(node(:)%da)*3
-    node(:)%diffe=0.0d0
+    ramax=maxval(node(:)%add)*3
+    node(:)%dif=0.0d0
 end subroutine
 
 
@@ -9397,12 +10024,11 @@ integer:: val
     
     ffu=0
      !spring of the ellipse
-    ffu(2)=0 !to quite if there are too many cells
-    ffu(3)=0 !screening
-    ffu(4)=0 !torsion
-    ffu(5)=0 !external signal source
-    ffu(6)=0 !eggshell miguel4-1-13
-    ffu(22)=0 !0 = noise biased by energies , 1 = unbiased noise
+    ffu(2)=0 !screening
+    ffu(3)=0 !torsion
+    
+    
+    ffu(15)=1 !1 = noise biased by energies , 0 = unbiased noise
 
 
    !******* #2 DEFINING NODE MECHANIC PARAMETERS *******
@@ -9411,18 +10037,18 @@ integer:: val
       do i=1,ndepi
         if(node(i)%tipus==2)then  !basal
           node(i)%you=1d1 ; node(i)%adh=1d1
-          node(i)%rep=5d0 ; node(i)%repcel=5d0
+          node(i)%rep=5d0 ; node(i)%rec=5d0
         else                      !apical
           node(i)%you=5d0 ; node(i)%adh=5d0
-          node(i)%rep=1d1 ; node(i)%repcel=1d1
+          node(i)%rep=1d1 ; node(i)%rec=1d1
         end if
-        node(i)%req=0.25d0 ; node(i)%reqcr=node(i)%req
-        node(i)%reqs=0.25d0
-        node(i)%da=node(i)%req*1.30; 
-        node(i)%ke=1d2
-        node(i)%tor=1d0
-        !node(i)%stor=1d1
-        node(i)%mo=temp
+        node(i)%eqd=0.25d0 ; node(i)%grd=node(i)%eqd
+        node(i)%eqs=0.25d0
+        node(i)%add=node(i)%eqd*1.30; 
+        node(i)%hoo=1d2
+        node(i)%erp=1d0
+        !node(i)%est=1d1
+        node(i)%mov=temp
         node(i)%dmo=desmax
       end do
     end if
@@ -9431,32 +10057,32 @@ integer:: val
     if(mradi>0.and.mradicel>0.and.layer>0)then
       do i=ndepi+1,nd
         node(i)%you=1d1;node(i)%adh=0d0 	
-        node(i)%rep=1d2;node(i)%repcel=1d2	
-        node(i)%req=0.25d0 ; node(i)%reqcr=node(i)%req
-        node(i)%reqs=0.5d0
-        node(i)%da=node(i)%req*1.15 
-        node(i)%ke=0d0   !only for epithelium
-        node(i)%tor=1d0  !only for epithelium
-        !node(i)%stor=1d1 !only for epithelium
+        node(i)%rep=1d2;node(i)%rec=1d2	
+        node(i)%eqd=0.25d0 ; node(i)%grd=node(i)%eqd
+        node(i)%eqs=0.5d0
+        node(i)%add=node(i)%eqd*1.15 
+        node(i)%hoo=0d0   !only for epithelium
+        node(i)%erp=1d0  !only for epithelium
+        !node(i)%est=1d1 !only for epithelium
         node(i)%altre=0  !only for epithelium
-        node(i)%mo=temp
+        node(i)%mov=temp
         node(i)%dmo=desmax
       end do
       do i=1,val !this is the "epithelial like part"
-        node(i)%da=node(i)%req*1.35
+        node(i)%add=node(i)%eqd*1.35
       end do
     end if
     
     
     !General parameters that depend on node parameters
-    rv=2*maxval(node(:)%da)
+    rv=2*maxval(node(:)%add)
 
 
     !Distribution of nodes in space
-    if(radi>0.and.radicel>0)               call epiteli(radi,radicel,zepi,node(1)%req,node(1)%reqs)
+    if(radi>0.and.radicel>0)               call epiteli(radi,radicel,zepi,node(1)%eqd,node(1)%eqs)
     if(mradi>0.and.mradicel>0.and.layer>0)then
-                       if(packed==0)then ; call mesenq(mradi,mradicel,layer,zmes,node(ndepi+1)%req)
-                       else  ; call mesenq_packed(mradi,mradicel,layer,zmes,node(ndepi+1)%req) ; end if ; end if
+                       if(packed==0)then ; call mesenq(mradi,mradicel,layer,zmes,node(ndepi+1)%eqd)
+                       else  ; call mesenq_packed(mradi,mradicel,layer,zmes,node(ndepi+1)%eqd) ; end if ; end if
 
 
     do i=1,nd
@@ -9465,7 +10091,7 @@ integer:: val
     !End distribution of nodes in space
 
     !Setting boundary nodes (they will be subject to an external force keeping them in their initial position)
-    node(:)%hold=0
+    node(:)%fix=0
     !let's do it for the most external layer of cells
       !j=0
       !do i=1,radicel-2
@@ -9473,7 +10099,7 @@ integer:: val
       !end do
       !j=(6*j+1)*nodecel !this is the number of epithelial nodes wich are not external
       !do i=j+1,ndepi
-      !  node(i)%hold=1
+      !  node(i)%fix=1
       !end do
 
       j=0
@@ -9483,14 +10109,14 @@ integer:: val
       j=(6*j+1)*nodecel !this is the number of mesenchymal nodes wich are not external
 
       do i=ndepi+j+1,ndepi+val
-        node(i)%hold=1
-        node(i)%rep=1d6;node(i)%repcel=1d6
-!        node(i)%req=0.30 ; node(i)%da=0.31 !I make them bigger so they make a wall and don't let anyone pass
+        node(i)%fix=1
+        node(i)%rep=1d6;node(i)%rec=1d6
+!        node(i)%eqd=0.30 ; node(i)%add=0.31 !I make them bigger so they make a wall and don't let anyone pass
       end do
       do i=ndepi+val+j+1,ndepi+ndmes
-        node(i)%hold=1
-        node(i)%rep=1d6;node(i)%repcel=1d6
-!        node(i)%req=0.30 ; node(i)%da=0.31 !I make them bigger so they make a wall and don't let anyone pass
+        node(i)%fix=1
+        node(i)%rep=1d6;node(i)%rec=1d6
+!        node(i)%eqd=0.30 ; node(i)%add=0.31 !I make them bigger so they make a wall and don't let anyone pass
       end do
 
 
@@ -9502,7 +10128,7 @@ integer:: val
     if(radi>0.and.radicel>0)then
       do i=1,ncelsepi
         cels(i)%fase=0d0
-        mmae=node(cels(i)%node(1))%req
+        mmae=node(cels(i)%node(1))%eqd
         cels(i)%minsize_for_div=cels(i)%nunodes*2
         cels(i)%maxsize_for_div=10000 !>>> Is 5-2-14
       end do
@@ -9511,7 +10137,7 @@ integer:: val
     if(mradi>0.and.mradicel>0.and.layer>0)then
       do i=ncelsepi+1,ncels
         cels(i)%fase=0d0
-        mmae=node(cels(i)%node(1))%req
+        mmae=node(cels(i)%node(1))%eqd
         cels(i)%minsize_for_div=cels(i)%nunodes*2
         cels(i)%maxsize_for_div=10000 !>>> Is 5-2-14
       end do
@@ -9571,27 +10197,27 @@ integer:: val
 
     !Gene-behavior interactions
 
-       gen(8)%wa(nparam_per_node+1)=1d-2  !growth
-       gen(8)%wa(nparam_per_node+2)=5d-2  !cell division
+       gen(8)%e(nparam_per_node+1)=1d-2  !growth
+       gen(8)%e(nparam_per_node+2)=5d-2  !cell division
 
-       gen(10)%wa(nparam_per_node+1)=5d-4  !growth
-       gen(10)%wa(nparam_per_node+2)=1d-4  !cell division
+       gen(10)%e(nparam_per_node+1)=5d-4  !growth
+       gen(10)%e(nparam_per_node+2)=1d-4  !cell division
        
-       gen(11)%wa(1)=1
-       gen(12)%wa(1)=2
+       gen(11)%e(1)=1
+       gen(12)%e(1)=2
 
 
     !Gene-gene interactions
 
        gen(1)%nww=1
-       gen(1)%ww(1,2)=1d1 !1 autocatalyzes transcription
+       gen(1)%r(1,2)=1d1 !1 autocatalyzes transcription
        gen(2)%nww=1
-       gen(2)%ww(3,4)=1d1 !signal activates receptor
+       gen(2)%r(3,4)=1d1 !signal activates receptor
        gen(4)%nww=3
-       gen(4)%ww(5,6)=1d1 !active receptor activates TF
-       gen(4)%ww(7,8)=1d1 !active receptor activates cell prolif. factor
-       gen(4)%ww(9,10)=1d1 !active receptor activates cell prolif. factor
-       gen(6)%w(1)=1d1 !active TF promotes transcirption
+       gen(4)%r(5,6)=1d1 !active receptor activates TF
+       gen(4)%r(7,8)=1d1 !active receptor activates cell prolif. factor
+       gen(4)%r(9,10)=1d1 !active receptor activates cell prolif. factor
+       gen(6)%t(1)=1d1 !active TF promotes transcirption
 
 
 
@@ -9641,20 +10267,20 @@ integer:: val
 
     node(:)%talone=0.0d0
 
-    !print*,"w de 1",gen(1)%w(:)
-    !print*,"w de 2",gen(2)%w(:)
-    !print*,"w de 3",gen(3)%w(:)
-    !print*,"w de 4",gen(4)%w(:)
-    !print*,"w de 5",gen(5)%w(:)
-    !print*,"w de 6",gen(6)%w(:)
-    !print*,"w de 7",gen(7)%w(:)
-    !print*,"w de 8",gen(8)%w(:)
-    !print*,"w de 9",gen(9)%w(:)
-    !print*,"w de 10",gen(10)%w(:)
-    !print*,"w de 11",gen(11)%w(:)
-    !print*,"w de 12",gen(12)%w(:)
-    ramax=maxval(node(:)%da)*3    
-    node(:)%diffe=0.0d0
+    !print*,"w de 1",gen(1)%t(:)
+    !print*,"w de 2",gen(2)%t(:)
+    !print*,"w de 3",gen(3)%t(:)
+    !print*,"w de 4",gen(4)%t(:)
+    !print*,"w de 5",gen(5)%t(:)
+    !print*,"w de 6",gen(6)%t(:)
+    !print*,"w de 7",gen(7)%t(:)
+    !print*,"w de 8",gen(8)%t(:)
+    !print*,"w de 9",gen(9)%t(:)
+    !print*,"w de 10",gen(10)%t(:)
+    !print*,"w de 11",gen(11)%t(:)
+    !print*,"w de 12",gen(12)%t(:)
+    ramax=maxval(node(:)%add)*3    
+    node(:)%dif=0.0d0
 end subroutine
 
 !!!!!!!!!***********************************SUBROUTINE********************************
@@ -9739,7 +10365,7 @@ subroutine epi_mes_bud
     nda=nd+10
 	ncals=ncels+10
     
-    if(radi==1.or.mradi==1) ffu(1)=1
+    if(radi==1.or.mradi==1) ffu(1)=0
   !End initializing dimension parameters
 
   print*,"nd",nd,"nodecel",nodecel,"ncelsepi",ncelsepi,"ncelsmes",ncelsmes,"ndepi",ndepi,"ndmes",ndmes
@@ -9783,16 +10409,15 @@ subroutine epi_mes_bud
     
     ffu=0
      !spring of the ellipse
-    ffu(2)=0 !to quite if there are too many cells
-    ffu(3)=1 !screening
-    ffu(4)=0 !torsion
-    ffu(5)=0 !external signal source
-    ffu(6)=0 !eggshell miguel4-1-13
+    ffu(2)=0 !>>> TT no screening !screening
+    ffu(3)=0 !torsion
+    
+    
 
-    ffu(11)=1 !epithelial node plastic deformation
-    ffu(12)=0 !0 dynamic delta, 1 fixed delta
-    ffu(13)=0 !neighboring by triangulation
-    ffu(22)=0 !0 = noise biased by energies , 1 = unbiased noise
+    ffu(6)=1 !epithelial node plastic deformation
+    ffu(7)=0 !0 dynamic delta, 1 fixed delta
+    ffu(8)=0 !neighboring by triangulation
+    ffu(15)=1 !1 = noise biased by energies , 0 = unbiased noise
 
 
    !******* #2 DEFINING NODE MECHANIC PARAMETERS *******
@@ -9801,22 +10426,22 @@ subroutine epi_mes_bud
       do i=1,ndepi
         if(i<=ndepi/2)then  !basal
           node(i)%you=5d0 ; node(i)%adh=0d0
-          node(i)%rep=5d0 ; node(i)%repcel=5d0
+          node(i)%rep=5d0 ; node(i)%rec=5d0
         else                      !apical
           node(i)%you=5d0 ; node(i)%adh=0d0
-          node(i)%rep=5d0 ; node(i)%repcel=5d0
+          node(i)%rep=5d0 ; node(i)%rec=5d0
         end if
-        node(i)%req=0.25d0 ; node(i)%reqcr=node(i)%req
-        node(i)%reqs=0.25
-        node(i)%da=node(i)%req*1.40; 
-        node(i)%ke=1d2
-        node(i)%tor=1d0
-        !node(i)%stor=1d0
-        node(i)%mo=temp
+        node(i)%eqd=0.25d0 ; node(i)%grd=node(i)%eqd
+        node(i)%eqs=0.25
+        node(i)%add=node(i)%eqd*1.40; 
+        node(i)%hoo=1d2
+        node(i)%erp=1d0
+        !node(i)%est=1d0
+        node(i)%mov=temp
         node(i)%dmo=desmax
-        node(i)%kplast=1d-2 ; node(i)%kvol=3d-5
-        node(i)%khold=khold
-        node(i)%diffe=0d0
+        node(i)%pla=1d-2 ; node(i)%kvol=3d-5
+        node(i)%kfi=khold
+        node(i)%dif=0d0
       end do
     end if
 
@@ -9824,30 +10449,30 @@ subroutine epi_mes_bud
     if(mradi>0.and.mradicel>0.and.layer>0)then
       do i=ndepi+1,nd
         node(i)%you=1d0 ; node(i)%adh=0d0
-        node(i)%rep=1d0 ; node(i)%repcel=5d0
-        node(i)%req=0.25d0 ; node(i)%reqcr=node(i)%req
-        node(i)%reqs=0d0
-        node(i)%da=node(i)%req*1.30
-        node(i)%ke=0d0   !only for epithelium
-        node(i)%tor=1d0  !only for epithelium
-        !node(i)%stor=1d1 !only for epithelium
+        node(i)%rep=1d0 ; node(i)%rec=5d0
+        node(i)%eqd=0.25d0 ; node(i)%grd=node(i)%eqd
+        node(i)%eqs=0d0
+        node(i)%add=node(i)%eqd*1.30
+        node(i)%hoo=0d0   !only for epithelium
+        node(i)%erp=1d0  !only for epithelium
+        !node(i)%est=1d1 !only for epithelium
         node(i)%altre=0  !only for epithelium
-        node(i)%mo=temp
+        node(i)%mov=temp
         node(i)%dmo=desmax
-        node(i)%diffe=0d0
-        node(i)%khold=khold
+        node(i)%dif=0d0
+        node(i)%kfi=khold
       end do
     end if
 
     !General parameters that depend on node parameters
-    rv=2*maxval(node(:)%da)
+    rv=2*maxval(node(:)%add)
 
 
     !Distribution of nodes in space
-    if(radi>0.and.radicel>0)               call epiteli(radi,radicel,zepi,node(1)%req,node(1)%reqs)
+    if(radi>0.and.radicel>0)               call epiteli(radi,radicel,zepi,node(1)%eqd,node(1)%eqs)
     if(mradi>0.and.mradicel>0.and.layer>0)then
-                       if(packed==0)then ; call mesenq(mradi,mradicel,layer,zmes,node(ndepi+1)%req)
-                       else  ; call mesenq_packed(mradi,mradicel,layer,zmes,node(ndepi+1)%req) ; end if ; end if
+                       if(packed==0)then ; call mesenq(mradi,mradicel,layer,zmes,node(ndepi+1)%eqd)
+                       else  ; call mesenq_packed(mradi,mradicel,layer,zmes,node(ndepi+1)%eqd) ; end if ; end if
 
 
 !    do i=2,7
@@ -9862,8 +10487,8 @@ subroutine epi_mes_bud
     !End distribution of nodes in space
 
     !Setting boundary nodes (they will be subject to an external force keeping them in their initial position)
-    node(:)%hold=0
-!    node(2:7)%hold=1 !; node(2:7)%rep=1d3 ; node(2:7)%you=1d3
+    node(:)%fix=0
+!    node(2:7)%fix=1 !; node(2:7)%rep=1d3 ; node(2:7)%you=1d3
     !let's do it for the most external layer of cells
       j=0
       do i=1,radicel-2
@@ -9871,13 +10496,13 @@ subroutine epi_mes_bud
       end do
       j=(6*j+1)*nodecel !this is the number of epithelial nodes wich are not external
       do i=j+1,ndepi
-        node(i)%hold=1 ;node(i)%khold=khold
+        node(i)%fix=1 ;node(i)%kfi=khold
         node(i)%oriz=node(i)%oriz-20
         if(node(i)%tipus==2)then;node(i)%orix=0d0 ; node(i)%oriy=0d0;end if
-        !node(i)%rep=1d1;node(i)%repcel=1d1
-        !node(i)%ke=1d1
-        !node(i)%tor=1d1
-        !!node(i)%stor=1d1
+        !node(i)%rep=1d1;node(i)%rec=1d1
+        !node(i)%hoo=1d1
+        !node(i)%erp=1d1
+        !!node(i)%est=1d1
       end do
       j=0
       do i=1,mradicel-2
@@ -9885,12 +10510,12 @@ subroutine epi_mes_bud
       end do
       !j=(6*j+1)*mradi !this is the number of mesenchymal nodes wich are not external
       !do i=ndepi+j+1,ndepi+ndmes
-      !  node(i)%hold=1
-      !  !node(i)%rep=1d1;node(i)%repcel=1d1
+      !  node(i)%fix=1
+      !  !node(i)%rep=1d1;node(i)%rec=1d1
       !end do
     
     
-!    do i=ndepi+1,nd ; node(i)%hold=1;enddo
+!    do i=ndepi+1,nd ; node(i)%fix=1;enddo
     
     
     !!end of setting boundary nodes
@@ -9901,7 +10526,7 @@ subroutine epi_mes_bud
     if(radi>0.and.radicel>0)then
       do i=1,ncelsepi
         cels(i)%fase=0d0
-        mmae=node(cels(i)%node(1))%req
+        mmae=node(cels(i)%node(1))%eqd
         cels(i)%minsize_for_div=cels(i)%nunodes*2
         cels(i)%maxsize_for_div=10000 !>>> Is 5-2-14
       end do
@@ -9910,7 +10535,7 @@ subroutine epi_mes_bud
     if(mradi>0.and.mradicel>0.and.layer>0)then
       do i=ncelsepi+1,ncels
         cels(i)%fase=0d0
-        mmae=node(cels(i)%node(1))%req
+        mmae=node(cels(i)%node(1))%eqd
         cels(i)%minsize_for_div=cels(i)%nunodes*2
         cels(i)%maxsize_for_div=10000 !>>> Is 5-2-14
       end do
@@ -9936,9 +10561,9 @@ subroutine epi_mes_bud
 
     !Gene-behavior interactions
  
-       gen(2)%wa(1)=1  !epithelial adhesion molecule
-       gen(3)%wa(1)=2  !epithelial-mesenchymal adhesion molecule
-       gen(4)%wa(1)=3 !mesenchymal adhesion molecule
+       gen(2)%e(1)=1  !epithelial adhesion molecule
+       gen(3)%e(1)=2  !epithelial-mesenchymal adhesion molecule
+       gen(4)%e(1)=3 !mesenchymal adhesion molecule
 
     !Gene-gene interactions
 
@@ -9990,7 +10615,7 @@ subroutine epi_mes_bud
     call update_npag
 
     node(:)%talone=0.0d0
-    ramax=maxval(node(:)%da)*3
+    ramax=maxval(node(:)%add)*3
 
     
     
@@ -10087,7 +10712,7 @@ subroutine hair_placode
     nda=nd+10
 	ncals=ncels+10
     
-    if(radi==1.or.mradi==1) ffu(1)=1
+    if(radi==1.or.mradi==1) ffu(1)=0
   !End initializing dimension parameters
 
   print*,"nd",nd,"nodecel",nodecel,"ncelsepi",ncelsepi,"ncelsmes",ncelsmes,"ndepi",ndepi,"ndmes",ndmes
@@ -10131,16 +10756,15 @@ subroutine hair_placode
     ffu=0
      !spring of the ellipse
     ffu(2)=0 !to quit if there are too many cells
-    ffu(3)=1 !screening
-    ffu(4)=0 !torsion
-    ffu(5)=3 !external signal source
-    ffu(6)=0 !eggshell miguel4-1-13
+    ffu(2)=0 !>>> TT no screening !screening
+    ffu(3)=0 !torsion
+    
 
-    ffu(11)=0 !epithelial node plastic deformation
-    ffu(12)=0 !0 dynamic delta, 1 fixed delta
-    ffu(13)=0 !neighboring by triangulation
-    ffu(14)=1 !physical boundaries (walls)
-    ffu(22)=0 !0 = unbiased random noise / 1 = noise biased by energies
+    ffu(6)=0 !epithelial node plastic deformation
+    ffu(7)=0 !0 dynamic delta, 1 fixed delta
+    ffu(8)=0 !neighboring by triangulation
+    
+    ffu(15)=0 !0 = unbiased random noise / 1 = noise biased by energies
 
    !******* #2 DEFINING NODE MECHANIC PARAMETERS *******
     !Epithelium
@@ -10148,21 +10772,21 @@ subroutine hair_placode
       do i=1,ndepi
         if(i<=ndepi/2)then  !basal
           node(i)%you=1d1 ; node(i)%adh=0d0
-          node(i)%rep=1d1 ; node(i)%repcel=1d1
+          node(i)%rep=1d1 ; node(i)%rec=1d1
         else                      !apical
           node(i)%you=1d1 ; node(i)%adh=0d0
-          node(i)%rep=1d1 ; node(i)%repcel=1d1
+          node(i)%rep=1d1 ; node(i)%rec=1d1
         end if
-        node(i)%req=0.25d0 ; node(i)%reqcr=node(i)%req
-        node(i)%reqs=0.25
-        node(i)%da=node(i)%req*1.70; 
-        node(i)%ke=1d2
-        node(i)%tor=5d1
-        !node(i)%stor=5d0
-        node(i)%mo=temp
+        node(i)%eqd=0.25d0 ; node(i)%grd=node(i)%eqd
+        node(i)%eqs=0.25
+        node(i)%add=node(i)%eqd*1.70; 
+        node(i)%hoo=1d2
+        node(i)%erp=5d1
+        !node(i)%est=5d0
+        node(i)%mov=temp
         node(i)%dmo=0
-        node(i)%diffe=0d0
-        node(i)%khold=khold
+        node(i)%dif=0d0
+        node(i)%kfi=khold
       end do
     end if
 
@@ -10170,30 +10794,30 @@ subroutine hair_placode
     if(mradi>0.and.mradicel>0.and.layer>0)then
       do i=ndepi+1,nd
         node(i)%you=0d0 ; node(i)%adh=0d0
-        node(i)%rep=0d0 ; node(i)%repcel=1d1
-        node(i)%req=0.25d0 ; node(i)%reqcr=node(i)%req
-        node(i)%reqs=0d0
-        node(i)%da=node(i)%req*1.70
-        node(i)%ke=0d0   !only for epithelium
-        node(i)%tor=1d0  !only for epithelium
-        !node(i)%stor=1d1 !only for epithelium
+        node(i)%rep=0d0 ; node(i)%rec=1d1
+        node(i)%eqd=0.25d0 ; node(i)%grd=node(i)%eqd
+        node(i)%eqs=0d0
+        node(i)%add=node(i)%eqd*1.70
+        node(i)%hoo=0d0   !only for epithelium
+        node(i)%erp=1d0  !only for epithelium
+        !node(i)%est=1d1 !only for epithelium
         node(i)%altre=0  !only for epithelium
-        node(i)%mo=temp
+        node(i)%mov=temp
         node(i)%dmo=0.0
-        node(i)%diffe=0d0
-        node(i)%khold=khold
+        node(i)%dif=0d0
+        node(i)%kfi=khold
       end do
     end if
 
     !General parameters that depend on node parameters
-    rv=2*maxval(node(:)%da)
+    rv=2*maxval(node(:)%add)
 
 
     !Distribution of nodes in space
-    if(radi>0.and.radicel>0)               call epiteli(radi,radicel,zepi,node(1)%req,node(1)%reqs)
+    if(radi>0.and.radicel>0)               call epiteli(radi,radicel,zepi,node(1)%eqd,node(1)%eqs)
     if(mradi>0.and.mradicel>0.and.layer>0)then
-                       if(packed==0)then ; call mesenq(mradi,mradicel,layer,zmes,node(ndepi+1)%req)
-                       else  ; call mesenq_packed(mradi,mradicel,layer,zmes,node(ndepi+1)%req) ; end if ; end if
+                       if(packed==0)then ; call mesenq(mradi,mradicel,layer,zmes,node(ndepi+1)%eqd)
+                       else  ; call mesenq_packed(mradi,mradicel,layer,zmes,node(ndepi+1)%eqd) ; end if ; end if
 
 
 
@@ -10213,7 +10837,7 @@ subroutine hair_placode
     !End distribution of nodes in space
 
     !Setting boundary nodes (they will be subject to an external force keeping them in their initial position)
-    node(:)%hold=0
+    node(:)%fix=0
     !!let's do it for the most external layer of cells
     !  j=0
     !  do i=1,radicel-2
@@ -10221,14 +10845,14 @@ subroutine hair_placode
     !  end do
     !  j=(6*j+1)*cels(1)%nunodes!nodecel !this is the number of epithelial nodes wich are not external
     !  do i=j+1,ndepi
-    !    node(i)%hold=1
-    !    !node(i)%da=node(i)%req*2.0
+    !    node(i)%fix=1
+    !    !node(i)%add=node(i)%eqd*2.0
     !    !node(i)%orix=0 ; node(i)%oriy=0
     !    !node(i)%oriz=node(i)%oriz-100
-    !    !node(i)%rep=1d1;node(i)%repcel=1d1
-    !    !node(i)%ke=1d1
-    !    !node(i)%tor=1d1
-    !    !!node(i)%stor=1d1
+    !    !node(i)%rep=1d1;node(i)%rec=1d1
+    !    !node(i)%hoo=1d1
+    !    !node(i)%erp=1d1
+    !    !!node(i)%est=1d1
     !  end do
       j=0
       do i=1,mradicel-2
@@ -10241,22 +10865,22 @@ subroutine hair_placode
       end do
       k=(6*k+1)*cels(ncelsepi+1)%nunodes!mradi !this is the number of mesenchymal nodes wich are not external
       do i=ndepi+j+1,ndepi+k  !upper mesenchymal layer
-        node(i)%hold=1
-        !node(i)%da=node(i)%req*2.0
+        node(i)%fix=1
+        !node(i)%add=node(i)%eqd*2.0
         !node(i)%orix=0 ; node(i)%oriy=0
-        !node(i)%rep=1d1;node(i)%repcel=1d1
+        !node(i)%rep=1d1;node(i)%rec=1d1
       end do
       do i=ndepi+k+j+1,ndepi+2*k !middle mesenchymal layer
-        node(i)%hold=1
-        !node(i)%da=node(i)%req*2.0
+        node(i)%fix=1
+        !node(i)%add=node(i)%eqd*2.0
         !node(i)%orix=0 ; node(i)%oriy=0
-        !node(i)%rep=1d1;node(i)%repcel=1d1
+        !node(i)%rep=1d1;node(i)%rec=1d1
       end do
       !do i=ndepi+2*k+1,nd  !lower mesenchymal layer
-      !  node(i)%hold=1
-      !  !node(i)%da=node(i)%req*2.0
+      !  node(i)%fix=1
+      !  !node(i)%add=node(i)%eqd*2.0
       !  !node(i)%orix=0 ; node(i)%oriy=0
-      !  !node(i)%rep=1d1;node(i)%repcel=1d1
+      !  !node(i)%rep=1d1;node(i)%rec=1d1
       !end do
 
     !!end of setting boundary nodes
@@ -10267,7 +10891,7 @@ subroutine hair_placode
     if(radi>0.and.radicel>0)then
       do i=1,ncelsepi
         cels(i)%fase=0d0
-        mmae=node(cels(i)%node(1))%req
+        mmae=node(cels(i)%node(1))%eqd
         cels(i)%minsize_for_div=cels(i)%nunodes*2
         cels(i)%maxsize_for_div=10000 !>>> Is 5-2-14
       end do
@@ -10276,7 +10900,7 @@ subroutine hair_placode
     if(mradi>0.and.mradicel>0.and.layer>0)then
       do i=ncelsepi+1,ncels
         cels(i)%fase=0d0
-        mmae=node(cels(i)%node(1))%req
+        mmae=node(cels(i)%node(1))%eqd
         cels(i)%minsize_for_div=cels(i)%nunodes*2
         cels(i)%maxsize_for_div=10000 !>>> Is 5-2-14
       end do
@@ -10310,24 +10934,24 @@ subroutine hair_placode
     !Gene-behavior interactions
     
 
-       gen(1)%wa(1)=1  !epithelial adhesion molecule
-       gen(2)%wa(1)=2  !epithelial-mesenchymal adhesion molecule
-       gen(3)%wa(1)=3  !basal lamina
-       gen(4)%wa(5)=-0.05 !this is req (emulating a migratory behavior)
-       gen(4)%wa(6)=0.10 !this is da (emulating a migratory behavior)
-       gen(4)%wa(16)=0.01 !this is dmo (migratory cells)
-       gen(6)%wa(nparam_per_node+8)=1d0
-       gen(6)%wa(nparam_per_node+16)=1d0 !this makes random noise biased towards the gradient of the gene
+       gen(1)%e(1)=1  !epithelial adhesion molecule
+       gen(2)%e(1)=2  !epithelial-mesenchymal adhesion molecule
+       gen(3)%e(1)=3  !basal lamina
+       gen(4)%e(5)=-0.05 !this is req (emulating a migratory behavior)
+       gen(4)%e(6)=0.10 !this is da (emulating a migratory behavior)
+       gen(4)%e(16)=0.01 !this is dmo (migratory cells)
+       gen(6)%e(nparam_per_node+8)=1d0
+       gen(6)%e(nparam_per_node+16)=1d0 !this makes random noise biased towards the gradient of the gene
 
 
 
     !Gene-gene interactions
 
-      !gen(5)%w(5)=1.0d3
+      !gen(5)%t(5)=1.0d3
       !gen(5)%nww=1
-      !gen(5)%ww(1,1)=5
-      !gen(5)%ww(1,2)=6
-      !gen(5)%ww(1,3)=1d2
+      !gen(5)%r(1,1)=5
+      !gen(5)%r(1,2)=6
+      !gen(5)%r(1,3)=1d2
 
     !Adhesion molecules
 
@@ -10403,7 +11027,7 @@ subroutine hair_placode
 
     node(:)%talone=0.0d0
 
-    ramax=maxval(node(:)%da)*3
+    ramax=maxval(node(:)%add)*3
    
 end subroutine
 
@@ -10509,7 +11133,7 @@ subroutine feather_placode
     if (allocated(cels)) deallocate(cels)
     allocate(node(nda),cels(ncals)) 
     call iniarrays
-    if(radi==1.or.mradi==1) ffu(1)=1
+    if(radi==1.or.mradi==1) ffu(1)=0
     !End Allocatations
 
 
@@ -10544,19 +11168,19 @@ subroutine feather_placode
     
     ffu=0
      !spring of the ellipse
-    ffu(1)=1
+    ffu(1)=0
     ffu(2)=0 !to quit if there are too many cells
-    ffu(3)=1 !screening
-    ffu(4)=0 !torsion
-    ffu(5)=0 !external signal source
-    ffu(6)=0 !eggshell miguel4-1-13
+    ffu(2)=0 !>>> TT no screening !screening
+    ffu(3)=0 !torsion
+    
+    
 
-    ffu(11)=1 !epithelial node plastic deformation
-    ffu(12)=1 !0 dynamic delta, 1 fixed delta
-    ffu(13)=0 !neighboring by triangulation
-    ffu(14)=0 !physical boundaries (walls)
-    ffu(17)=1 !volume conservation (epithelial)
-    ffu(22)=1 !0 = noise biased by energies , 1 = unbiased noise
+    ffu(6)=1 !epithelial node plastic deformation
+    ffu(7)=1 !0 dynamic delta, 1 fixed delta
+    ffu(8)=0 !neighboring by triangulation
+    
+    ffu(10)=0 !volume conservation (epithelial)
+    ffu(15)=1 !1 = noise biased by energies , 0 = unbiased noise
 
 
    !******* #2 DEFINING NODE MECHANIC PARAMETERS *******
@@ -10565,22 +11189,22 @@ subroutine feather_placode
       do i=1,ndepi
         if(i<=ndepi/2)then  !basal
           node(i)%you=5d0 ; node(i)%adh=0d0
-          node(i)%rep=1d1 ; node(i)%repcel=1d1
+          node(i)%rep=1d1 ; node(i)%rec=1d1
         else                      !apical
           node(i)%you=1d1 ; node(i)%adh=0d0
-          node(i)%rep=1d1 ; node(i)%repcel=1d1
+          node(i)%rep=1d1 ; node(i)%rec=1d1
         end if
-        node(i)%req=0.25d0 ; node(i)%reqcr=node(i)%req
-        node(i)%reqs=0.25
-        node(i)%da=node(i)%req*1.60; 
-        node(i)%ke=5d1
-        node(i)%tor=5d0
-        node(i)%stor=5d0
-        node(i)%mo=temp
+        node(i)%eqd=0.25d0 ; node(i)%grd=node(i)%eqd
+        node(i)%eqs=0.25
+        node(i)%add=node(i)%eqd*1.60; 
+        node(i)%hoo=5d1
+        node(i)%erp=5d0
+        node(i)%est=5d0
+        node(i)%mov=temp
         node(i)%dmo=0
-        node(i)%diffe=0d0
-        node(i)%khold=khold
-        node(i)%kplast=5d-2
+        node(i)%dif=0d0
+        node(i)%kfi=khold
+        node(i)%pla=5d-2
         node(i)%kvol=5d-2
       end do
     end if
@@ -10589,30 +11213,30 @@ subroutine feather_placode
     if(mradi>0.and.mradicel>0.and.layer>0)then
       do i=ndepi+1,nd
         node(i)%you=5d0 ; node(i)%adh=0d0
-        node(i)%rep=1d1 ; node(i)%repcel=3d1
-        node(i)%req=0.25d0 ; node(i)%reqcr=node(i)%req
-        node(i)%reqs=0d0
-        node(i)%da=node(i)%req*1.30
-        node(i)%ke=0d0   !only for epithelium
-        node(i)%tor=1d0  !only for epithelium
-        node(i)%stor=1d1 !only for epithelium
+        node(i)%rep=1d1 ; node(i)%rec=3d1
+        node(i)%eqd=0.25d0 ; node(i)%grd=node(i)%eqd
+        node(i)%eqs=0d0
+        node(i)%add=node(i)%eqd*1.30
+        node(i)%hoo=0d0   !only for epithelium
+        node(i)%erp=1d0  !only for epithelium
+        node(i)%est=1d1 !only for epithelium
         node(i)%altre=0  !only for epithelium
-        node(i)%mo=temp
+        node(i)%mov=temp
         node(i)%dmo=0.0
-        node(i)%diffe=0d0
-        node(i)%khold=khold
+        node(i)%dif=0d0
+        node(i)%kfi=khold
       end do
     end if
 
     !General parameters that depend on node parameters
-    rv=2*maxval(node(:)%da)
+    rv=2*maxval(node(:)%add)
 
 
     !Distribution of nodes in space
-    if(radi>0.and.radicel>0)               call epiteli(radi,radicel,zepi,node(1)%req,node(1)%reqs)
+    if(radi>0.and.radicel>0)               call epiteli(radi,radicel,zepi,node(1)%eqd,node(1)%eqs)
     if(mradi>0.and.mradicel>0.and.layer>0)then
-                       if(packed==0)then ; call mesenq(mradi,mradicel,layer,zmes,node(ndepi+1)%req)
-                       else  ; call mesenq_packed(mradi,mradicel,layer,zmes,node(ndepi+1)%req) ; end if ; end if
+                       if(packed==0)then ; call mesenq(mradi,mradicel,layer,zmes,node(ndepi+1)%eqd)
+                       else  ; call mesenq_packed(mradi,mradicel,layer,zmes,node(ndepi+1)%eqd) ; end if ; end if
 
     do i=1,nd
       node(i)%orix=node(i)%x ; node(i)%oriy=node(i)%y ; node(i)%oriz=node(i)%z
@@ -10630,7 +11254,7 @@ subroutine feather_placode
     !End distribution of nodes in space
 
     !Setting boundary nodes (they will be subject to an external force keeping them in their initial position)
-    node(:)%hold=0
+    node(:)%fix=0
     !!let's do it for the most external layer of cells
       j=0
       do i=1,radicel-2
@@ -10638,7 +11262,7 @@ subroutine feather_placode
       end do
       j=(6*j+1)*cels(1)%nunodes!nodecel !this is the number of epithelial nodes wich are not external
       do i=j+1,ndepi
-        node(i)%hold=1 ;node(i)%repcel=1d2
+        node(i)%fix=1 ;node(i)%rec=1d2
       end do
       j=0
       do i=1,mradicel-2
@@ -10651,27 +11275,25 @@ subroutine feather_placode
       end do
       k=(6*k+1)*cels(ncelsepi+1)%nunodes!mradi !this is the number of mesenchymal nodes wich are not external
       do i=ndepi+j+1,ndepi+k  !upper mesenchymal layer
-        node(i)%hold=1;node(i)%repcel=1d2
-        node(i)%border=1
-        !node(i)%da=node(i)%req*2.0
+        node(i)%fix=1;node(i)%rec=1d2
+        !node(i)%add=node(i)%eqd*2.0
         !node(i)%orix=0 ; node(i)%oriy=0
-        !node(i)%rep=1d1;node(i)%repcel=1d1
+        !node(i)%rep=1d1;node(i)%rec=1d1
       end do
       do i=ndepi+k+1,nd
-        node(i)%hold=1;node(i)%repcel=1d2
-        node(i)%border=1
+        node(i)%fix=1;node(i)%rec=1d2
       end do
       !do i=ndepi+k+j+1,ndepi+2*k !middle mesenchymal layer
-      !  node(i)%hold=1
-      !  !node(i)%da=node(i)%req*2.0
+      !  node(i)%fix=1
+      !  !node(i)%add=node(i)%eqd*2.0
       !  !node(i)%orix=0 ; node(i)%oriy=0
-      !  !node(i)%rep=1d1;node(i)%repcel=1d1
+      !  !node(i)%rep=1d1;node(i)%rec=1d1
       !end do
       !do i=ndepi+2*k+1,nd  !lower mesenchymal layer
-      !  node(i)%hold=1
-      !  !node(i)%da=node(i)%req*2.0
+      !  node(i)%fix=1
+      !  !node(i)%add=node(i)%eqd*2.0
       !  !node(i)%orix=0 ; node(i)%oriy=0
-      !  !node(i)%rep=1d1;node(i)%repcel=1d1
+      !  !node(i)%rep=1d1;node(i)%rec=1d1
       !end do
 
     !!end of setting boundary nodes
@@ -10682,7 +11304,7 @@ subroutine feather_placode
     if(radi>0.and.radicel>0)then
       do i=1,ncelsepi
         cels(i)%fase=0d0
-        mmae=node(cels(i)%node(1))%req
+        mmae=node(cels(i)%node(1))%eqd
         cels(i)%minsize_for_div=cels(i)%nunodes*2
         cels(i)%maxsize_for_div=10000 !>>> Is 5-2-14
       end do
@@ -10691,7 +11313,7 @@ subroutine feather_placode
     if(mradi>0.and.mradicel>0.and.layer>0)then
       do i=ncelsepi+1,ncels
         cels(i)%fase=0d0
-        mmae=node(cels(i)%node(1))%req
+        mmae=node(cels(i)%node(1))%eqd
         cels(i)%minsize_for_div=cels(i)%nunodes*2
         cels(i)%maxsize_for_div=10000 !>>> Is 5-2-14
       end do
@@ -10766,110 +11388,110 @@ subroutine feather_placode
     !Gene-behavior interactions
     
 
-       gen(1)%wa(1)=1  !epithelial adhesion molecule
-       gen(2)%wa(1)=2  !epithelial-mesenchymal adhesion molecule
-       gen(14)%wa(1)=3  !basal lamina
-       !gen(4)%wa(5)=-0.05 !this is req (emulating a migratory behavior)
-       !gen(4)%wa(6)=0.10 !this is da (emulating a migratory behavior)
-       !gen(4)%wa(16)=0.03 !this is dmo (migratory cells)
-       !gen(6)%wa(nparam_per_node+8)=1d0
-       !gen(6)%wa(nparam_per_node+16)=1d-2 !this makes random noise biased towards the gradient of the gene
-       gen(9)%wa(nparam_per_node+2)=1d-2 !SHH effect on epithelial growth
-       gen(11)%wa(nparam_per_node+2)=5d-3 !BMP effect on mesenchymal growth
+       gen(1)%e(1)=1  !epithelial adhesion molecule
+       gen(2)%e(1)=2  !epithelial-mesenchymal adhesion molecule
+       gen(14)%e(1)=3  !basal lamina
+       !gen(4)%e(5)=-0.05 !this is req (emulating a migratory behavior)
+       !gen(4)%e(6)=0.10 !this is da (emulating a migratory behavior)
+       !gen(4)%e(16)=0.03 !this is dmo (migratory cells)
+       !gen(6)%e(nparam_per_node+8)=1d0
+       !gen(6)%e(nparam_per_node+16)=1d-2 !this makes random noise biased towards the gradient of the gene
+       gen(9)%e(nparam_per_node+2)=1d-2 !SHH effect on epithelial growth
+       gen(11)%e(nparam_per_node+2)=5d-3 !BMP effect on mesenchymal growth
 
 
 
     !Gene-gene interactions
 
       !gen(11)%nww=2      !BMP activated receptor induces production of BMP
-      !gen(11)%ww(1,1)=6  
-      !gen(11)%ww(1,2)=7
-      !gen(11)%ww(1,3)=1d1
-      !gen(11)%ww(2,1)=4   !BMP activated receptor induces production of SHH
-      !gen(11)%ww(2,2)=5
-      !gen(11)%ww(2,3)=1d1
+      !gen(11)%r(1,1)=6  
+      !gen(11)%r(1,2)=7
+      !gen(11)%r(1,3)=1d1
+      !gen(11)%r(2,1)=4   !BMP activated receptor induces production of SHH
+      !gen(11)%r(2,2)=5
+      !gen(11)%r(2,3)=1d1
       
       !gen(7)%nww=1      !BMP morphogen activates BMP receptor
-      !gen(7)%ww(1,1)=10  
-      !gen(7)%ww(1,2)=11
-      !gen(7)%ww(1,3)=1d0
+      !gen(7)%r(1,1)=10  
+      !gen(7)%r(1,2)=11
+      !gen(7)%r(1,3)=1d0
 
-      gen(3)%w(3)=1d0 !housekeeping activates itself
-      gen(1)%w(3)=1d0  !activates epi cadherin
-      gen(8)%w(3)=1d0  !activates ssh receptor
+      gen(3)%t(3)=1d0 !housekeeping activates itself
+      gen(1)%t(3)=1d0  !activates epi cadherin
+      gen(8)%t(3)=1d0  !activates ssh receptor
 
-      gen(12)%w(12)=1d0 !housekeeping activates itself
-      gen(2)%w(12)=1d0   !activates mes cadherin
-      gen(10)%w(12)=1d0  !activates BMP receptor
+      gen(12)%t(12)=1d0 !housekeeping activates itself
+      gen(2)%t(12)=1d0   !activates mes cadherin
+      gen(10)%t(12)=1d0  !activates BMP receptor
 
-      gen(13)%w(13)=1d0 !housekeeping activates itself
-      gen(1)%w(13)=1d0  !activates epi cadherin
-      gen(4)%w(13)=1d1  !activates ssh transcript
+      gen(13)%t(13)=1d0 !housekeeping activates itself
+      gen(1)%t(13)=1d0  !activates epi cadherin
+      gen(4)%t(13)=1d1  !activates ssh transcript
 
 
 
       gen(13)%nww=1    !housekeeping epi mediates secretion of shh
-      gen(13)%ww(1,1)=4
-      gen(13)%ww(1,2)=5
-      gen(13)%ww(1,3)=1d1
+      gen(13)%r(1,1)=4
+      gen(13)%r(1,2)=5
+      gen(13)%r(1,3)=1d1
 
       
       gen(9)%nww=4      !SHH morphogen activates SHH receptor
-      gen(9)%ww(1,1)=5  
-      gen(9)%ww(1,2)=9
-      gen(9)%ww(1,3)=1d0
-      gen(9)%ww(2,1)=9  
-      gen(9)%ww(2,2)=5
-      gen(9)%ww(2,3)=1d0
+      gen(9)%r(1,1)=5  
+      gen(9)%r(1,2)=9
+      gen(9)%r(1,3)=1d0
+      gen(9)%r(2,1)=9  
+      gen(9)%r(2,2)=5
+      gen(9)%r(2,3)=1d0
 
-      gen(9)%ww(3,1)=8  
-      gen(9)%ww(3,2)=9
-      gen(9)%ww(3,3)=1d0
-      gen(9)%ww(4,1)=9  
-      gen(9)%ww(4,2)=8
-      gen(9)%ww(4,3)=1d0
+      gen(9)%r(3,1)=8  
+      gen(9)%r(3,2)=9
+      gen(9)%r(3,3)=1d0
+      gen(9)%r(4,1)=9  
+      gen(9)%r(4,2)=8
+      gen(9)%r(4,3)=1d0
 
 
       gen(11)%nww=4      !SHH morphogen activates SHH receptor
-      gen(11)%ww(1,1)=5  
-      gen(11)%ww(1,2)=11
-      gen(11)%ww(1,3)=1d0
-      gen(11)%ww(2,1)=11  
-      gen(11)%ww(2,2)=5
-      gen(11)%ww(2,3)=1d0
+      gen(11)%r(1,1)=5  
+      gen(11)%r(1,2)=11
+      gen(11)%r(1,3)=1d0
+      gen(11)%r(2,1)=11  
+      gen(11)%r(2,2)=5
+      gen(11)%r(2,3)=1d0
 
-      gen(11)%ww(3,1)=10
-      gen(11)%ww(3,2)=11
-      gen(11)%ww(3,3)=1d0
-      gen(11)%ww(4,1)=11  
-      gen(11)%ww(4,2)=10
-      gen(11)%ww(4,3)=1d0
+      gen(11)%r(3,1)=10
+      gen(11)%r(3,2)=11
+      gen(11)%r(3,3)=1d0
+      gen(11)%r(4,1)=11  
+      gen(11)%r(4,2)=10
+      gen(11)%r(4,3)=1d0
 
 
 
                         !SHH morphogen activates BMP receptor
-      !gen(5)%ww(3,1)=5  
-      !gen(5)%ww(3,2)=11
-      !gen(5)%ww(3,3)=1d0
-      !gen(5)%ww(4,1)=11  
-      !gen(5)%ww(4,2)=5
-      !gen(5)%ww(4,3)=1d0
+      !gen(5)%r(3,1)=5  
+      !gen(5)%r(3,2)=11
+      !gen(5)%r(3,3)=1d0
+      !gen(5)%r(4,1)=11  
+      !gen(5)%r(4,2)=5
+      !gen(5)%r(4,3)=1d0
 
       !gen(8)%nww=2      !ssh receptor activates SHH receptor
-      !gen(8)%ww(1,1)=8  
-      !gen(8)%ww(1,2)=9
-      !gen(8)%ww(1,3)=1d0
-      !gen(8)%ww(2,1)=9  
-      !gen(8)%ww(2,2)=8
-      !gen(8)%ww(2,3)=1d0
+      !gen(8)%r(1,1)=8  
+      !gen(8)%r(1,2)=9
+      !gen(8)%r(1,3)=1d0
+      !gen(8)%r(2,1)=9  
+      !gen(8)%r(2,2)=8
+      !gen(8)%r(2,3)=1d0
 
       !gen(10)%nww=2               !bmp receptor activates BMP receptor
-      !gen(10)%ww(1,1)=10  
-      !gen(10)%ww(1,2)=11
-      !gen(10)%ww(1,3)=1d0
-      !gen(10)%ww(2,1)=11  
-      !gen(10)%ww(2,2)=10
-      !gen(10)%ww(2,3)=1d0
+      !gen(10)%r(1,1)=10  
+      !gen(10)%r(1,2)=11
+      !gen(10)%r(1,3)=1d0
+      !gen(10)%r(2,1)=11  
+      !gen(10)%r(2,2)=10
+      !gen(10)%r(2,3)=1d0
 
 
 
@@ -10900,7 +11522,7 @@ subroutine feather_placode
     j=(6*j+1) !;print*,"jota",j
 
     do i=1,nd
-      if(node(i)%hold==1) gex(i,14)=1d0
+      if(node(i)%fix==1) gex(i,14)=1d0
       !a=sqrt(node(i)%x**2+node(i)%y**2)
       if(i<=2)then; gex(i,4)=1d0; gex(i,13)=1;end if
       if(i<=ndepi)then
@@ -10954,7 +11576,7 @@ subroutine feather_placode
 
     node(:)%talone=0.0d0
 
-    ramax=maxval(node(:)%da)*3
+    ramax=maxval(node(:)%add)*3
 
     
 end subroutine
@@ -11043,7 +11665,7 @@ subroutine epi_mes_bud_ingrowth
     nda=nd+10
 	ncals=ncels+30
     
-    if(radi==1.or.mradi==1) ffu(1)=1
+    if(radi==1.or.mradi==1) ffu(1)=0
   !End initializing dimension parameters
 
   print*,"nd",nd,"nodecel",nodecel,"ncelsepi",ncelsepi,"ncelsmes",ncelsmes,"ndepi",ndepi,"ndmes",ndmes
@@ -11088,15 +11710,15 @@ subroutine epi_mes_bud_ingrowth
     ffu=0
      !spring of the ellipse
     ffu(2)=0 !to quit if there are too many cells
-    ffu(3)=1 !screening
-    ffu(4)=0 !torsion
-    ffu(5)=0 !external signal source
-    ffu(6)=0 !eggshell miguel4-1-13
+    ffu(2)=0 !>>> TT no screening !screening
+    ffu(3)=0 !torsion
+    
+    
 
-    ffu(11)=0 !epithelial node plastic deformation
-    ffu(12)=0 !0 dynamic delta, 1 fixed delta
-    ffu(13)=0 !neighboring by triangulation
-    ffu(22)=0 !0 = noise biased by energies , 1 = unbiased noise
+    ffu(6)=0 !epithelial node plastic deformation
+    ffu(7)=0 !0 dynamic delta, 1 fixed delta
+    ffu(8)=0 !neighboring by triangulation
+    ffu(15)=1 !1 = noise biased by energies , 0 = unbiased noise
 
 
    !******* #2 DEFINING NODE MECHANIC PARAMETERS *******
@@ -11105,24 +11727,24 @@ subroutine epi_mes_bud_ingrowth
       do i=1,ndepi
         if(node(i)%tipus==2)then  !basal
           node(i)%you=2d1 ; node(i)%adh=0d0
-          node(i)%rep=1d1 ; node(i)%repcel=1d1
-          node(i)%tor=3d1
-          !node(i)%stor=1d1
+          node(i)%rep=1d1 ; node(i)%rec=1d1
+          node(i)%erp=3d1
+          !node(i)%est=1d1
         else                      !apical
           node(i)%you=2d1 ; node(i)%adh=0d0
-          node(i)%rep=2d1 ; node(i)%repcel=2d1
-          node(i)%tor=1d1
-          !node(i)%stor=1d1
+          node(i)%rep=2d1 ; node(i)%rec=2d1
+          node(i)%erp=1d1
+          !node(i)%est=1d1
         end if
-        node(i)%req=0.25d0 ; node(i)%reqcr=node(i)%req
-        node(i)%reqs=0.25
-        node(i)%da=node(i)%req*1.40; 
-        node(i)%ke=1d1
-        node(i)%mo=temp
+        node(i)%eqd=0.25d0 ; node(i)%grd=node(i)%eqd
+        node(i)%eqs=0.25
+        node(i)%add=node(i)%eqd*1.40; 
+        node(i)%hoo=1d1
+        node(i)%mov=temp
         node(i)%dmo=0
-        node(i)%diffe=0d0
-        node(i)%khold=khold
-        node(i)%kplast=5d-2
+        node(i)%dif=0d0
+        node(i)%kfi=khold
+        node(i)%pla=5d-2
         node(i)%kvol=1d-2
       end do
     end if
@@ -11131,30 +11753,30 @@ subroutine epi_mes_bud_ingrowth
     if(mradi>0.and.mradicel>0.and.layer>0)then
       do i=ndepi+1,nd
         node(i)%you=2d1 ; node(i)%adh=0d0
-        node(i)%rep=1d1 ; node(i)%repcel=1d1
-        node(i)%req=0.25d0 ; node(i)%reqcr=node(i)%req
-        node(i)%reqs=0d0
-        node(i)%da=node(i)%req*1.60
-        node(i)%ke=0d0   !only for epithelium
-        node(i)%tor=1d0  !only for epithelium
-        !node(i)%stor=1d1 !only for epithelium
+        node(i)%rep=1d1 ; node(i)%rec=1d1
+        node(i)%eqd=0.25d0 ; node(i)%grd=node(i)%eqd
+        node(i)%eqs=0d0
+        node(i)%add=node(i)%eqd*1.60
+        node(i)%hoo=0d0   !only for epithelium
+        node(i)%erp=1d0  !only for epithelium
+        !node(i)%est=1d1 !only for epithelium
         node(i)%altre=0  !only for epithelium
-        node(i)%mo=temp
+        node(i)%mov=temp
         node(i)%dmo=0
-        node(i)%diffe=0d0
-        node(i)%khold=khold
+        node(i)%dif=0d0
+        node(i)%kfi=khold
       end do
     end if
 
     !General parameters that depend on node parameters
-    rv=2*maxval(node(:)%da)
+    rv=2*maxval(node(:)%add)
 
 
     !Distribution of nodes in space
-    if(radi>0.and.radicel>0)               call epiteli(radi,radicel,zepi,node(1)%req,node(1)%reqs)
+    if(radi>0.and.radicel>0)               call epiteli(radi,radicel,zepi,node(1)%eqd,node(1)%eqs)
     if(mradi>0.and.mradicel>0.and.layer>0)then
-                       if(packed==0)then ; call mesenq(mradi,mradicel,layer,zmes,node(ndepi+1)%req)
-                       else  ; call mesenq_packed(mradi,mradicel,layer,zmes,node(ndepi+1)%req) ; end if ; end if
+                       if(packed==0)then ; call mesenq(mradi,mradicel,layer,zmes,node(ndepi+1)%eqd)
+                       else  ; call mesenq_packed(mradi,mradicel,layer,zmes,node(ndepi+1)%eqd) ; end if ; end if
 
 
 
@@ -11164,7 +11786,7 @@ subroutine epi_mes_bud_ingrowth
     !End distribution of nodes in space
 
     !Setting boundary nodes (they will be subject to an external force keeping them in their initial position)
-    node(:)%hold=0
+    node(:)%fix=0
     !let's do it for the most external layer of cells
       j=0
       do i=1,radicel-2
@@ -11172,14 +11794,14 @@ subroutine epi_mes_bud_ingrowth
       end do
       j=(6*j+1)*cels(1)%nunodes!nodecel !this is the number of epithelial nodes wich are not external
       do i=j+1,ndepi
-        node(i)%hold=1
-        !node(i)%da=node(i)%req*2.0
+        node(i)%fix=1
+        !node(i)%add=node(i)%eqd*2.0
         !node(i)%orix=0 ; node(i)%oriy=0
         !node(i)%oriz=node(i)%oriz-100
-        !node(i)%rep=1d2;node(i)%repcel=1d2
-        !node(i)%ke=1d1
-        !node(i)%tor=1d1
-        !!node(i)%stor=1d1
+        !node(i)%rep=1d2;node(i)%rec=1d2
+        !node(i)%hoo=1d1
+        !node(i)%erp=1d1
+        !!node(i)%est=1d1
       end do
       j=0
       do i=1,mradicel-2
@@ -11187,10 +11809,10 @@ subroutine epi_mes_bud_ingrowth
       end do
       j=(6*j+1)*cels(ncelsepi+1)%nunodes!mradi !this is the number of mesenchymal nodes wich are not external
       do i=ndepi+j+1,ndepi+ndmes
-        node(i)%hold=1
-        !node(i)%da=node(i)%req*2.0
+        node(i)%fix=1
+        !node(i)%add=node(i)%eqd*2.0
         !node(i)%orix=0 ; node(i)%oriy=0
-        !node(i)%rep=1d2;node(i)%repcel=1d2
+        !node(i)%rep=1d2;node(i)%rec=1d2
       end do
 
     !!end of setting boundary nodes
@@ -11201,7 +11823,7 @@ subroutine epi_mes_bud_ingrowth
     if(radi>0.and.radicel>0)then
       do i=1,ncelsepi
         cels(i)%fase=0d0
-        mmae=node(cels(i)%node(1))%req
+        mmae=node(cels(i)%node(1))%eqd
         cels(i)%minsize_for_div=cels(i)%nunodes*2
         cels(i)%maxsize_for_div=10000 !>>> Is 5-2-14
       end do
@@ -11210,7 +11832,7 @@ subroutine epi_mes_bud_ingrowth
     if(mradi>0.and.mradicel>0.and.layer>0)then
       do i=ncelsepi+1,ncels
         cels(i)%fase=0d0
-        mmae=node(cels(i)%node(1))%req
+        mmae=node(cels(i)%node(1))%eqd
         cels(i)%minsize_for_div=cels(i)%nunodes*2
         cels(i)%maxsize_for_div=10000 !>>> Is 5-2-14
       end do
@@ -11237,18 +11859,18 @@ subroutine epi_mes_bud_ingrowth
     !Gene-behavior interactions
     
 
-       gen(1)%wa(1)=1  !interplacodal adhesion molecule
-       gen(2)%wa(1)=2  !placodal adhesion molecule
-       gen(3)%wa(1)=3  !basal lamina
-       !gen(4)%wa(nparam_per_node+1)=4d-4 !growth mesenchyme
-       !gen(4)%wa(nparam_per_node+2)=1d-3 !cell cycle
-       !gen(5)%wa(nparam_per_node+1)=1d-5 !growth epithelium
-       !gen(5)%wa(nparam_per_node+2)=1d-3 !cell cycle
+       gen(1)%e(1)=1  !interplacodal adhesion molecule
+       gen(2)%e(1)=2  !placodal adhesion molecule
+       gen(3)%e(1)=3  !basal lamina
+       !gen(4)%e(nparam_per_node+1)=4d-4 !growth mesenchyme
+       !gen(4)%e(nparam_per_node+2)=1d-3 !cell cycle
+       !gen(5)%e(nparam_per_node+1)=1d-5 !growth epithelium
+       !gen(5)%e(nparam_per_node+2)=1d-3 !cell cycle
 
-       gen(4)%wa(5)=0.00 !this is req (emulating a migratory behavior)
-       gen(4)%wa(6)=0.15 !this is da (emulating a migratory behavior)
-       !gen(4)%wa(9)=1d1 ; gen(4)%wa(10)=1d1 !this is rep (so the nodes don't collapse)
-       gen(4)%wa(16)=0.01 !this is dmo (migratory cells)       
+       gen(4)%e(5)=0.00 !this is req (emulating a migratory behavior)
+       gen(4)%e(6)=0.15 !this is da (emulating a migratory behavior)
+       !gen(4)%e(9)=1d1 ; gen(4)%e(10)=1d1 !this is rep (so the nodes don't collapse)
+       gen(4)%e(16)=0.01 !this is dmo (migratory cells)       
        
 
     !Gene-gene interactions
@@ -11332,7 +11954,7 @@ subroutine epi_mes_bud_ingrowth
 
     node(:)%talone=0.0d0
 
-    ramax=maxval(node(:)%da)*3
+    ramax=maxval(node(:)%add)*3
 
     do i=1,nd
       call random_number(a)
@@ -11360,15 +11982,15 @@ subroutine ic_emt
     gex(i,1)=1.0d0
     !node(cels(1)%node(j))%tipus=3
   end do
-  gen(1)%wa(nparam_per_node+13)=1.0d0
+  gen(1)%e(nparam_per_node+13)=1.0d0
 
   call update_npag
 
   !cels(1)%ctipus=3
   dmax=2
     node(:)%talone=0.0d0
-    ramax=maxval(node(:)%da)*3
-    node(:)%diffe=0.0d0
+    ramax=maxval(node(:)%add)*3
+    node(:)%dif=0.0d0
 end subroutine
 
 !************************************************************************************
@@ -11389,21 +12011,21 @@ do i=1,ncels
 end do
 
 do i=1,ng
-  gen(i)%wa=0.0
+  gen(i)%e=0.0
 end do
 
 !node(:)%you=1.2d2  ;node(:)%adh=1.0d2         
 prop_noise=0.1d0
 temp=0.001
 
-!node(:)%tor=0.0d1
-!node(:)%stor=0.0d3
+!node(:)%erp=0.0d1
+!node(:)%est=0.0d3
 
 call iniboxesll
   dmax=2
     node(:)%talone=0.0d0
-    ramax=maxval(node(:)%da)*3
-    node(:)%diffe=0.0d0
+    ramax=maxval(node(:)%add)*3
+    node(:)%dif=0.0d0
 end subroutine
 
 !************************************************************************************
@@ -11425,19 +12047,19 @@ do i=1,ncels
 end do
 
 do i=1,ng
-  gen(i)%wa=0.0
+  gen(i)%e=0.0
 end do
 
 !node(:)%you=1.2d3  ;node(:)%adh=1.0d3         
 prop_noise=0.1d0
 
-!node(:)%tor=0.0d1
-!node(:)%stor=0.0d3
+!node(:)%erp=0.0d1
+!node(:)%est=0.0d3
 call iniboxesll
   dmax=2
     node(:)%talone=0.0d0
-    ramax=maxval(node(:)%da)*3
-    node(:)%diffe=0.0d0
+    ramax=maxval(node(:)%add)*3
+    node(:)%dif=0.0d0
 end subroutine
 
 !****************************************************************************************************
@@ -11549,16 +12171,14 @@ subroutine founding_father
     ffu=0
      !spring of the ellipse
     ffu(2)=1 !to quite if there are too many cells
-    ffu(3)=0 !screening
-    ffu(4)=0 !torsion
-    ffu(5)=0 !external signal source
-    ffu(6)=0 !eggshell miguel4-1-13
-    ffu(7)=1
-    ffu(8)=0 !lonely cells and nodes die
-    ffu(9)=1
-    ffu(10)=1
-    ffu(13)=0
-    ffu(22)=0 !0 = noise biased by energies , 1 = unbiased noise
+    ffu(2)=0 !screening
+    ffu(3)=0 !torsion
+    
+    
+    ffu(4)=0 !lonely cells and nodes die
+    ffu(5)=0
+    ffu(8)=0
+    ffu(15)=1 !1 = noise biased by energies , 0 = unbiased noise
 
 
    !******* #2 DEFINING NODE MECHANIC PARAMETERS *******
@@ -11566,23 +12186,23 @@ subroutine founding_father
     if(radi>0.and.radicel>0)then
       do i=1,ndepi
         node(i)%you=1.2d1  ;node(i)%adh=1.0d1         	!>>Miquel 26-10-12
-        node(i)%rep=1d1    ;node(i)%repcel=1d2	        !>>Miquel 8-10-12
-        node(i)%req=0.25d0 ; node(i)%reqcr=node(i)%req !;node(i)%reqcel=0.25d0     	!>>Miquel 26-10-12!de
-        node(i)%reqs=0.5d0
-        node(i)%da=node(i)%req*1.30  
-        node(i)%ke=1d1
-        node(i)%tor=1d-1
-        !node(i)%stor=1d3
-        node(i)%mo=temp
+        node(i)%rep=1d1    ;node(i)%rec=1d2	        !>>Miquel 8-10-12
+        node(i)%eqd=0.25d0 ; node(i)%grd=node(i)%eqd !;node(i)%codel=0.25d0     	!>>Miquel 26-10-12!de
+        node(i)%eqs=0.5d0
+        node(i)%add=node(i)%eqd*1.30  
+        node(i)%hoo=1d1
+        node(i)%erp=1d-1
+        !node(i)%est=1d3
+        node(i)%mov=temp
         node(i)%dmo=desmax
       end do
     end if
 
     !General parameters that depend on node parameters
-    rv=2*maxval(node(:)%da)
+    rv=2*maxval(node(:)%add)
 
     !Distribution of nodes in space
-    if(radi>0.and.radicel>0)               call epiteli(radi,radicel,zepi,node(1)%req,node(1)%reqs)
+    if(radi>0.and.radicel>0)               call epiteli(radi,radicel,zepi,node(1)%eqd,node(1)%eqs)
 !    if(mradi>0.and.mradicel>0.and.layer>0) call mesenq(mradi,mradicel,layer,zmes)
 
     do i=1,nd
@@ -11591,14 +12211,14 @@ subroutine founding_father
     !End distribution of nodes in space
 
     !Setting boundary nodes (they will be subject to an external force keeping them in their initial position)
-    node(:)%hold=0
+    node(:)%fix=0
 
    !******* #3 DEFINING CELL PARAMETERS *******
     !Epithelial
     if(radi>0.and.radicel>0)then
       do i=1,ncelsepi
         cels(i)%fase=0d0
-        mmae=node(cels(i)%node(1))%req
+        mmae=node(cels(i)%node(1))%eqd
         cels(i)%minsize_for_div=cels(i)%nunodes*2
         cels(i)%maxsize_for_div=30 !>>> Is 5-2-14
       end do
@@ -11615,23 +12235,23 @@ subroutine founding_father
       gen(i)%mu=1.0d-2
     end do
     gen(1)%nww=4
-    gen(1)%ww(1,1)=2
-    gen(1)%ww(1,2)=3
-    gen(1)%ww(1,3)=1.0d0
-    gen(1)%ww(2,1)=3
-    gen(1)%ww(2,2)=4
-    gen(1)%ww(2,3)=1.0d0
-    gen(1)%ww(3,1)=9
-    gen(1)%ww(3,2)=5
-    gen(1)%ww(3,3)=1.0d0
-    gen(1)%ww(4,1)=9
-    gen(1)%ww(4,2)=6
-    gen(1)%ww(4,3)=1.0d0
+    gen(1)%r(1,1)=2
+    gen(1)%r(1,2)=3
+    gen(1)%r(1,3)=1.0d0
+    gen(1)%r(2,1)=3
+    gen(1)%r(2,2)=4
+    gen(1)%r(2,3)=1.0d0
+    gen(1)%r(3,1)=9
+    gen(1)%r(3,2)=5
+    gen(1)%r(3,3)=1.0d0
+    gen(1)%r(4,1)=9
+    gen(1)%r(4,2)=6
+    gen(1)%r(4,3)=1.0d0
 
     gen(2)%npost=1
     allocate(gen(2)%post(1))
     gen(2)%post(1)=3   !1 t-> 2 -> 3 -> 4
-    gen(2)%wa(1)=1.0d0
+    gen(2)%e(1)=1.0d0
 
     gen(3)%npre=1
     allocate(gen(3)%pre(1))
@@ -11640,9 +12260,9 @@ subroutine founding_father
     allocate(gen(3)%post(1))
     gen(3)%post(1)=4
     gen(4)%nww=1
-    gen(4)%ww(1,1)=11 !inactive form of the receptor
-    gen(4)%ww(1,2)=8  !active (bound) form of the receptor
-    gen(4)%ww(1,3)=1.0d0
+    gen(4)%r(1,1)=11 !inactive form of the receptor
+    gen(4)%r(1,2)=8  !active (bound) form of the receptor
+    gen(4)%r(1,3)=1.0d0
 
     gen(9)%kindof=2
     gen(9)%npost=2
@@ -11665,9 +12285,9 @@ subroutine founding_father
     allocate(gen(7)%pre(1))
     gen(7)%pre(1)=10
     gen(7)%nww=1
-    gen(7)%ww(1,1)=10  !this is like homotypic binding
-    gen(7)%ww(1,2)=7
-    gen(7)%ww(1,3)=1.0d0 !notch needs to catalyze its own synthesis
+    gen(7)%r(1,1)=10  !this is like homotypic binding
+    gen(7)%r(1,2)=7
+    gen(7)%r(1,3)=1.0d0 !notch needs to catalyze its own synthesis
 
     gen(11)%kindof=2
     gen(11)%npost=1
@@ -11685,38 +12305,38 @@ subroutine founding_father
 
     ! the active receptor catalyzes its own inactivation
     gen(8)%nww=1
-    gen(8)%ww(1,1)=8
-    gen(8)%ww(1,2)=11
-    gen(8)%ww(1,3)=0.1d0
+    gen(8)%r(1,1)=8
+    gen(8)%r(1,2)=11
+    gen(8)%r(1,3)=0.1d0
 
     do i=1,ng 
       do j=1,nga
-        gen(i)%wa(j)=0.0d0
+        gen(i)%e(j)=0.0d0
       end do
       do j=1,ng
-        gen(i)%w(j)=0.0d0
+        gen(i)%t(j)=0.0d0
       end do
     end do
 
-    gen(1)%w(1)=1.0d0  ! 1 activates itself and all the primary forms
-    gen(2)%w(1)=1.0d0
-    gen(9)%w(1)=1.0d0
-    gen(10)%w(1)=1.0d0
-    gen(11)%w(1)=1.0d0
+    gen(1)%t(1)=1.0d0  ! 1 activates itself and all the primary forms
+    gen(2)%t(1)=1.0d0
+    gen(9)%t(1)=1.0d0
+    gen(10)%t(1)=1.0d0
+    gen(11)%t(1)=1.0d0
 
-    gen(8)%w(8)=-0.1d0
+    gen(8)%t(8)=-0.1d0
 
     !Gene expression on nodes
     gex=0.0d0
     gex(:,1)=1.0d0
 
     node(:)%talone=0.0d0
-    ramax=maxval(node(:)%da)*3
-    node(:)%diffe=0.0d0
-    gen(2)%wa(1)=1.0d0   !adhesion molecule
-    gen(1)%wa(23)=9.0d-4
-    gen(2)%wa(23)=9.0d-4
-    gen(1)%wa(nparam_per_node+1)=5d-5
+    ramax=maxval(node(:)%add)*3
+    node(:)%dif=0.0d0
+    gen(2)%e(1)=1.0d0   !adhesion molecule
+    gen(1)%e(23)=9.0d-4
+    gen(2)%e(23)=9.0d-4
+    gen(1)%e(nparam_per_node+1)=5d-5
 
     ntipusadh=1
     if(ntipusadh>0)then
@@ -11750,9 +12370,8 @@ end subroutine
 subroutine invaginacio_diff
 
 call epi_polar_growth
-gen(1)%wa(23)=1.0d-4
-gen(2)%wa(23)=1.0d-4
-ffu(10)=1
+gen(1)%e(23)=1.0d-4
+gen(2)%e(23)=1.0d-4
 call update_npag
 
 end subroutine
@@ -11792,11 +12411,11 @@ subroutine blastuloid
     node(i)%x=vertices(i,1)*0.75d0
     node(i)%y=vertices(i,2)*0.75d0
     node(i)%z=vertices(i,3)*0.75d0
-    node(i)%da=node(i)%da*2.8
-    node(i)%req=node(i)%req*2.8
-    node(i)%reqc=node(i)%reqc*2.8
-    node(i)%reqcr=node(i)%reqcr*2.8
-    node(i)%reqp=node(i)%reqp*2.8
+    node(i)%add=node(i)%add*2.8
+    node(i)%eqd=node(i)%eqd*2.8
+    node(i)%cod=node(i)%cod*2.8
+    node(i)%grd=node(i)%grd*2.8
+    node(i)%pld=node(i)%pld*2.8
   end do
   do i=13,24
     node(i)%marge=0
@@ -11809,7 +12428,7 @@ subroutine blastuloid
 
   do i=1,nd
     ii=node(i)%altre
-    node(i)%ke=sqrt((node(i)%x-node(ii)%x)**2+(node(i)%y-node(ii)%y)**2+(node(i)%z-node(ii)%z)**2)
+    node(i)%hoo=sqrt((node(i)%x-node(ii)%x)**2+(node(i)%y-node(ii)%y)**2+(node(i)%z-node(ii)%z)**2)
   end do
 
   deallocate(gex)
@@ -11885,7 +12504,7 @@ subroutine blastuloid
     allocate(cels(i)%node(4))
     cels(i)%node(1)=i
     cels(i)%node(2)=i+12
-    mmae=node(cels(i)%node(1))%req
+    mmae=node(cels(i)%node(1))%eqd
   end do
 
   gex(:nd,:)=0.0d0
@@ -11893,8 +12512,8 @@ subroutine blastuloid
 
 
 !  ncals=ncels+10 
-!  ffu(13)=1
-  gen(1)%wa(nparam_per_node+2)=1d-3
+!  ffu(8)=1
+  gen(1)%e(nparam_per_node+2)=1d-3
   call update_npag
   prop_noise=1.0d-1
   
@@ -11975,21 +12594,18 @@ subroutine blastula
     ffu=0
      !spring of the ellipse
     ffu(2)=1 !to quite if there are too many cells
-    ffu(3)=0 !screening
-    ffu(4)=0 !torsion
-    ffu(5)=0 !external signal source
-    ffu(6)=0 !eggshell miguel4-1-13
-    ffu(7)=1
-    ffu(8)=0 !lonely cells and nodes die
-    ffu(9)=0
+    ffu(2)=0 !screening
+    ffu(3)=0 !torsion
+    
+    
+    ffu(4)=0 !lonely cells and nodes die
+    ffu(5)=0
+    ffu(6)=1
+    ffu(7)=0
+    ffu(8)=1
     ffu(10)=0
-    ffu(11)=1
-    ffu(12)=0
-    ffu(13)=1
-    ffu(16)=0
-    ffu(17)=1
-    ffu(18)=1 ! diffusion of req
-    ffu(19)=1 ! cell growth outside the cell
+    ffu(11)=1 ! diffusion of req
+    ffu(12)=1 ! cell growth outside the cell
 
   nd=14*12
   do i=13,ncels
@@ -12005,14 +12621,14 @@ end do
 
 do i=1,ng
   gex(:,i)=0.0d0
-  gen(i)%w=0.0
-  gen(i)%ww=0.0
-  gen(i)%wa=0.0
+  gen(i)%t=0.0
+  gen(i)%r=0.0
+  gen(i)%e=0.0
   gen(i)%npre=0
   gen(i)%npost=0
   gen(i)%diffu=10
-  gen(i)%wa(nparam_per_node+8)=0.0d0   
-  gen(i)%wa(nparam_per_node+1)=1d-4 !0
+  gen(i)%e(nparam_per_node+8)=0.0d0   
+  gen(i)%e(nparam_per_node+1)=1d-4 !0
 end do
 
 ! FOR SIMPLICITY we make that all genes are pres and posts of others so that it is simpler and that only which ww are not zero matter
@@ -12050,11 +12666,11 @@ node(:)%marge=1
     node(i)%x=vertices(ii,1)*0.6d0
     node(i)%y=vertices(ii,2)*0.6d0
     node(i)%z=vertices(ii,3)*0.6d0
-    node(i)%da=node(i)%da*1.4
-!    node(i)%req=node(i)%req*2.8
-!    node(i)%reqc=node(i)%reqc*2.8
-!    node(i)%reqcr=node(i)%reqcr*2.8
-!    node(i)%reqp=node(i)%reqp*2.8
+    node(i)%add=node(i)%add*1.4
+!    node(i)%eqd=node(i)%eqd*2.8
+!    node(i)%cod=node(i)%cod*2.8
+!    node(i)%grd=node(i)%grd*2.8
+!    node(i)%pld=node(i)%pld*2.8
   end do
 
   do ii=1,12
@@ -12066,7 +12682,7 @@ node(:)%marge=1
     node(i)%x=node(iii)%x*0.25d0
     node(i)%y=node(iii)%y*0.25d0
     node(i)%z=node(iii)%z*0.25d0
-    node(i)%da=node(i)%da*1.4
+    node(i)%add=node(i)%add*1.4
 !    node(i)%x=vertices(ii,1)*0.25d0
 !    node(i)%y=vertices(ii,2)*0.25d0
 !    node(i)%z=vertices(ii,3)*0.25d0
@@ -12110,31 +12726,31 @@ do i=1,ncels
     node(ii)%x=node(iii)%x*b
     node(ii)%y=node(iii)%y*b
     node(ii)%z=node(iii)%z*b
-    node(ii)%da=node(ii)%da*a
-    node(ii)%req=node(ii)%req*a
-    node(ii)%reqc=node(ii)%req*a
-    node(ii)%reqcr=node(ii)%reqcr*a
-    node(ii)%reqp=node(ii)%reqp*a
-    !node(ii)%tor=12d0 !node(ii)%tor*1
-    !node(ii)%stor=node(ii)%stor*10
-    node(ii)%reqs=0.5d0*sqrt((node(ii)%x-node(iii)%x)**2+(node(ii)%y-node(iii)%y)**2+(node(ii)%z-node(iii)%z)**2)
+    node(ii)%add=node(ii)%add*a
+    node(ii)%eqd=node(ii)%eqd*a
+    node(ii)%cod=node(ii)%eqd*a
+    node(ii)%grd=node(ii)%grd*a
+    node(ii)%pld=node(ii)%pld*a
+    !node(ii)%erp=12d0 !node(ii)%erp*1
+    !node(ii)%est=node(ii)%est*10
+    node(ii)%eqs=0.5d0*sqrt((node(ii)%x-node(iii)%x)**2+(node(ii)%y-node(iii)%y)**2+(node(ii)%z-node(iii)%z)**2)
   end do
   do j=1,cels(i)%nunodes/2
     ii=cels(i)%node(j)
     iii=node(ii)%altre
 a=1.2
-    node(ii)%da=node(ii)%da*a
-    node(ii)%req=node(ii)%req*a
-    node(ii)%reqc=node(ii)%req*a
-    node(ii)%reqcr=node(ii)%reqcr*a
-    node(ii)%reqp=node(ii)%reqp*a
-    !node(ii)%tor=12d0
-    !node(ii)%stor=node(ii)%stor*10
-    node(ii)%reqs=0.5d0*sqrt((node(ii)%x-node(iii)%x)**2+(node(ii)%y-node(iii)%y)**2+(node(ii)%z-node(iii)%z)**2)
+    node(ii)%add=node(ii)%add*a
+    node(ii)%eqd=node(ii)%eqd*a
+    node(ii)%cod=node(ii)%eqd*a
+    node(ii)%grd=node(ii)%grd*a
+    node(ii)%pld=node(ii)%pld*a
+    !node(ii)%erp=12d0
+    !node(ii)%est=node(ii)%est*10
+    node(ii)%eqs=0.5d0*sqrt((node(ii)%x-node(iii)%x)**2+(node(ii)%y-node(iii)%y)**2+(node(ii)%z-node(iii)%z)**2)
   end do
 end do
 
-!node(:)%kplast=1.d-3
+!node(:)%pla=1.d-3
 
 call iniboxes
 
@@ -12208,7 +12824,7 @@ node(125)%marge=0
 node(138)%marge=0
 
 dif_req=1.d-1    ! Is 11-6-14
-node(:)%kplast=1d-3
+node(:)%pla=1d-3
 node(:)%kvol=1d-1
 prop_noise=1d-2
 
@@ -12216,7 +12832,7 @@ reqmin=1d-3
 
 do i=1,nd
   node(i)%dmo=desmax
-  node(i)%mo=1d2
+  node(i)%mov=1d2
 end do
 
 
@@ -12234,25 +12850,22 @@ subroutine blastula_ensemble
 
   ng=8
 
-!  ffu(18)=0
+!  ffu(11)=0
 
 !  goto 15
 
      !spring of the ellipse
     ffu=0
     ffu(2)=1 !to quite if there are too many cells
-    ffu(3)=1 !screening
-    ffu(4)=0 !torsion
-    ffu(5)=0 !external signal source
-    ffu(6)=0 !eggshell miguel4-1-13
+    ffu(2)=0 !>>> TT no screening !screening
+    ffu(3)=0 !torsion
+    
+    
+    ffu(4)=1 !lonely cells and nodes die
+    ffu(5)=0
     ffu(7)=1
-    ffu(8)=1 !lonely cells and nodes die
-    ffu(9)=1
-    ffu(10)=1
-    ffu(12)=1
-    ffu(13)=0
-    ffu(16)=1
-    ffu(22)=1
+    ffu(8)=0
+    ffu(15)=1
 
     !Number of genes
     ng=11
@@ -12266,19 +12879,19 @@ subroutine blastula_ensemble
 
     do i=1,ng 
       do j=1,nga
-        gen(i)%wa(j)=0.0d0
+        gen(i)%e(j)=0.0d0
       end do
       do j=1,ng
-        gen(i)%w(j)=0.0d0
+        gen(i)%t(j)=0.0d0
       end do
     end do
 
     gen(3)%kindof=1
-    gen(1)%w(1)=1.0d0
-    gen(4)%w(1)=1.0d0
-    gen(3)%w(4)=-1.0d0
-    gen(3)%w(3)=1.0d-1
-    gen(2)%w(4)=1.0d0
+    gen(1)%t(1)=1.0d0
+    gen(4)%t(1)=1.0d0
+    gen(3)%t(4)=-1.0d0
+    gen(3)%t(3)=1.0d-1
+    gen(2)%t(4)=1.0d0
     gen(4)%diffu=1.0d0
 
     !Gene expression on nodes
@@ -12290,13 +12903,13 @@ subroutine blastula_ensemble
     gex(:,5)=1.0d0
 
     node(:)%talone=0.0d0
-    ramax=maxval(node(:)%da)*3
-    node(:)%diffe=0.0d0
-    gen(2)%wa(1)=1.0d0   !adhesion molecule
-    gen(1)%wa(23)=1.0d-1
-    gen(2)%wa(23)=1.0d-1
-    gen(1)%wa(nparam_per_node+1)=1d1 !0
-    gen(1)%wa(nparam_per_node+1)=1d1 !5d-5
+    ramax=maxval(node(:)%add)*3
+    node(:)%dif=0.0d0
+    gen(2)%e(1)=1.0d0   !adhesion molecule
+    gen(1)%e(23)=1.0d-1
+    gen(2)%e(23)=1.0d-1
+    gen(1)%e(nparam_per_node+1)=1d1 !0
+    gen(1)%e(nparam_per_node+1)=1d1 !5d-5
     gen(5)%mu=0.0d0
 
     ntipusadh=1
@@ -12321,12 +12934,12 @@ subroutine blastula_ensemble
     end do
 
 !    node(:nd)%adh=node(:nd)%adh*5
-!    node(:nd)%repcel=node(:nd)%repcel*2
+!    node(:nd)%rec=node(:nd)%rec*2
 !    node(:nd)%rep=node(:nd)%rep*0.5
 
-    node(:nd)%tor=node(:nd)%tor*0.5d0
-!    node(:nd)%stor=node(:nd)%stor*10
-!    node(:nd)%ke=node(:nd)%ke*10
+    node(:nd)%erp=node(:nd)%erp*0.5d0
+!    node(:nd)%est=node(:nd)%est*10
+!    node(:nd)%hoo=node(:nd)%hoo*10
 
     call update_npag
 15  getot=1.0d1
@@ -12342,7 +12955,7 @@ subroutine blastula_ensemble
     end if
 3333 continue
 
-!print *,cels(:ncels)%reqmax,mmae,"req"
+!print *,cels(:ncels)%eqdmax,mmae,"req"
 
 end subroutine blastula_ensemble
 
@@ -12356,25 +12969,22 @@ subroutine blastula_ensembleold  !makes a gradient from the animal pole and that
 
   ng=11
 
-!  ffu(18)=0
+!  ffu(11)=0
 
 !  goto 15
 
      !spring of the ellipse
     ffu=0
     ffu(2)=1 !to quite if there are too many cells
-    ffu(3)=0 !screening
-    ffu(4)=0 !torsion
-    ffu(5)=0 !external signal source
-    ffu(6)=0 !eggshell miguel4-1-13
+    ffu(2)=0 !screening
+    ffu(3)=0 !torsion
+    
+    
+    ffu(4)=1 !lonely cells and nodes die
+    ffu(5)=0 !ACHTUNG, trial, put that at least to 1
     ffu(7)=1
-    ffu(8)=1 !lonely cells and nodes die
-    ffu(9)=0 !ACHTUNG, trial, put that at least to 1
-    ffu(10)=1
-    ffu(12)=1
-    ffu(13)=1
-    ffu(16)=1
-    ffu(22)=1
+    ffu(8)=1
+    ffu(15)=1
 
     !Number of genes
     ng=9
@@ -12387,35 +12997,35 @@ subroutine blastula_ensembleold  !makes a gradient from the animal pole and that
 
     ! catalyzation of the growth factor gene 4
     gen(1)%nww=4
-    gen(1)%ww(1,1)=2
-    gen(1)%ww(1,2)=4
-    gen(1)%ww(1,3)=1.0d-2
-!    gen(1)%ww(2,1)=3
-!    gen(1)%ww(2,2)=4
-!    gen(1)%ww(2,3)=1.0d0
-!    gen(1)%ww(3,1)=3
-!    gen(1)%ww(3,2)=5
-!    gen(1)%ww(3,3)=1.0d0
-!    gen(1)%ww(4,1)=3
-!    gen(1)%ww(4,2)=6
-!    gen(1)%ww(4,3)=1.0d0
+    gen(1)%r(1,1)=2
+    gen(1)%r(1,2)=4
+    gen(1)%r(1,3)=1.0d-2
+!    gen(1)%r(2,1)=3
+!    gen(1)%r(2,2)=4
+!    gen(1)%r(2,3)=1.0d0
+!    gen(1)%r(3,1)=3
+!    gen(1)%r(3,2)=5
+!    gen(1)%r(3,3)=1.0d0
+!    gen(1)%r(4,1)=3
+!    gen(1)%r(4,2)=6
+!    gen(1)%r(4,3)=1.0d0
 
     gen(2)%npost=1
     allocate(gen(2)%post(1))
     gen(2)%post(1)=4   !1 t-> 2 -> 4
-    gen(2)%wa(1)=1.0d0
-    gen(2)%w(2)=1.d0
-    gen(2)%w(4)=-9.d2 ! direct inhibition by the growth factor 
+    gen(2)%e(1)=1.0d0
+    gen(2)%t(2)=1.d0
+    gen(2)%t(4)=-9.d2 ! direct inhibition by the growth factor 
     gen(2)%diffu=1.0d0
     gen(4)%diffu=1.0d0
 
 !    gen(4)%nww=1
-!    gen(4)%ww(1,1)=11 !inactive form of the receptor
-!    gen(4)%ww(1,2)=8  !active (bound) form of the receptor
-!    gen(4)%ww(1,3)=1.0d0
+!    gen(4)%r(1,1)=11 !inactive form of the receptor
+!    gen(4)%r(1,2)=8  !active (bound) form of the receptor
+!    gen(4)%r(1,3)=1.0d0
 
     gen(9)%kindof=2
-    gen(9)%w(1)=1.d0
+    gen(9)%t(1)=1.d0
 
 !    gen(5)%npre=1
 !    allocate(gen(5)%pre(1))
@@ -12428,9 +13038,9 @@ subroutine blastula_ensembleold  !makes a gradient from the animal pole and that
 !    allocate(gen(7)%pre(1))
 !    gen(7)%pre(1)=2
 !    gen(7)%nww=1
-!    gen(7)%ww(1,1)=10  !this is like homotypic binding
-!    gen(7)%ww(1,2)=7
-!    gen(7)%ww(1,3)=1.0d0 !notch needs to catalyze its own synthesis
+!    gen(7)%r(1,1)=10  !this is like homotypic binding
+!    gen(7)%r(1,2)=7
+!    gen(7)%r(1,3)=1.0d0 !notch needs to catalyze its own synthesis
 
 !    gen(8)%npre=1
 !    allocate(gen(8)%pre(1))
@@ -12441,13 +13051,13 @@ subroutine blastula_ensembleold  !makes a gradient from the animal pole and that
 
     ! the active receptor catalyzes its own inactivation
 !    gen(8)%nww=1
-!    gen(8)%ww(1,1)=8
-!    gen(8)%ww(1,2)=2
-!    gen(8)%ww(1,3)=0.1d0
+!    gen(8)%r(1,1)=8
+!    gen(8)%r(1,2)=2
+!    gen(8)%r(1,3)=0.1d0
 
     do i=1,ng 
       do j=1,nga
-        gen(i)%wa(j)=0.0d0
+        gen(i)%e(j)=0.0d0
       end do
     end do
 
@@ -12461,13 +13071,13 @@ subroutine blastula_ensembleold  !makes a gradient from the animal pole and that
     gex(:,2)=1.0d-2
 
     node(:)%talone=0.0d0
-    ramax=maxval(node(:)%da)*3
-    node(:)%diffe=0.0d0
-    gen(9)%wa(1)=1.0d0   !adhesion molecule
-    gen(1)%wa(23)=2.d0
-    gen(9)%wa(23)=2.0d0
-    gen(9)%wa(nparam_per_node+1)=1d1 !0
-    gen(9)%wa(nparam_per_node+1)=1d1 !5d-5
+    ramax=maxval(node(:)%add)*3
+    node(:)%dif=0.0d0
+    gen(9)%e(1)=1.0d0   !adhesion molecule
+    gen(1)%e(23)=2.d0
+    gen(9)%e(23)=2.0d0
+    gen(9)%e(nparam_per_node+1)=1d1 !0
+    gen(9)%e(nparam_per_node+1)=1d1 !5d-5
 
     ntipusadh=1
     if(ntipusadh>0)then
@@ -12482,12 +13092,12 @@ subroutine blastula_ensembleold  !makes a gradient from the animal pole and that
     cels(:)%maxsize_for_div=cels(:)%nunodes*2
     
 !    node(:nd)%adh=node(:nd)%adh*5
-!    node(:nd)%repcel=node(:nd)%repcel*2
+!    node(:nd)%rec=node(:nd)%rec*2
 !    node(:nd)%rep=node(:nd)%rep*0.5
 
-    node(:nd)%tor=node(:nd)%tor*0.5d0
-!    node(:nd)%stor=node(:nd)%stor*10
-!    node(:nd)%ke=node(:nd)%ke*10
+    node(:nd)%erp=node(:nd)%erp*0.5d0
+!    node(:nd)%est=node(:nd)%est*10
+!    node(:nd)%hoo=node(:nd)%hoo*10
 
     call update_npag
 15  getot=1d4
@@ -12503,7 +13113,7 @@ subroutine blastula_ensembleold  !makes a gradient from the animal pole and that
     end if
 3333 continue
 
-!print *,cels(:ncels)%reqmax,mmae,"req"
+!print *,cels(:ncels)%eqdmax,mmae,"req"
 
 end subroutine
 
@@ -12666,22 +13276,22 @@ subroutine tooth_bud
     
     
     ffu=0
-    if(radi==1.or.mradi==1) ffu(1)=1
+    if(radi==1.or.mradi==1) ffu(1)=0
 
      !spring of the ellipse
-    ffu(1)=1
+    ffu(1)=0
     ffu(2)=0 !to quit if there are too many cells
-    ffu(3)=1 !screening
-    ffu(4)=0 !torsion
-    ffu(5)=0 !external signal source
-    ffu(6)=0 !eggshell miguel4-1-13
+    ffu(2)=0 !>>> TT no screening !screening
+    ffu(3)=0 !torsion
+    
+    
 
-    ffu(11)=1 !epithelial node plastic deformation
-    ffu(12)=0 !0 dynamic delta, 1 fixed delta
-    ffu(13)=1 !neighboring by triangulation
-    ffu(14)=1 !physical boundaries (walls)
-    ffu(15)=1 !fixed gene 1 on borders
-    ffu(22)=0 !0 = noise biased by energies , 1 = unbiased noise
+    ffu(6)=1 !epithelial node plastic deformation
+    ffu(7)=0 !0 dynamic delta, 1 fixed delta
+    ffu(8)=1 !neighboring by triangulation
+    
+    ffu(9)=1 !fixed gene 1 on borders
+    ffu(15)=1 !1 = noise biased by energies , 0 = unbiased noise
 
 
    !******* #2 DEFINING NODE MECHANIC PARAMETERS *******
@@ -12690,22 +13300,22 @@ subroutine tooth_bud
       do i=1,ndepi
         if(i<=ndepi/2)then  !basal
           node(i)%you=5d0 ; node(i)%adh=0d0
-          node(i)%rep=1d1 ; node(i)%repcel=1d1
+          node(i)%rep=1d1 ; node(i)%rec=1d1
         else                      !apical
           node(i)%you=1d1 ; node(i)%adh=0d0
-          node(i)%rep=1d1 ; node(i)%repcel=1d1
+          node(i)%rep=1d1 ; node(i)%rec=1d1
         end if
-        node(i)%req=0.25d0 ; node(i)%reqcr=node(i)%req
-        node(i)%reqs=0.25
-        node(i)%da=node(i)%req*1.60; 
-        node(i)%ke=5d1
-        node(i)%tor=5d0
-        !node(i)%stor=5d0
-        node(i)%mo=temp
+        node(i)%eqd=0.25d0 ; node(i)%grd=node(i)%eqd
+        node(i)%eqs=0.25
+        node(i)%add=node(i)%eqd*1.60; 
+        node(i)%hoo=5d1
+        node(i)%erp=5d0
+        !node(i)%est=5d0
+        node(i)%mov=temp
         node(i)%dmo=desmax
-        node(i)%diffe=0d0
-        node(i)%khold=khold
-        node(i)%kplast=1d-2
+        node(i)%dif=0d0
+        node(i)%kfi=khold
+        node(i)%pla=1d-2
         node(i)%kvol=1d-1
       end do
     end if
@@ -12714,30 +13324,30 @@ subroutine tooth_bud
     if(mradi>0.and.mradicel>0.and.layer>0)then
       do i=ndepi+1,nd
         node(i)%you=5d0 ; node(i)%adh=0d0
-        node(i)%rep=1d1 ; node(i)%repcel=3d1
-        node(i)%req=0.25d0 ; node(i)%reqcr=node(i)%req
-        node(i)%reqs=0d0
-        node(i)%da=node(i)%req*1.30
-        node(i)%ke=0d0   !only for epithelium
-        node(i)%tor=1d0  !only for epithelium
-        !node(i)%stor=1d1 !only for epithelium
+        node(i)%rep=1d1 ; node(i)%rec=3d1
+        node(i)%eqd=0.25d0 ; node(i)%grd=node(i)%eqd
+        node(i)%eqs=0d0
+        node(i)%add=node(i)%eqd*1.30
+        node(i)%hoo=0d0   !only for epithelium
+        node(i)%erp=1d0  !only for epithelium
+        !node(i)%est=1d1 !only for epithelium
         node(i)%altre=0  !only for epithelium
-        node(i)%mo=temp
+        node(i)%mov=temp
         node(i)%dmo=desmax
-        node(i)%diffe=0d0
-        node(i)%khold=khold
+        node(i)%dif=0d0
+        node(i)%kfi=khold
       end do
     end if
 
     !General parameters that depend on node parameters
-    rv=2*maxval(node(:)%da)
+    rv=2*maxval(node(:)%add)
 
 
     !Distribution of nodes in space
-    if(radi>0.and.radicel>0)               call epiteli(radi,radicel,zepi,node(1)%req,node(1)%reqs)
+    if(radi>0.and.radicel>0)               call epiteli(radi,radicel,zepi,node(1)%eqd,node(1)%eqs)
     if(mradi>0.and.mradicel>0.and.layer>0)then
-                       if(packed==0)then ; call mesenq(mradi,mradicel,layer,zmes,node(ndepi+1)%req)
-                       else  ; call mesenq_packed(mradi,mradicel,layer,zmes,node(ndepi+1)%req) ; end if ; end if
+                       if(packed==0)then ; call mesenq(mradi,mradicel,layer,zmes,node(ndepi+1)%eqd)
+                       else  ; call mesenq_packed(mradi,mradicel,layer,zmes,node(ndepi+1)%eqd) ; end if ; end if
 
     do i=1,nd
       node(i)%orix=node(i)%x ; node(i)%oriy=node(i)%y ; node(i)%oriz=node(i)%z
@@ -12755,7 +13365,7 @@ subroutine tooth_bud
     !End distribution of nodes in space
 
     !Setting boundary nodes (they will be subject to an external force keeping them in their initial position)
-    node(:)%hold=0
+    node(:)%fix=0
     !!let's do it for the most external layer of cells
       j=0
       do i=1,radicel-2
@@ -12763,7 +13373,7 @@ subroutine tooth_bud
       end do
       j=(6*j+1)*cels(1)%nunodes!nodecel !this is the number of epithelial nodes wich are not external
       do i=j+1,ndepi
-        node(i)%hold=1 ;node(i)%repcel=5d1
+        node(i)%fix=1 ;node(i)%rec=5d1
       end do
       j=0
       do i=1,mradicel-2
@@ -12776,26 +13386,26 @@ subroutine tooth_bud
       end do
       k=(6*k+1)*cels(ncelsepi+1)%nunodes!mradi !this is the number of mesenchymal nodes wich are not external
       do i=ndepi+j+1,ndepi+k  !upper mesenchymal layer
-        node(i)%hold=1;node(i)%repcel=5d1
-        node(i)%da=node(i)%req*1.50
+        node(i)%fix=1;node(i)%rec=5d1
+        node(i)%add=node(i)%eqd*1.50
         !node(i)%orix=0 ; node(i)%oriy=0
-        !node(i)%rep=1d1;node(i)%repcel=1d1
+        !node(i)%rep=1d1;node(i)%rec=1d1
       end do
       !do i=ndepi+k+1,nd !lower mesenchymal layer all
-      !  node(i)%hold=1;node(i)%repcel=5d1
-      !  node(i)%da=node(i)%req*1.50
+      !  node(i)%fix=1;node(i)%rec=5d1
+      !  node(i)%add=node(i)%eqd*1.50
       !end do
       !do i=ndepi+k+j+1,ndepi+2*k !middle mesenchymal layer
-      !  node(i)%hold=1
-      !  !node(i)%da=node(i)%req*2.0
+      !  node(i)%fix=1
+      !  !node(i)%add=node(i)%eqd*2.0
       !  !node(i)%orix=0 ; node(i)%oriy=0
-      !  !node(i)%rep=1d1;node(i)%repcel=1d1
+      !  !node(i)%rep=1d1;node(i)%rec=1d1
       !end do
       !do i=ndepi+2*k+1,nd  !lower mesenchymal layer
-      !  node(i)%hold=1
-      !  !node(i)%da=node(i)%req*2.0
+      !  node(i)%fix=1
+      !  !node(i)%add=node(i)%eqd*2.0
       !  !node(i)%orix=0 ; node(i)%oriy=0
-      !  !node(i)%rep=1d1;node(i)%repcel=1d1
+      !  !node(i)%rep=1d1;node(i)%rec=1d1
       !end do
 
     !!end of setting boundary nodes
@@ -12806,7 +13416,7 @@ subroutine tooth_bud
     if(radi>0.and.radicel>0)then
       do i=1,ncelsepi
         cels(i)%fase=0d0
-        mmae=node(cels(i)%node(1))%req
+        mmae=node(cels(i)%node(1))%eqd
         cels(i)%minsize_for_div=cels(i)%nunodes*2
         cels(i)%maxsize_for_div=10000 !>>> Is 5-2-14
       end do
@@ -12815,7 +13425,7 @@ subroutine tooth_bud
     if(mradi>0.and.mradicel>0.and.layer>0)then
       do i=ncelsepi+1,ncels
         cels(i)%fase=0d0
-        mmae=node(cels(i)%node(1))%req
+        mmae=node(cels(i)%node(1))%eqd
         cels(i)%minsize_for_div=cels(i)%nunodes*2
         cels(i)%maxsize_for_div=10000 !>>> Is 5-2-14
       end do
@@ -12870,45 +13480,45 @@ subroutine tooth_bud
     !Gene-behavior interactions
     
 
-       gen(4)%wa(1)=1  !Adhesion molecule epithelial
-       gen(7)%wa(1)=2  !Adhesion molecule external
+       gen(4)%e(1)=1  !Adhesion molecule epithelial
+       gen(7)%e(1)=2  !Adhesion molecule external
 
-       gen(10)%wa(nparam_per_node+2)=4d-4 !Wnt10b promotes division
+       gen(10)%e(nparam_per_node+2)=4d-4 !Wnt10b promotes division
 
 
 
     !Gene-gene interactions
 
-      gen(3)%w(3)=1d0  !housekeeping activates himself
+      gen(3)%t(3)=1d0  !housekeeping activates himself
     
-      gen(4)%w(3)=1d0  !housekeeping produces adhesion molecule
-      gen(8)%w(3)=1d0  !housekeeping produces Wnt receptor inactive
+      gen(4)%t(3)=1d0  !housekeeping produces adhesion molecule
+      gen(8)%t(3)=1d0  !housekeeping produces Wnt receptor inactive
 
-      gen(2)%w(10)=-4.0d0  !receptor activated by Wnt10b inhibits Wnt7b production
-      gen(6)%w(10)=4.0d0  !receptor activated by Wnt10b promotes Wnt10b production
+      gen(2)%t(10)=-4.0d0  !receptor activated by Wnt10b inhibits Wnt7b production
+      gen(6)%t(10)=4.0d0  !receptor activated by Wnt10b promotes Wnt10b production
 
-      gen(11)%w(9)=1d-1  !wnt7b activated receptor produces mediator at a slow rate
+      gen(11)%t(9)=1d-1  !wnt7b activated receptor produces mediator at a slow rate
 
-      gen(2)%w(11)=1d0  !mediator produced by Wnt7b promotes Wnt7b production
-      gen(6)%w(11)=-1d0  !mediatior produced by Wnt7b inhibits Wnt10b production
+      gen(2)%t(11)=1d0  !mediator produced by Wnt7b promotes Wnt7b production
+      gen(6)%t(11)=-1d0  !mediatior produced by Wnt7b inhibits Wnt10b production
 
       gen(3)%nww=2
-      gen(3)%ww(1,1)=2  !housekeeping processes Wnt7b secretion
-      gen(3)%ww(1,2)=1
-      gen(3)%ww(1,3)=1d0
-      gen(3)%ww(2,1)=6  !housekeeping processes Wnt10b secretion
-      gen(3)%ww(2,2)=5
-      gen(3)%ww(2,3)=1d0
+      gen(3)%r(1,1)=2  !housekeeping processes Wnt7b secretion
+      gen(3)%r(1,2)=1
+      gen(3)%r(1,3)=1d0
+      gen(3)%r(2,1)=6  !housekeeping processes Wnt10b secretion
+      gen(3)%r(2,2)=5
+      gen(3)%r(2,3)=1d0
 
       gen(1)%nww=1
-      gen(1)%ww(1,1)=8  !Wnt7b activates Wnt receptor into specific activated form
-      gen(1)%ww(1,2)=9
-      gen(1)%ww(1,3)=1d1
+      gen(1)%r(1,1)=8  !Wnt7b activates Wnt receptor into specific activated form
+      gen(1)%r(1,2)=9
+      gen(1)%r(1,3)=1d1
 
       gen(5)%nww=1
-      gen(5)%ww(1,1)=8  !Wnt10b activates Wnt receptor into specific activated form
-      gen(5)%ww(1,2)=10
-      gen(5)%ww(1,3)=1d1
+      gen(5)%r(1,1)=8  !Wnt10b activates Wnt receptor into specific activated form
+      gen(5)%r(1,2)=10
+      gen(5)%r(1,3)=1d1
 
 
     !Adhesion molecules
@@ -12935,7 +13545,7 @@ subroutine tooth_bud
     j=(6*j+1) !;print*,"jota",j
 
     do i=1,nd
-      if(node(i)%hold==1)then
+      if(node(i)%fix==1)then
         gex(i,1)=1d0
         gex(i,7)=1d0
       elseif(i<=ndepi)then
@@ -12973,7 +13583,7 @@ subroutine tooth_bud
 
     node(:)%talone=0.0d0
 
-    ramax=maxval(node(:)%da)*3
+    ramax=maxval(node(:)%add)*3
 
     
 end subroutine
@@ -13106,19 +13716,19 @@ subroutine delta_notch
     !functions used
    
    
-    ffu=0 ; if (radi==1.or.mradi==1) ffu(1)=1
+    ffu=0 ; if (radi==1.or.mradi==1) ffu(1)=0
     ffu(2)=0 !to quit if there are too many cells
-    ffu(3)=1 !screening
-    ffu(4)=1 !torsion
-    ffu(5)=0 !external signal source
-    ffu(6)=0 !eggshell miguel4-1-13
+    ffu(2)=0 !>>> TT no screening !screening
+    ffu(3)=1 !torsion
+    
+    
 
-    ffu(11)=1 !epithelial node plastic deformation
-    ffu(12)=0 !0 dynamic delta, 1 fixed delta
-    ffu(13)=0 !neighboring by triangulation
-    ffu(14)=0 !physical boundaries (walls)
-    ffu(17)=1 !volume conservation (epithelial)
-    ffu(22)=0 !0 = noise biased by energies , 1 = unbiased noise
+    ffu(6)=1 !epithelial node plastic deformation
+    ffu(7)=0 !0 dynamic delta, 1 fixed delta
+    ffu(8)=0 !neighboring by triangulation
+    
+    ffu(10)=0 !volume conservation (epithelial)
+    ffu(15)=1 !1 = noise biased by energies , 0 = unbiased noise
 
 
    !******* #2 DEFINING NODE MECHANIC PARAMETERS *******
@@ -13127,22 +13737,22 @@ subroutine delta_notch
       do i=1,ndepi
         if(i<=ndepi/2)then  !basal
           node(i)%you=5d0 ; node(i)%adh=1d1
-          node(i)%rep=1d1 ; node(i)%repcel=1d1
+          node(i)%rep=1d1 ; node(i)%rec=1d1
         else                      !apical
           node(i)%you=1d1 ; node(i)%adh=0d0
-          node(i)%rep=1d1 ; node(i)%repcel=1d1
+          node(i)%rep=1d1 ; node(i)%rec=1d1
         end if
-        node(i)%req=0.25d0 ; node(i)%reqcr=node(i)%req
-        node(i)%reqs=0.25
-        node(i)%da=node(i)%req*1.60;
-        node(i)%ke=5d1
-        node(i)%tor=5d0
-        node(i)%stor=5d0
-        node(i)%mo=temp
+        node(i)%eqd=0.25d0 ; node(i)%grd=node(i)%eqd
+        node(i)%eqs=0.25
+        node(i)%add=node(i)%eqd*1.60;
+        node(i)%hoo=5d1
+        node(i)%erp=5d0
+        node(i)%est=5d0
+        node(i)%mov=temp
         node(i)%dmo=0
-        node(i)%diffe=0d0
-        node(i)%khold=khold
-        node(i)%kplast=5d-2
+        node(i)%dif=0d0
+        node(i)%kfi=khold
+        node(i)%pla=5d-2
         node(i)%kvol=5d-2
       end do
     end if
@@ -13151,30 +13761,30 @@ subroutine delta_notch
     if(mradi>0.and.mradicel>0.and.layer>0)then
       do i=ndepi+1,nd
         node(i)%you=5d0 ; node(i)%adh=0d0
-        node(i)%rep=1d1 ; node(i)%repcel=3d1
-        node(i)%req=0.25d0 ; node(i)%reqcr=node(i)%req
-        node(i)%reqs=0d0
-        node(i)%da=node(i)%req*1.30
-        node(i)%ke=0d0   !only for epithelium
-        node(i)%tor=1d0  !only for epithelium
-        node(i)%stor=1d1 !only for epithelium
+        node(i)%rep=1d1 ; node(i)%rec=3d1
+        node(i)%eqd=0.25d0 ; node(i)%grd=node(i)%eqd
+        node(i)%eqs=0d0
+        node(i)%add=node(i)%eqd*1.30
+        node(i)%hoo=0d0   !only for epithelium
+        node(i)%erp=1d0  !only for epithelium
+        node(i)%est=1d1 !only for epithelium
         node(i)%altre=0  !only for epithelium
-        node(i)%mo=temp
+        node(i)%mov=temp
         node(i)%dmo=0.0
-        node(i)%diffe=0d0
-        node(i)%khold=khold
+        node(i)%dif=0d0
+        node(i)%kfi=khold
       end do
     end if
 
     !General parameters that depend on node parameters
-    rv=2*maxval(node(:)%da)
+    rv=2*maxval(node(:)%add)
 
 
     !Distribution of nodes in space
-    if(radi>0.and.radicel>0)               call epiteli(radi,radicel,zepi,node(1)%req,node(1)%reqs)
+    if(radi>0.and.radicel>0)               call epiteli(radi,radicel,zepi,node(1)%eqd,node(1)%eqs)
     if(mradi>0.and.mradicel>0.and.layer>0)then
-                       if(packed==0)then ; call mesenq(mradi,mradicel,layer,zmes,node(ndepi+1)%req)
-                       else  ; call mesenq_packed(mradi,mradicel,layer,zmes,node(ndepi+1)%req) ; end if ; end if
+                       if(packed==0)then ; call mesenq(mradi,mradicel,layer,zmes,node(ndepi+1)%eqd)
+                       else  ; call mesenq_packed(mradi,mradicel,layer,zmes,node(ndepi+1)%eqd) ; end if ; end if
 
     do i=1,nd
       node(i)%orix=node(i)%x ; node(i)%oriy=node(i)%y ; node(i)%oriz=node(i)%z
@@ -13192,7 +13802,7 @@ subroutine delta_notch
     !End distribution of nodes in space
 
     !Setting boundary nodes (they will be subject to an external force keeping them in their initial position)
-    node(:)%hold=0
+    node(:)%fix=0
     !!let's do it for the most external layer of cells
 !      j=0
 !      do i=1,radicel-2
@@ -13200,7 +13810,7 @@ subroutine delta_notch
 !      end do
 !      j=(6*j+1)*cels(1)%nunodes!nodecel !this is the number of epithelial nodes wich are not external
 !      do i=j+1,ndepi
-!        node(i)%hold=1 ;node(i)%repcel=1d2
+!        node(i)%fix=1 ;node(i)%rec=1d2
 !      end do
 !      j=0
 !      do i=1,mradicel-2
@@ -13213,25 +13823,25 @@ subroutine delta_notch
 !      end do
 !      k=(6*k+1)*cels(ncelsepi+1)%nunodes!mradi !this is the number of mesenchymal nodes wich are not external
 !      do i=ndepi+j+1,ndepi+k  !upper mesenchymal layer
-!        node(i)%hold=1;node(i)%repcel=1d2
-        !node(i)%da=node(i)%req*2.0
+!        node(i)%fix=1;node(i)%rec=1d2
+        !node(i)%add=node(i)%eqd*2.0
         !node(i)%orix=0 ; node(i)%oriy=0
-        !node(i)%rep=1d1;node(i)%repcel=1d1
+        !node(i)%rep=1d1;node(i)%rec=1d1
 !      end do
 !      do i=ndepi+k+1,nd
-!        node(i)%hold=1;node(i)%repcel=1d2
+!        node(i)%fix=1;node(i)%rec=1d2
 !      end do
       !do i=ndepi+k+j+1,ndepi+2*k !middle mesenchymal layer
-      !  node(i)%hold=1
-      !  !node(i)%da=node(i)%req*2.0
+      !  node(i)%fix=1
+      !  !node(i)%add=node(i)%eqd*2.0
       !  !node(i)%orix=0 ; node(i)%oriy=0
-      !  !node(i)%rep=1d1;node(i)%repcel=1d1
+      !  !node(i)%rep=1d1;node(i)%rec=1d1
       !end do
       !do i=ndepi+2*k+1,nd  !lower mesenchymal layer
-      !  node(i)%hold=1
-      !  !node(i)%da=node(i)%req*2.0
+      !  node(i)%fix=1
+      !  !node(i)%add=node(i)%eqd*2.0
       !  !node(i)%orix=0 ; node(i)%oriy=0
-      !  !node(i)%rep=1d1;node(i)%repcel=1d1
+      !  !node(i)%rep=1d1;node(i)%rec=1d1
       !end do
 
     !!end of setting boundary nodes
@@ -13302,50 +13912,50 @@ subroutine delta_notch
     !Gene-behavior interactions
    
 
-       !gen(1)%wa(1)=1  !epithelial adhesion molecule
-       !gen(2)%wa(1)=2  !mesenchymal adhesion molecule
-       !gen(3)%wa(1)=3  !basal lamina
+       !gen(1)%e(1)=1  !epithelial adhesion molecule
+       !gen(2)%e(1)=2  !mesenchymal adhesion molecule
+       !gen(3)%e(1)=3  !basal lamina
 
 
     !Gene-gene interactions
 
-      !gen(3)%w(3)=1d0 !housekeeping epi. maintains its levels of expressions
-      !gen(4)%w(3)=1d0
-      !gen(5)%w(3)=1d0
-      !gen(6)%w(3)=1d0
+      !gen(3)%t(3)=1d0 !housekeeping epi. maintains its levels of expressions
+      !gen(4)%t(3)=1d0
+      !gen(5)%t(3)=1d0
+      !gen(6)%t(3)=1d0
 
       gen(4)%nww=2    !inactive notch mediates binding of delta
-      gen(4)%ww(1,1)=5
-      gen(4)%ww(1,2)=2
-      gen(4)%ww(1,3)=1d0
-      gen(4)%ww(2,1)=2
-      gen(4)%ww(2,2)=5
-      gen(4)%ww(2,3)=1d0
+      gen(4)%r(1,1)=5
+      gen(4)%r(1,2)=2
+      gen(4)%r(1,3)=1d0
+      gen(4)%r(2,1)=2
+      gen(4)%r(2,2)=5
+      gen(4)%r(2,3)=1d0
 
       gen(5)%nww=2    !inactive delta mediates binding of notch
-      gen(5)%ww(1,1)=4
-      gen(5)%ww(1,2)=1
-      gen(5)%ww(1,3)=1d0
-      gen(5)%ww(2,1)=1
-      gen(5)%ww(2,2)=4
-      gen(5)%ww(2,3)=1d0
+      gen(5)%r(1,1)=4
+      gen(5)%r(1,2)=1
+      gen(5)%r(1,3)=1d0
+      gen(5)%r(2,1)=1
+      gen(5)%r(2,2)=4
+      gen(5)%r(2,3)=1d0
 
      
       !gen(1)%nww=2
-      !gen(1)%ww(1,1)=6     !activated notch activates effector
-      !gen(1)%ww(1,2)=7
-      !gen(1)%ww(1,3)=1d-1
-      !gen(1)%ww(2,1)=2     !activated notch mediates unbinding of delta
-      !gen(1)%ww(2,2)=5
-      !gen(1)%ww(2,3)=1d0
+      !gen(1)%r(1,1)=6     !activated notch activates effector
+      !gen(1)%r(1,2)=7
+      !gen(1)%r(1,3)=1d-1
+      !gen(1)%r(2,1)=2     !activated notch mediates unbinding of delta
+      !gen(1)%r(2,2)=5
+      !gen(1)%r(2,3)=1d0
 
       !gen(2)%nww=1     !active delta mediates unbinding of notch
-      !gen(2)%ww(1,1)=1
-      !gen(2)%ww(1,2)=4
-      !gen(2)%ww(1,3)=1d0    
+      !gen(2)%r(1,1)=1
+      !gen(2)%r(1,2)=4
+      !gen(2)%r(1,3)=1d0    
      
      
-      !gen(5)%w(7)=-1d1
+      !gen(5)%t(7)=-1d1
 
 
     !Adhesion molecules
@@ -13399,8 +14009,8 @@ subroutine delta_notch
 
     node(:)%talone=0.0d0
 
-    ramax=maxval(node(:)%da)*3
-mmae=node(1)%req
+    ramax=maxval(node(:)%add)*3
+mmae=node(1)%eqd
    
 end subroutine
 
@@ -13532,19 +14142,19 @@ subroutine receptor_ligand_test
     !functions used
    
    
-    ffu=0 ; if (radi==1.or.mradi==1) ffu(1)=1
+    ffu=0 ; if (radi==1.or.mradi==1) ffu(1)=0
     ffu(2)=0 !to quit if there are too many cells
-    ffu(3)=1 !screening
-    ffu(4)=1 !torsion
-    ffu(5)=0 !external signal source
-    ffu(6)=0 !eggshell miguel4-1-13
+    ffu(2)=0 !>>> TT no screening !screening
+    ffu(3)=1 !torsion
+    
+    
 
-    ffu(11)=1 !epithelial node plastic deformation
-    ffu(12)=1 !0 dynamic delta, 1 fixed delta
-    ffu(13)=0 !neighboring by triangulation
-    ffu(14)=0 !physical boundaries (walls)
-    ffu(17)=1 !volume conservation (epithelial)
-    ffu(22)=1 !0 = noise biased by energies , 1 = unbiased noise
+    ffu(6)=1 !epithelial node plastic deformation
+    ffu(7)=1 !0 dynamic delta, 1 fixed delta
+    ffu(8)=0 !neighboring by triangulation
+    
+    ffu(10)=0 !volume conservation (epithelial)
+    ffu(15)=1 !1 = noise biased by energies , 0 = unbiased noise
 
 
    !******* #2 DEFINING NODE MECHANIC PARAMETERS *******
@@ -13553,22 +14163,22 @@ subroutine receptor_ligand_test
       do i=1,ndepi
         if(i<=ndepi/2)then  !basal
           node(i)%you=5d0 ; node(i)%adh=1d1
-          node(i)%rep=1d1 ; node(i)%repcel=1d1
+          node(i)%rep=1d1 ; node(i)%rec=1d1
         else                      !apical
           node(i)%you=1d1 ; node(i)%adh=0d0
-          node(i)%rep=1d1 ; node(i)%repcel=1d1
+          node(i)%rep=1d1 ; node(i)%rec=1d1
         end if
-        node(i)%req=0.25d0 ; node(i)%reqcr=node(i)%req
-        node(i)%reqs=0.25
-        node(i)%da=node(i)%req*1.60;
-        node(i)%ke=5d1
-        node(i)%tor=5d0
-        node(i)%stor=5d0
-        node(i)%mo=temp
+        node(i)%eqd=0.25d0 ; node(i)%grd=node(i)%eqd
+        node(i)%eqs=0.25
+        node(i)%add=node(i)%eqd*1.60;
+        node(i)%hoo=5d1
+        node(i)%erp=5d0
+        node(i)%est=5d0
+        node(i)%mov=temp
         node(i)%dmo=0
-        node(i)%diffe=0d0
-        node(i)%khold=khold
-        node(i)%kplast=5d-2
+        node(i)%dif=0d0
+        node(i)%kfi=khold
+        node(i)%pla=5d-2
         node(i)%kvol=5d-2
       end do
     end if
@@ -13577,30 +14187,30 @@ subroutine receptor_ligand_test
     if(mradi>0.and.mradicel>0.and.layer>0)then
       do i=ndepi+1,nd
         node(i)%you=5d0 ; node(i)%adh=0d0
-        node(i)%rep=1d1 ; node(i)%repcel=3d1
-        node(i)%req=0.25d0 ; node(i)%reqcr=node(i)%req
-        node(i)%reqs=0d0
-        node(i)%da=node(i)%req*1.30
-        node(i)%ke=0d0   !only for epithelium
-        node(i)%tor=1d0  !only for epithelium
-        node(i)%stor=1d1 !only for epithelium
+        node(i)%rep=1d1 ; node(i)%rec=3d1
+        node(i)%eqd=0.25d0 ; node(i)%grd=node(i)%eqd
+        node(i)%eqs=0d0
+        node(i)%add=node(i)%eqd*1.30
+        node(i)%hoo=0d0   !only for epithelium
+        node(i)%erp=1d0  !only for epithelium
+        node(i)%est=1d1 !only for epithelium
         node(i)%altre=0  !only for epithelium
-        node(i)%mo=temp
+        node(i)%mov=temp
         node(i)%dmo=0.0
-        node(i)%diffe=0d0
-        node(i)%khold=khold
+        node(i)%dif=0d0
+        node(i)%kfi=khold
       end do
     end if
 
     !General parameters that depend on node parameters
-    rv=2*maxval(node(:)%da)
+    rv=2*maxval(node(:)%add)
 
 
     !Distribution of nodes in space
-    if(radi>0.and.radicel>0)               call epiteli(radi,radicel,zepi,node(1)%req,node(1)%reqs)
+    if(radi>0.and.radicel>0)               call epiteli(radi,radicel,zepi,node(1)%eqd,node(1)%eqs)
     if(mradi>0.and.mradicel>0.and.layer>0)then
-                       if(packed==0)then ; call mesenq(mradi,mradicel,layer,zmes,node(ndepi+1)%req)
-                       else  ; call mesenq_packed(mradi,mradicel,layer,zmes,node(ndepi+1)%req) ; end if ; end if
+                       if(packed==0)then ; call mesenq(mradi,mradicel,layer,zmes,node(ndepi+1)%eqd)
+                       else  ; call mesenq_packed(mradi,mradicel,layer,zmes,node(ndepi+1)%eqd) ; end if ; end if
 
     do i=1,nd
       node(i)%orix=node(i)%x ; node(i)%oriy=node(i)%y ; node(i)%oriz=node(i)%z
@@ -13618,7 +14228,7 @@ subroutine receptor_ligand_test
     !End distribution of nodes in space
 
     !Setting boundary nodes (they will be subject to an external force keeping them in their initial position)
-    node(:)%hold=0
+    node(:)%fix=0
     !!let's do it for the most external layer of cells
 !      j=0
 !      do i=1,radicel-2
@@ -13626,7 +14236,7 @@ subroutine receptor_ligand_test
 !      end do
 !      j=(6*j+1)*cels(1)%nunodes!nodecel !this is the number of epithelial nodes wich are not external
 !      do i=j+1,ndepi
-!        node(i)%hold=1 ;node(i)%repcel=1d2
+!        node(i)%fix=1 ;node(i)%rec=1d2
 !      end do
 !      j=0
 !      do i=1,mradicel-2
@@ -13639,25 +14249,25 @@ subroutine receptor_ligand_test
 !      end do
 !      k=(6*k+1)*cels(ncelsepi+1)%nunodes!mradi !this is the number of mesenchymal nodes wich are not external
 !      do i=ndepi+j+1,ndepi+k  !upper mesenchymal layer
-!        node(i)%hold=1;node(i)%repcel=1d2
-        !node(i)%da=node(i)%req*2.0
+!        node(i)%fix=1;node(i)%rec=1d2
+        !node(i)%add=node(i)%eqd*2.0
         !node(i)%orix=0 ; node(i)%oriy=0
-        !node(i)%rep=1d1;node(i)%repcel=1d1
+        !node(i)%rep=1d1;node(i)%rec=1d1
 !      end do
 !      do i=ndepi+k+1,nd
-!        node(i)%hold=1;node(i)%repcel=1d2
+!        node(i)%fix=1;node(i)%rec=1d2
 !      end do
       !do i=ndepi+k+j+1,ndepi+2*k !middle mesenchymal layer
-      !  node(i)%hold=1
-      !  !node(i)%da=node(i)%req*2.0
+      !  node(i)%fix=1
+      !  !node(i)%add=node(i)%eqd*2.0
       !  !node(i)%orix=0 ; node(i)%oriy=0
-      !  !node(i)%rep=1d1;node(i)%repcel=1d1
+      !  !node(i)%rep=1d1;node(i)%rec=1d1
       !end do
       !do i=ndepi+2*k+1,nd  !lower mesenchymal layer
-      !  node(i)%hold=1
-      !  !node(i)%da=node(i)%req*2.0
+      !  node(i)%fix=1
+      !  !node(i)%add=node(i)%eqd*2.0
       !  !node(i)%orix=0 ; node(i)%oriy=0
-      !  !node(i)%rep=1d1;node(i)%repcel=1d1
+      !  !node(i)%rep=1d1;node(i)%rec=1d1
       !end do
 
     !!end of setting boundary nodes
@@ -13730,30 +14340,30 @@ subroutine receptor_ligand_test
     !Gene-behavior interactions
    
 
-       !gen(1)%wa(1)=1  !epithelial adhesion molecule
-       !gen(2)%wa(1)=2  !mesenchymal adhesion molecule
-       !gen(3)%wa(1)=3  !basal lamina
+       !gen(1)%e(1)=1  !epithelial adhesion molecule
+       !gen(2)%e(1)=2  !mesenchymal adhesion molecule
+       !gen(3)%e(1)=3  !basal lamina
 
 
     !Gene-gene interactions
 
-      gen(3)%w(3)=1d0 !housekeeping epi. maintains its levels of expressions
-      gen(4)%w(3)=1d0
-      gen(5)%w(3)=1d0
+      gen(3)%t(3)=1d0 !housekeeping epi. maintains its levels of expressions
+      gen(4)%t(3)=1d0
+      gen(5)%t(3)=1d0
 
       gen(3)%nww=1    !housekeeping epi. processes ligand secretion
-      gen(3)%ww(1,1)=5
-      gen(3)%ww(1,2)=2
-      gen(3)%ww(1,3)=1d1
+      gen(3)%r(1,1)=5
+      gen(3)%r(1,2)=2
+      gen(3)%r(1,3)=1d1
 
 
       gen(1)%nww=2
-      gen(1)%ww(1,1)=2  !assotiation
-      gen(1)%ww(1,2)=4
-      gen(1)%ww(1,3)=1d1
-      gen(1)%ww(2,1)=4  !dissociation
-      gen(1)%ww(2,2)=2
-      gen(1)%ww(2,3)=1d1
+      gen(1)%r(1,1)=2  !assotiation
+      gen(1)%r(1,2)=4
+      gen(1)%r(1,3)=1d1
+      gen(1)%r(2,1)=4  !dissociation
+      gen(1)%r(2,2)=2
+      gen(1)%r(2,3)=1d1
 
 
 
@@ -13805,8 +14415,8 @@ subroutine receptor_ligand_test
 
     node(:)%talone=0.0d0
 
-    ramax=maxval(node(:)%da)*3
-mmae=node(1)%req
+    ramax=maxval(node(:)%add)*3
+mmae=node(1)%eqd
    
 end subroutine
 
@@ -13950,28 +14560,27 @@ nodecel=2
    
    
     ffu=0
-    ffu(1)=1 !spring of the ellipse
+    ffu(1)=0 !spring of the ellipse
     ffu(2)=0 !to quit if there are too many cells
-    ffu(3)=1 !screening
-    ffu(4)=0 !torsion
-    ffu(5)=0 !external signal source
-    ffu(6)=0 !eggshell miguel4-1-13
+    ffu(2)=0 !>>> TT no screening !screening
+    ffu(3)=0 !torsion
+    
+    
 
-    ffu(11)=1 !epithelial node plastic deformation
-    ffu(12)=1 !0 dynamic delta, 1 fixed delta
-    ffu(13)=0 !neighboring by triangulation
-    ffu(17)=1 !conservacion del volumen
-    ffu(22)=1 !0 = noise biased by energies , 1 = unbiased noise
-    ffu(16)=1
+    ffu(6)=1 !epithelial node plastic deformation
+    ffu(7)=1 !0 dynamic delta, 1 fixed delta
+    ffu(8)=0 !neighboring by triangulation
+    ffu(10)=0 !conservacion del volumen
+    ffu(15)=1 !1 = noise biased by energies , 0 = unbiased noise
    
 
 !**************Distribution of nodes in space
   
     if(radi>0.and.radicel>0) call epiteli_sphere1(radi,radicel,radius,di)
     if(mradi>0.and.mradicel>0.and.layer>0) then
-                       if(packed==0)then ; call mesenq1(mradi,mradicel,layer,zmes,node(ndepi+1)%req)
-                       else  ; call mesenq_packed(mradi,mradicel,layer,zmes,node(ndepi+1)%req) ; end if ; end if
-    print*,"node(ndepi+1)%req",node(ndepi+1)%req
+                       if(packed==0)then ; call mesenq1(mradi,mradicel,layer,zmes,node(ndepi+1)%eqd)
+                       else  ; call mesenq_packed(mradi,mradicel,layer,zmes,node(ndepi+1)%eqd) ; end if ; end if
+    print*,"node(ndepi+1)%eqd",node(ndepi+1)%eqd
     do i=1,nd
       node(i)%orix=node(i)%x ; node(i)%oriy=node(i)%y ; node(i)%oriz=node(i)%z
     end do
@@ -13993,33 +14602,33 @@ nodecel=2
       do i=1,ndepi
            if(node(i)%tipus==2)then  !basal                    !         if(i<=ndepi/2)then  !basal
           node(i)%you=1d1 ; node(i)%adh=0d0
-          node(i)%rep=1d1 ; node(i)%repcel=1d1
-          node(i)%req=req*adjustreq ; node(i)%reqcr=node(i)%req
+          node(i)%rep=1d1 ; node(i)%rec=1d1
+          node(i)%eqd=req*adjustreq ; node(i)%grd=node(i)%eqd
     else                      !apical
           node(i)%you=1d1 ; node(i)%adh=0d0
-          node(i)%rep=1d1 ; node(i)%repcel=1d1
-      node(i)%req=req ; node(i)%reqcr=node(i)%req
+          node(i)%rep=1d1 ; node(i)%rec=1d1
+      node(i)%eqd=req ; node(i)%grd=node(i)%eqd
         end if
 !    print*,"node(i)%tipus",node(i)%tipus   
 !    if (node(i)%tipus==1) then
 !   
-!    print*,"node(i)%req1",node(i)%req
+!    print*,"node(i)%eqd1",node(i)%eqd
 !    else       
 !   
-!    print*,"node(i)%req2",node(i)%req       
+!    print*,"node(i)%eqd2",node(i)%eqd       
 !    end if
    
-    node(i)%reqs=req
-        node(i)%da=node(i)%req*1.80;
-        node(i)%ke=1d1
-        node(i)%tor=43d0
-        node(i)%stor=53d0
-        node(i)%mo=temp
+    node(i)%eqs=req
+        node(i)%add=node(i)%eqd*1.80;
+        node(i)%hoo=1d1
+        node(i)%erp=43d0
+        node(i)%est=53d0
+        node(i)%mov=temp
         node(i)%dmo=desmax
-        node(i)%diffe=0d0
-        node(i)%khold=1d1
+        node(i)%dif=0d0
+        node(i)%kfi=1d1
     node(i)%kvol=1d0
-    node(i)%kplast=1.9d-1
+    node(i)%pla=1.9d-1
       end do
     end if
     print*,"req",req
@@ -14029,24 +14638,24 @@ nodecel=2
     if(mradi>0.and.mradicel>0.and.layer>0)then
       do i=ndepi+1,nd
         node(i)%you=5d0 ; node(i)%adh=5d0
-        node(i)%rep=1d1 ; node(i)%repcel=1d1
-        node(i)%req=req ; node(i)%reqcr=node(i)%req
-        node(i)%reqs=0d0
-        node(i)%da=node(i)%req*1.70
-        node(i)%ke=0d0   !only for epithelium
-        node(i)%tor=1d0  !only for epithelium
-        node(i)%stor=4.3d1 !only for epithelium
+        node(i)%rep=1d1 ; node(i)%rec=1d1
+        node(i)%eqd=req ; node(i)%grd=node(i)%eqd
+        node(i)%eqs=0d0
+        node(i)%add=node(i)%eqd*1.70
+        node(i)%hoo=0d0   !only for epithelium
+        node(i)%erp=1d0  !only for epithelium
+        node(i)%est=4.3d1 !only for epithelium
         node(i)%altre=0  !only for epithelium
-        node(i)%mo=temp
+        node(i)%mov=temp
         node(i)%dmo=desmax
-        node(i)%diffe=0d0
-        node(i)%khold=khold
+        node(i)%dif=0d0
+        node(i)%kfi=khold
       end do
     end if
 
     !General parameters that depend on node parameters
-    rv=2*maxval(node(:)%da)
-    maxdidare=node(1)%req*0.1d0
+    rv=2*maxval(node(:)%add)
+    maxdidare=node(1)%eqd*0.1d0
 
 
     !Distribution of nodes in space
@@ -14066,7 +14675,7 @@ nodecel=2
     !End distribution of nodes in space
 
     !Setting boundary nodes (they will be subject to an external force keeping them in their initial position)
-    node(:)%hold=0
+    node(:)%fix=0
     !!let's do it for the most external layer of cells
     j=0
     !print*,"radicel", radicel
@@ -14077,14 +14686,13 @@ nodecel=2
       j=(6*j+1)*cels(1)%nunodes!nodecel !this is the number of epithelial nodes wich are not external
     print*,"j2",j     
     do i=j+1,ndepi
-        node(i)%hold=1 ;node(i)%repcel=1d1!
-    !node(i)%border=1 !borde abierto
+        node(i)%fix=1 ;node(i)%rec=1d1!
       end do
 !    print*,"ndepi", ndepi
 !    print*,"cels(1)%nunodes",cels(1)%nunodes
 
     !do i=ndepi+1,nd        !all mesenchyme hold
-     !node(i)%hold=1 ;node(i)%repcel=1d2
+     !node(i)%fix=1 ;node(i)%rec=1d2
     !end do
  !     j=0
  !     do i=1,radicel-2
@@ -14095,14 +14703,14 @@ nodecel=2
 !     print*,"j2",j
 !     print*,"nunodes", cels(1)%nunodes   
 !    do i=j+1,ndepi
-!        node(i)%hold=1
-    !    !node(i)%da=node(i)%req*2.0
+!        node(i)%fix=1
+    !    !node(i)%add=node(i)%eqd*2.0
     !    !node(i)%orix=0 ; node(i)%oriy=0
     !    !node(i)%oriz=node(i)%oriz-100
-    !    !node(i)%rep=1d1;node(i)%repcel=1d1
-    !    !node(i)%ke=1d1
-    !    !node(i)%tor=1d1
-    !    !node(i)%stor=1d1
+    !    !node(i)%rep=1d1;node(i)%rec=1d1
+    !    !node(i)%hoo=1d1
+    !    !node(i)%erp=1d1
+    !    !node(i)%est=1d1
 !      end do
       !j=0
       !do i=1,mradicel-2
@@ -14110,16 +14718,16 @@ nodecel=2
       !end do
       !j=(6*j+1)*cels(ncelsepi+1)%nunodes!mradi !this is the number of mesenchymal nodes wich are not external
       !do i=ndepi+j+1,ndepi+ndepi+ndmes/2
-      !  node(i)%hold=1
-      !  !node(i)%da=node(i)%req*2.0
+      !  node(i)%fix=1
+      !  !node(i)%add=node(i)%eqd*2.0
       !  !node(i)%orix=0 ; node(i)%oriy=0
-      !  !node(i)%rep=1d1;node(i)%repcel=1d1
+      !  !node(i)%rep=1d1;node(i)%rec=1d1
       !end do
       !do i=ndepi+ndmes/2+j+1,ndepi+ndmes
-      !  node(i)%hold=1
-      !  !node(i)%da=node(i)%req*2.0
+      !  node(i)%fix=1
+      !  !node(i)%add=node(i)%eqd*2.0
       !  !node(i)%orix=0 ; node(i)%oriy=0
-      !  !node(i)%rep=1d1;node(i)%repcel=1d1
+      !  !node(i)%rep=1d1;node(i)%rec=1d1
       !end do
 
     !!end of setting boundary nodes
@@ -14133,7 +14741,7 @@ print*,"ncels",ncels
         
     do i=1,ncelsepi
         cels(i)%fase=0d0
-      !  cels(i)%reqmax=node(cels(i)%node(1))%req
+      !  cels(i)%eqdmax=node(cels(i)%node(1))%eqd
         cels(i)%minsize_for_div=cels(i)%nunodes*2
         cels(i)%maxsize_for_div=10000 !>>> Is 5-2-14
       end do
@@ -14143,7 +14751,7 @@ print*,"ncelsepi2",ncelsepi
     if(mradi>0.and.mradicel>0.and.layer>0)then
       do i=ncelsepi+1,ncels
         cels(i)%fase=0d0
-     !   cels(i)%reqmax=node(cels(i)%node(1))%req
+     !   cels(i)%eqdmax=node(cels(i)%node(1))%eqd
         cels(i)%minsize_for_div=cels(i)%nunodes*2
         cels(i)%maxsize_for_div=10000 !>>> Is 5-2-14
       end do
@@ -14182,32 +14790,32 @@ print*,"ncelsepi2",ncelsepi
 
    
     !Gene-behavior interactions
-    gen(1)%wa(1)=1   
-    gen(2)%wa(1)=2
-    gen(7)%wa(nparam_per_node+2)=2.8999d-1
+    gen(1)%e(1)=1   
+    gen(2)%e(1)=2
+    gen(7)%e(nparam_per_node+2)=2.8999d-1
        
-    gen(6)%wa(nparam_per_node+2)=5.9d-4!40********************************************2.4d-4
-    gen(8)%wa(nparam_per_node+2)=4d-5!40*********************************************5d-5
+    gen(6)%e(nparam_per_node+2)=5.9d-4!40********************************************2.4d-4
+    gen(8)%e(nparam_per_node+2)=4d-5!40*********************************************5d-5
 
    
 
     !Gene-gene interactions
-        gen(1)%w(1)=5.0d1
-    gen(3)%w(1)=1.0d0
-    gen(8)%w(1)=1.0d2
-        gen(2)%w(2)=5.0d1
-    gen(6)%w(2)=1.0d2
-    gen(4)%w(2)=1d1
+        gen(1)%t(1)=5.0d1
+    gen(3)%t(1)=1.0d0
+    gen(8)%t(1)=1.0d2
+        gen(2)%t(2)=5.0d1
+    gen(6)%t(2)=1.0d2
+    gen(4)%t(2)=1d1
            
     gen(2)%nww=1
-    gen(2)%ww(1,1)=4
-    gen(2)%ww(1,2)=5
-    gen(2)%ww(1,3)=1d2 
+    gen(2)%r(1,1)=4
+    gen(2)%r(1,2)=5
+    gen(2)%r(1,3)=1d2 
 
     gen(5)%nww=1
-    gen(5)%ww(1,1)=3
-    gen(5)%ww(1,2)=7
-    gen(5)%ww(1,3)=1d2 
+    gen(5)%r(1,1)=3
+    gen(5)%r(1,2)=7
+    gen(5)%r(1,3)=1d2 
 
     !Adhesion molecules
 
@@ -14242,8 +14850,8 @@ print*,"ncelsepi2",ncelsepi
 
     call update_npag
     node(:)%talone=0.0d0
-    ramax=maxval(node(:)%da)*3
-    node(:)%diffe=0.0d0
+    ramax=maxval(node(:)%add)*3
+    node(:)%dif=0.0d0
    
  
 
@@ -14406,28 +15014,27 @@ nodecel=2
    
    
     ffu=0
-    ffu(1)=1 !spring of the ellipse
+    ffu(1)=0 !spring of the ellipse
     ffu(2)=0 !to quit if there are too many cells
-    ffu(3)=1 !screening
-    ffu(4)=0 !torsion
-    ffu(5)=0 !external signal source
-    ffu(6)=0 !eggshell miguel4-1-13
+    ffu(2)=0 !>>> TT no screening !screening
+    ffu(3)=0 !torsion
+    
+    
 
-    ffu(11)=1 !epithelial node plastic deformation
-    ffu(12)=1 !0 dynamic delta, 1 fixed delta
-    ffu(13)=0 !neighboring by triangulation
-    ffu(17)=1 !conservacion del volumen
-    ffu(22)=1 !0 = noise biased by energies , 1 = unbiased noise
-    ffu(16)=1
+    ffu(6)=1 !epithelial node plastic deformation
+    ffu(7)=1 !0 dynamic delta, 1 fixed delta
+    ffu(8)=0 !neighboring by triangulation
+    ffu(10)=0 !conservacion del volumen
+    ffu(15)=1 !1 = noise biased by energies , 0 = unbiased noise
    
 
 !**************Distribution of nodes in space
   
     if(radi>0.and.radicel>0) call epiteli_sphere1(radi,radicel,radius,di)
     if(mradi>0.and.mradicel>0.and.layer>0) then
-                       if(packed==0)then ; call mesenq1(mradi,mradicel,layer,zmes,node(ndepi+1)%req)
-                       else  ; call mesenq_packed(mradi,mradicel,layer,zmes,node(ndepi+1)%req) ; end if ; end if
-    print*,"node(ndepi+1)%req",node(ndepi+1)%req
+                       if(packed==0)then ; call mesenq1(mradi,mradicel,layer,zmes,node(ndepi+1)%eqd)
+                       else  ; call mesenq_packed(mradi,mradicel,layer,zmes,node(ndepi+1)%eqd) ; end if ; end if
+    print*,"node(ndepi+1)%eqd",node(ndepi+1)%eqd
     do i=1,nd
       node(i)%orix=node(i)%x ; node(i)%oriy=node(i)%y ; node(i)%oriz=node(i)%z
     end do
@@ -14449,34 +15056,34 @@ nodecel=2
       do i=1,ndepi
            if(node(i)%tipus==2)then  !basal                    !         if(i<=ndepi/2)then  !basal
           node(i)%you=1d1 ; node(i)%adh=0d0
-          node(i)%rep=1d1 ; node(i)%repcel=5d0
-          node(i)%req=req*adjustreq ; node(i)%reqcr=node(i)%req
+          node(i)%rep=1d1 ; node(i)%rec=5d0
+          node(i)%eqd=req*adjustreq ; node(i)%grd=node(i)%eqd
     else                      !apical
           node(i)%you=1d1 ; node(i)%adh=0d0
-          node(i)%rep=1d1 ; node(i)%repcel=5d0
-      node(i)%req=req ; node(i)%reqcr=node(i)%req
+          node(i)%rep=1d1 ; node(i)%rec=5d0
+      node(i)%eqd=req ; node(i)%grd=node(i)%eqd
         end if
 !    print*,"node(i)%tipus",node(i)%tipus   
 !    if (node(i)%tipus==1) then
 !   
-!    print*,"node(i)%req1",node(i)%req
+!    print*,"node(i)%eqd1",node(i)%eqd
 !    else       
 !   
-!    print*,"node(i)%req2",node(i)%req       
+!    print*,"node(i)%eqd2",node(i)%eqd       
 !    end if
    
-    node(i)%reqs=req
-        node(i)%da=node(i)%req*1.80;
-        node(i)%ke=1d1
-        node(i)%tor=1d1
-        node(i)%stor=1d1
-        node(i)%mo=temp
+    node(i)%eqs=req
+        node(i)%add=node(i)%eqd*1.80;
+        node(i)%hoo=1d1
+        node(i)%erp=1d1
+        node(i)%est=1d1
+        node(i)%mov=temp
         node(i)%dmo=desmax
-        node(i)%diffe=0d0
-        node(i)%khold=1d1
+        node(i)%dif=0d0
+        node(i)%kfi=1d1
     node(i)%kvol=5d0
-    node(i)%kplast=5.0d0
-        node(i)%acecm=0d0
+    node(i)%pla=5.0d0
+        node(i)%ecm=0d0
       end do
     end if
     print*,"req",req
@@ -14486,26 +15093,26 @@ nodecel=2
     if(mradi>0.and.mradicel>0.and.layer>0)then
       do i=ndepi+1,nd
         node(i)%you=5d0 ; node(i)%adh=5d0
-        node(i)%rep=1d1 ; node(i)%repcel=1d1
-        node(i)%req=req ; node(i)%reqcr=node(i)%req
-        node(i)%reqs=0d0
-        node(i)%da=node(i)%req*1.70
-        node(i)%ke=0d0   !only for epithelium
-        node(i)%tor=1d0  !only for epithelium
-        node(i)%stor=4.3d1 !only for epithelium
+        node(i)%rep=1d1 ; node(i)%rec=1d1
+        node(i)%eqd=req ; node(i)%grd=node(i)%eqd
+        node(i)%eqs=0d0
+        node(i)%add=node(i)%eqd*1.70
+        node(i)%hoo=0d0   !only for epithelium
+        node(i)%erp=1d0  !only for epithelium
+        node(i)%est=4.3d1 !only for epithelium
         node(i)%altre=0  !only for epithelium
-        node(i)%mo=temp
+        node(i)%mov=temp
         node(i)%dmo=desmax
-        node(i)%diffe=0d0
-        node(i)%khold=khold
-        node(i)%acecm=0d0
+        node(i)%dif=0d0
+        node(i)%kfi=khold
+        node(i)%ecm=0d0
 
       end do
     end if
 
     !General parameters that depend on node parameters
-    rv=2*maxval(node(:)%da)
-    maxdidare=node(1)%req*0.1d0
+    rv=2*maxval(node(:)%add)
+    maxdidare=node(1)%eqd*0.1d0
 
 
     !Distribution of nodes in space
@@ -14520,16 +15127,16 @@ nodecel=2
         aa=node(kk)%x ; bb=node(kk)%y ; cc=node(kk)%z
         ax=a-aa ; ay=b-bb ; az=c-cc
         d=sqrt(ax**2+ay**2+az**2)
-        ax=2*node(k)%req*ax/d ; ay=2*node(k)%req*ay/d ; az=2*node(k)%req*az/d
+        ax=2*node(k)%eqd*ax/d ; ay=2*node(k)%eqd*ay/d ; az=2*node(k)%eqd*az/d
 
         node(ii)%x=a+ax ; node(ii)%y=b+ay ; node(ii)%z=c+az
         !nodeo(ii)%x=a+ax ; nodeo(ii)%y=b+ay ; nodeo(ii)%z=c+az
         node(ii)%orix=a+ax ; node(ii)%oriy=b+ay ; node(ii)%oriz=c+az
 
         node(ii)%tipus=4 ; node(ii)%icel=-ii 
-        node(ii)%req=0.15d0 ; node(ii)%reqcr=node(ii)%req
-        node(ii)%repcel=5d1 ; node(ii)%da=node(ii)%req*1.7d0
-        node(ii)%hold=2
+        node(ii)%eqd=0.15d0 ; node(ii)%grd=node(ii)%eqd
+        node(ii)%rec=5d1 ; node(ii)%add=node(ii)%eqd*1.7d0
+        node(ii)%fix=2
       end do
 
 
@@ -14537,7 +15144,7 @@ nodecel=2
     !End distribution of nodes in space
 
     !Setting boundary nodes (they will be subject to an external force keeping them in their initial position)
-    !node(:)%hold=0
+    !node(:)%fix=0
     !!let's do it for the most external layer of cells
     j=0
     !print*,"radicel", radicel
@@ -14548,14 +15155,13 @@ nodecel=2
       j=(6*j+1)*cels(1)%nunodes!nodecel !this is the number of epithelial nodes wich are not external
     print*,"j2",j     
     !do i=j+1,ndepi
-        !node(i)%hold=1 ;node(i)%repcel=1d1!
-    !node(i)%border=1 !borde abierto
+        !node(i)%fix=1 ;node(i)%rec=1d1!
      ! end do
 !    print*,"ndepi", ndepi
 !    print*,"cels(1)%nunodes",cels(1)%nunodes
 
     !do i=ndepi+1,nd        !all mesenchyme hold
-     !node(i)%hold=1 ;node(i)%repcel=1d2
+     !node(i)%fix=1 ;node(i)%rec=1d2
     !end do
  !     j=0
  !     do i=1,radicel-2
@@ -14566,14 +15172,14 @@ nodecel=2
 !     print*,"j2",j
 !     print*,"nunodes", cels(1)%nunodes   
 !    do i=j+1,ndepi
-!        node(i)%hold=1
-    !    !node(i)%da=node(i)%req*2.0
+!        node(i)%fix=1
+    !    !node(i)%add=node(i)%eqd*2.0
     !    !node(i)%orix=0 ; node(i)%oriy=0
     !    !node(i)%oriz=node(i)%oriz-100
-    !    !node(i)%rep=1d1;node(i)%repcel=1d1
-    !    !node(i)%ke=1d1
-    !    !node(i)%tor=1d1
-    !    !node(i)%stor=1d1
+    !    !node(i)%rep=1d1;node(i)%rec=1d1
+    !    !node(i)%hoo=1d1
+    !    !node(i)%erp=1d1
+    !    !node(i)%est=1d1
 !      end do
       !j=0
       !do i=1,mradicel-2
@@ -14581,16 +15187,16 @@ nodecel=2
       !end do
       !j=(6*j+1)*cels(ncelsepi+1)%nunodes!mradi !this is the number of mesenchymal nodes wich are not external
       !do i=ndepi+j+1,ndepi+ndepi+ndmes/2
-      !  node(i)%hold=1
-      !  !node(i)%da=node(i)%req*2.0
+      !  node(i)%fix=1
+      !  !node(i)%add=node(i)%eqd*2.0
       !  !node(i)%orix=0 ; node(i)%oriy=0
-      !  !node(i)%rep=1d1;node(i)%repcel=1d1
+      !  !node(i)%rep=1d1;node(i)%rec=1d1
       !end do
       !do i=ndepi+ndmes/2+j+1,ndepi+ndmes
-      !  node(i)%hold=1
-      !  !node(i)%da=node(i)%req*2.0
+      !  node(i)%fix=1
+      !  !node(i)%add=node(i)%eqd*2.0
       !  !node(i)%orix=0 ; node(i)%oriy=0
-      !  !node(i)%rep=1d1;node(i)%repcel=1d1
+      !  !node(i)%rep=1d1;node(i)%rec=1d1
       !end do
 
     !!end of setting boundary nodes
@@ -14604,7 +15210,7 @@ print*,"ncels",ncels
         
     do i=1,ncelsepi
         cels(i)%fase=0d0
-      !  cels(i)%reqmax=node(cels(i)%node(1))%req
+      !  cels(i)%eqdmax=node(cels(i)%node(1))%eqd
         cels(i)%minsize_for_div=cels(i)%nunodes*2
         cels(i)%maxsize_for_div=10000 !>>> Is 5-2-14
       end do
@@ -14614,7 +15220,7 @@ print*,"ncelsepi2",ncelsepi
     if(mradi>0.and.mradicel>0.and.layer>0)then
       do i=ncelsepi+1,ncels
         cels(i)%fase=0d0
-     !   cels(i)%reqmax=node(cels(i)%node(1))%req
+     !   cels(i)%eqdmax=node(cels(i)%node(1))%eqd
         cels(i)%minsize_for_div=cels(i)%nunodes*2
         cels(i)%maxsize_for_div=10000 !>>> Is 5-2-14
       end do
@@ -14644,27 +15250,27 @@ print*,"ncelsepi2",ncelsepi
     gen(5)%diffu=0d0 ; gen(5)%kindof=1 ; gen(5)%mu=0d0
 
     !Gene-behavior interactions
-    gen(1)%wa(1)=1   
-    gen(2)%wa(1)=2
-    gen(5)%wa(1)=3
-    gen(4)%wa(1)=4
+    gen(1)%e(1)=1   
+    gen(2)%e(1)=2
+    gen(5)%e(1)=3
+    gen(4)%e(1)=4
 
-    !gen(3)%wa(21)=-0.05d0
-    !gen(3)%wa(27)=-1d2
-    !gen(3)%wa(28)=-1d2
-    !gen(1)%wa(27)=-1d2
+    !gen(3)%e(21)=-0.05d0
+    !gen(3)%e(27)=-1d2
+    !gen(3)%e(28)=-1d2
+    !gen(1)%e(27)=-1d2
 
-    gen(3)%wa(nparam_per_node+4)=5d-1
-    gen(4)%wa(nparam_per_node+5)=1d0
-    gen(3)%wa(nparam_per_node+6)=5d0
-    gen(3)%wa(nparam_per_node+7)=0.20d0
+    gen(3)%e(nparam_per_node+4)=5d-1
+    gen(4)%e(nparam_per_node+5)=1d0
+    gen(3)%e(nparam_per_node+6)=5d0
+    gen(3)%e(nparam_per_node+7)=0.20d0
 
 
 
  
     !Gene-gene interactions
 
-    gen(4)%w(3)=1d0
+    gen(4)%t(3)=1d0
  
     !Adhesion molecules
 
@@ -14713,8 +15319,8 @@ print*,"ncelsepi2",ncelsepi
 
     call update_npag
     node(:)%talone=0.0d0
-    ramax=maxval(node(:)%da)*3
-    node(:)%diffe=0.0d0
+    ramax=maxval(node(:)%add)*3
+    node(:)%dif=0.0d0
    
  
 
@@ -14859,28 +15465,27 @@ nodecel=2
    
    
     ffu=0
-    ffu(1)=1 !spring of the ellipse
+    ffu(1)=0 !spring of the ellipse
     ffu(2)=0 !to quit if there are too many cells
-    ffu(3)=1 !screening
-    ffu(4)=0 !torsion
-    ffu(5)=0 !external signal source
-    ffu(6)=0 !eggshell miguel4-1-13
+    ffu(2)=0 !>>> TT no screening !screening
+    ffu(3)=0 !torsion
+    
+    
 
-    ffu(11)=1 !epithelial node plastic deformation
-    ffu(12)=1 !0 dynamic delta, 1 fixed delta
-    ffu(13)=0 !neighboring by triangulation
-    ffu(17)=1 !conservacion del volumen
-    ffu(22)=1 !0 = noise biased by energies , 1 = unbiased noise
-    ffu(16)=1
+    ffu(6)=1 !epithelial node plastic deformation
+    ffu(7)=1 !0 dynamic delta, 1 fixed delta
+    ffu(8)=0 !neighboring by triangulation
+    ffu(10)=0 !conservacion del volumen
+    ffu(15)=1 !1 = noise biased by energies , 0 = unbiased noise
    
 
 !**************Distribution of nodes in space
   
     if(radi>0.and.radicel>0) call epiteli_sphere1(radi,radicel,radius,di)
     if(mradi>0.and.mradicel>0.and.layer>0) then
-                       if(packed==0)then ; call mesenq1(mradi,mradicel,layer,zmes,node(ndepi+1)%req)
-                       else  ; call mesenq_packed(mradi,mradicel,layer,zmes,node(ndepi+1)%req) ; end if ; end if
-    print*,"node(ndepi+1)%req",node(ndepi+1)%req
+                       if(packed==0)then ; call mesenq1(mradi,mradicel,layer,zmes,node(ndepi+1)%eqd)
+                       else  ; call mesenq_packed(mradi,mradicel,layer,zmes,node(ndepi+1)%eqd) ; end if ; end if
+    print*,"node(ndepi+1)%eqd",node(ndepi+1)%eqd
     do i=1,nd
       node(i)%orix=node(i)%x ; node(i)%oriy=node(i)%y ; node(i)%oriz=node(i)%z
     end do
@@ -14902,33 +15507,33 @@ nodecel=2
       do i=1,ndepi
            if(node(i)%tipus==2)then  !basal                    !         if(i<=ndepi/2)then  !basal
           node(i)%you=1d1 ; node(i)%adh=0d0
-          node(i)%rep=1d1 ; node(i)%repcel=1d1
-          node(i)%req=req*adjustreq ; node(i)%reqcr=node(i)%req
+          node(i)%rep=1d1 ; node(i)%rec=1d1
+          node(i)%eqd=req*adjustreq ; node(i)%grd=node(i)%eqd
     else                      !apical
           node(i)%you=1d1 ; node(i)%adh=0d0
-          node(i)%rep=1d1 ; node(i)%repcel=1d1
-      node(i)%req=req ; node(i)%reqcr=node(i)%req
+          node(i)%rep=1d1 ; node(i)%rec=1d1
+      node(i)%eqd=req ; node(i)%grd=node(i)%eqd
         end if
 !    print*,"node(i)%tipus",node(i)%tipus   
 !    if (node(i)%tipus==1) then
 !   
-!    print*,"node(i)%req1",node(i)%req
+!    print*,"node(i)%eqd1",node(i)%eqd
 !    else       
 !   
-!    print*,"node(i)%req2",node(i)%req       
+!    print*,"node(i)%eqd2",node(i)%eqd       
 !    end if
    
-    node(i)%reqs=req
-        node(i)%da=node(i)%req*1.80;
-        node(i)%ke=1d1
-        node(i)%tor=43d0
-        node(i)%stor=43d0
-        node(i)%mo=temp
+    node(i)%eqs=req
+        node(i)%add=node(i)%eqd*1.80;
+        node(i)%hoo=1d1
+        node(i)%erp=43d0
+        node(i)%est=43d0
+        node(i)%mov=temp
         node(i)%dmo=desmax
-        node(i)%diffe=0d0
-        node(i)%khold=1d1
+        node(i)%dif=0d0
+        node(i)%kfi=1d1
     node(i)%kvol=1d0
-    node(i)%kplast=1.9d-1
+    node(i)%pla=1.9d-1
       end do
     end if
     print*,"req",req
@@ -14938,24 +15543,24 @@ nodecel=2
     if(mradi>0.and.mradicel>0.and.layer>0)then
       do i=ndepi+1,nd
         node(i)%you=5d0 ; node(i)%adh=5d0
-        node(i)%rep=1d1 ; node(i)%repcel=1d1
-        node(i)%req=req ; node(i)%reqcr=node(i)%req
-        node(i)%reqs=0d0
-        node(i)%da=node(i)%req*1.70
-        node(i)%ke=0d0   !only for epithelium
-        node(i)%tor=1d0  !only for epithelium
-        node(i)%stor=4.3d1 !only for epithelium
+        node(i)%rep=1d1 ; node(i)%rec=1d1
+        node(i)%eqd=req ; node(i)%grd=node(i)%eqd
+        node(i)%eqs=0d0
+        node(i)%add=node(i)%eqd*1.70
+        node(i)%hoo=0d0   !only for epithelium
+        node(i)%erp=1d0  !only for epithelium
+        node(i)%est=4.3d1 !only for epithelium
         node(i)%altre=0  !only for epithelium
-        node(i)%mo=temp
+        node(i)%mov=temp
         node(i)%dmo=desmax
-        node(i)%diffe=0d0
-        node(i)%khold=khold
+        node(i)%dif=0d0
+        node(i)%kfi=khold
       end do
     end if
 
     !General parameters that depend on node parameters
-    rv=2*maxval(node(:)%da)
-    maxdidare=node(1)%req*0.1d0
+    rv=2*maxval(node(:)%add)
+    maxdidare=node(1)%eqd*0.1d0
 
 
     !Distribution of nodes in space
@@ -14975,7 +15580,7 @@ nodecel=2
     !End distribution of nodes in space
 
     !Setting boundary nodes (they will be subject to an external force keeping them in their initial position)
-    node(:)%hold=0
+    node(:)%fix=0
     !!let's do it for the most external layer of cells
     j=0
     !print*,"radicel", radicel
@@ -14986,14 +15591,13 @@ nodecel=2
       j=(6*j+1)*cels(1)%nunodes!nodecel !this is the number of epithelial nodes wich are not external
     print*,"j2",j     
     do i=j+1,ndepi
-        node(i)%hold=1 ;node(i)%repcel=1d1!
-    !node(i)%border=1 !borde abierto
+        node(i)%fix=1 ;node(i)%rec=1d1!
       end do
 !    print*,"ndepi", ndepi
 !    print*,"cels(1)%nunodes",cels(1)%nunodes
 
     !do i=ndepi+1,nd        !all mesenchyme hold
-     !node(i)%hold=1 ;node(i)%repcel=1d2
+     !node(i)%fix=1 ;node(i)%rec=1d2
     !end do
  !     j=0
  !     do i=1,radicel-2
@@ -15004,14 +15608,14 @@ nodecel=2
 !     print*,"j2",j
 !     print*,"nunodes", cels(1)%nunodes   
 !    do i=j+1,ndepi
-!        node(i)%hold=1
-    !    !node(i)%da=node(i)%req*2.0
+!        node(i)%fix=1
+    !    !node(i)%add=node(i)%eqd*2.0
     !    !node(i)%orix=0 ; node(i)%oriy=0
     !    !node(i)%oriz=node(i)%oriz-100
-    !    !node(i)%rep=1d1;node(i)%repcel=1d1
-    !    !node(i)%ke=1d1
-    !    !node(i)%tor=1d1
-    !    !node(i)%stor=1d1
+    !    !node(i)%rep=1d1;node(i)%rec=1d1
+    !    !node(i)%hoo=1d1
+    !    !node(i)%erp=1d1
+    !    !node(i)%est=1d1
 !      end do
       !j=0
       !do i=1,mradicel-2
@@ -15019,16 +15623,16 @@ nodecel=2
       !end do
       !j=(6*j+1)*cels(ncelsepi+1)%nunodes!mradi !this is the number of mesenchymal nodes wich are not external
       !do i=ndepi+j+1,ndepi+ndepi+ndmes/2
-      !  node(i)%hold=1
-      !  !node(i)%da=node(i)%req*2.0
+      !  node(i)%fix=1
+      !  !node(i)%add=node(i)%eqd*2.0
       !  !node(i)%orix=0 ; node(i)%oriy=0
-      !  !node(i)%rep=1d1;node(i)%repcel=1d1
+      !  !node(i)%rep=1d1;node(i)%rec=1d1
       !end do
       !do i=ndepi+ndmes/2+j+1,ndepi+ndmes
-      !  node(i)%hold=1
-      !  !node(i)%da=node(i)%req*2.0
+      !  node(i)%fix=1
+      !  !node(i)%add=node(i)%eqd*2.0
       !  !node(i)%orix=0 ; node(i)%oriy=0
-      !  !node(i)%rep=1d1;node(i)%repcel=1d1
+      !  !node(i)%rep=1d1;node(i)%rec=1d1
       !end do
 
     !!end of setting boundary nodes
@@ -15042,7 +15646,7 @@ print*,"ncels",ncels
         
     do i=1,ncelsepi
         cels(i)%fase=0d0
-      !  cels(i)%reqmax=node(cels(i)%node(1))%req
+      !  cels(i)%eqdmax=node(cels(i)%node(1))%eqd
         cels(i)%minsize_for_div=cels(i)%nunodes*2
         cels(i)%maxsize_for_div=10000 !>>> Is 5-2-14
       end do
@@ -15052,7 +15656,7 @@ print*,"ncelsepi2",ncelsepi
     if(mradi>0.and.mradicel>0.and.layer>0)then
       do i=ncelsepi+1,ncels
         cels(i)%fase=0d0
-     !   cels(i)%reqmax=node(cels(i)%node(1))%req
+     !   cels(i)%eqdmax=node(cels(i)%node(1))%eqd
         cels(i)%minsize_for_div=cels(i)%nunodes*2
         cels(i)%maxsize_for_div=10000 !>>> Is 5-2-14
       end do
@@ -15101,67 +15705,67 @@ print*,"ncelsepi2",ncelsepi
     gen(10)%npost=2  ; allocate(gen(10)%post(gen(10)%npost)) ; gen(10)%post(1)=3 ; gen(10)%post(2)=9
 
     !Gene-behavior interactions
-    gen(1)%wa(1)=1   
-    gen(2)%wa(1)=2
-    gen(7)%wa(nparam_per_node+2)=2.8999d-1
+    gen(1)%e(1)=1   
+    gen(2)%e(1)=2
+    gen(7)%e(nparam_per_node+2)=2.8999d-1
        
-    gen(6)%wa(nparam_per_node+2)=2.4d-4!40********************************************2.4d-4
-    gen(8)%wa(nparam_per_node+2)=5d-5!40*********************************************5d-5
+    gen(6)%e(nparam_per_node+2)=2.4d-4!40********************************************2.4d-4
+    gen(8)%e(nparam_per_node+2)=5d-5!40*********************************************5d-5
 
    
 
     !Gene-gene interactions
-        gen(1)%w(1)=5.0d1
-    gen(3)%w(1)=5.0d1
-    gen(8)%w(1)=1.0d2
-        gen(2)%w(2)=5.0d1
-    gen(6)%w(2)=1.0d2
-    gen(4)%w(2)=1d1
+        gen(1)%t(1)=5.0d1
+    gen(3)%t(1)=5.0d1
+    gen(8)%t(1)=1.0d2
+        gen(2)%t(2)=5.0d1
+    gen(6)%t(2)=1.0d2
+    gen(4)%t(2)=1d1
            
     gen(2)%nww=1
-    gen(2)%ww(1,1)=4
-    gen(2)%ww(1,2)=5
-    gen(2)%ww(1,3)=1d2 
+    gen(2)%r(1,1)=4
+    gen(2)%r(1,2)=5
+    gen(2)%r(1,3)=1d2 
 
     !gen(5)%nww=1
-    !gen(5)%ww(1,1)=3
-    !gen(5)%ww(1,2)=7
-    !gen(5)%ww(1,3)=1d2 
+    !gen(5)%r(1,1)=3
+    !gen(5)%r(1,2)=7
+    !gen(5)%r(1,3)=1d2 
 
     !gen(9)%nww=1
-    !gen(9)%ww(1,1)=3
-    !gen(9)%ww(1,2)=7
-    !gen(9)%ww(1,3)=1d2 
+    !gen(9)%r(1,1)=3
+    !gen(9)%r(1,2)=7
+    !gen(9)%r(1,3)=1d2 
 
 
     gen(7)%nww=4
-    gen(7)%ww(1,1)=3
-    gen(7)%ww(1,2)=7
-    gen(7)%ww(1,3)=1d2 
-    gen(7)%ww(2,1)=7
-    gen(7)%ww(2,2)=3
-    gen(7)%ww(2,3)=1d2
-    gen(7)%ww(3,1)=5
-    gen(7)%ww(3,2)=7
-    gen(7)%ww(3,3)=1d2 
-    gen(7)%ww(4,1)=7
-    gen(7)%ww(4,2)=5
-    gen(7)%ww(4,3)=1d2 
+    gen(7)%r(1,1)=3
+    gen(7)%r(1,2)=7
+    gen(7)%r(1,3)=1d2 
+    gen(7)%r(2,1)=7
+    gen(7)%r(2,2)=3
+    gen(7)%r(2,3)=1d2
+    gen(7)%r(3,1)=5
+    gen(7)%r(3,2)=7
+    gen(7)%r(3,3)=1d2 
+    gen(7)%r(4,1)=7
+    gen(7)%r(4,2)=5
+    gen(7)%r(4,3)=1d2 
 
 
     gen(10)%nww=4
-    gen(10)%ww(1,1)=3
-    gen(10)%ww(1,2)=10
-    gen(10)%ww(1,3)=1d2 
-    gen(10)%ww(2,1)=10
-    gen(10)%ww(2,2)=3
-    gen(10)%ww(2,3)=1d2
-    gen(10)%ww(3,1)=9
-    gen(10)%ww(3,2)=10
-    gen(10)%ww(3,3)=1d2 
-    gen(10)%ww(4,1)=10
-    gen(10)%ww(4,2)=9
-    gen(10)%ww(4,3)=1d2 
+    gen(10)%r(1,1)=3
+    gen(10)%r(1,2)=10
+    gen(10)%r(1,3)=1d2 
+    gen(10)%r(2,1)=10
+    gen(10)%r(2,2)=3
+    gen(10)%r(2,3)=1d2
+    gen(10)%r(3,1)=9
+    gen(10)%r(3,2)=10
+    gen(10)%r(3,3)=1d2 
+    gen(10)%r(4,1)=10
+    gen(10)%r(4,2)=9
+    gen(10)%r(4,3)=1d2 
 
 
     !Adhesion molecules
@@ -15199,8 +15803,8 @@ print*,"ncelsepi2",ncelsepi
 
     call update_npag
     node(:)%talone=0.0d0
-    ramax=maxval(node(:)%da)*3
-    node(:)%diffe=0.0d0
+    ramax=maxval(node(:)%add)*3
+    node(:)%dif=0.0d0
    
  
 
@@ -15506,12 +16110,12 @@ real*8,allocatable::cmalla(:,:),cveci(:,:),primers(:)
 
 
     realtime=0
-    maxdidare=node(1)%req*0.1d0
+    maxdidare=node(1)%eqd*0.1d0
     dmax=1
     screen_radius=1.0d0
     node(:)%talone=0.0d0
-    ramax=maxval(node(:)%da)*3
-    node(:)%diffe=0.0d0
+    ramax=maxval(node(:)%add)*3
+    node(:)%dif=0.0d0
 end subroutine epiteli_sphere1
 !*************************************************************************************
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -15825,7 +16429,7 @@ subroutine epi_hierarchic
     if (allocated(cels)) deallocate(cels)
     allocate(node(nda),cels(ncals)) 
     call iniarrays
-    if(radi==1.or.mradi==1) ffu(1)=1
+    if(radi==1.or.mradi==1) ffu(1)=0
     !End Allocatations
 
 
@@ -15860,19 +16464,19 @@ subroutine epi_hierarchic
     
     ffu=0
      !spring of the ellipse
-    ffu(1)=1
+    ffu(1)=0
     ffu(2)=0 !to quit if there are too many cells
-    ffu(3)=1 !screening
-    ffu(4)=0 !torsion
-    ffu(5)=0 !external signal source
-    ffu(6)=0 !eggshell miguel4-1-13
+    ffu(2)=0 !>>> TT no screening !screening
+    ffu(3)=0 !torsion
+    
+    
 
-    ffu(11)=1 !epithelial node plastic deformation
-    ffu(12)=1 !0 dynamic delta, 1 fixed delta
-    ffu(13)=0 !neighboring by triangulation
-    ffu(14)=0 !physical boundaries (walls)
-    ffu(17)=1 !volume conservation (epithelial)
-    ffu(22)=1 !0 = noise biased by energies , 1 = unbiased noise
+    ffu(6)=1 !epithelial node plastic deformation
+    ffu(7)=1 !0 dynamic delta, 1 fixed delta
+    ffu(8)=0 !neighboring by triangulation
+    
+    ffu(10)=0 !volume conservation (epithelial)
+    ffu(15)=1 !1 = noise biased by energies , 0 = unbiased noise
 
 
    !******* #2 DEFINING NODE MECHANIC PARAMETERS *******
@@ -15881,22 +16485,22 @@ subroutine epi_hierarchic
       do i=1,ndepi
         if(i<=ndepi/2)then  !basal
           node(i)%you=5d0 ; node(i)%adh=0d0
-          node(i)%rep=1d1 ; node(i)%repcel=1d1
+          node(i)%rep=1d1 ; node(i)%rec=1d1
         else                      !apical
           node(i)%you=1d1 ; node(i)%adh=0d0
-          node(i)%rep=1d1 ; node(i)%repcel=1d1
+          node(i)%rep=1d1 ; node(i)%rec=1d1
         end if
-        node(i)%req=0.25d0 ; node(i)%reqcr=node(i)%req
-        node(i)%reqs=0.25
-        node(i)%da=node(i)%req*1.60; 
-        node(i)%ke=5d1
-        node(i)%tor=5d0
-        node(i)%stor=5d0
-        node(i)%mo=temp
+        node(i)%eqd=0.25d0 ; node(i)%grd=node(i)%eqd
+        node(i)%eqs=0.25
+        node(i)%add=node(i)%eqd*1.60; 
+        node(i)%hoo=5d1
+        node(i)%erp=5d0
+        node(i)%est=5d0
+        node(i)%mov=temp
         node(i)%dmo=0
-        node(i)%diffe=0d0
-        node(i)%khold=khold
-        node(i)%kplast=0d0
+        node(i)%dif=0d0
+        node(i)%kfi=khold
+        node(i)%pla=0d0
         node(i)%kvol=1d-1
       end do
     end if
@@ -15905,30 +16509,30 @@ subroutine epi_hierarchic
     if(mradi>0.and.mradicel>0.and.layer>0)then
       do i=ndepi+1,nd
         node(i)%you=5d0 ; node(i)%adh=0d0
-        node(i)%rep=1d1 ; node(i)%repcel=3d1
-        node(i)%req=0.25d0 ; node(i)%reqcr=node(i)%req
-        node(i)%reqs=0d0
-        node(i)%da=node(i)%req*1.30
-        node(i)%ke=0d0   !only for epithelium
-        node(i)%tor=1d0  !only for epithelium
-        node(i)%stor=1d1 !only for epithelium
+        node(i)%rep=1d1 ; node(i)%rec=3d1
+        node(i)%eqd=0.25d0 ; node(i)%grd=node(i)%eqd
+        node(i)%eqs=0d0
+        node(i)%add=node(i)%eqd*1.30
+        node(i)%hoo=0d0   !only for epithelium
+        node(i)%erp=1d0  !only for epithelium
+        node(i)%est=1d1 !only for epithelium
         node(i)%altre=0  !only for epithelium
-        node(i)%mo=temp
+        node(i)%mov=temp
         node(i)%dmo=0.0
-        node(i)%diffe=0d0
-        node(i)%khold=khold
+        node(i)%dif=0d0
+        node(i)%kfi=khold
       end do
     end if
 
     !General parameters that depend on node parameters
-    rv=2*maxval(node(:)%da)
+    rv=2*maxval(node(:)%add)
 
 
     !Distribution of nodes in space
-    if(radi>0.and.radicel>0)               call epiteli(radi,radicel,zepi,node(1)%req,node(1)%reqs)
+    if(radi>0.and.radicel>0)               call epiteli(radi,radicel,zepi,node(1)%eqd,node(1)%eqs)
     if(mradi>0.and.mradicel>0.and.layer>0)then
-                       if(packed==0)then ; call mesenq(mradi,mradicel,layer,zmes,node(ndepi+1)%req)
-                       else  ; call mesenq_packed(mradi,mradicel,layer,zmes,node(ndepi+1)%req) ; end if ; end if
+                       if(packed==0)then ; call mesenq(mradi,mradicel,layer,zmes,node(ndepi+1)%eqd)
+                       else  ; call mesenq_packed(mradi,mradicel,layer,zmes,node(ndepi+1)%eqd) ; end if ; end if
 
     do i=1,nd
       node(i)%orix=node(i)%x ; node(i)%oriy=node(i)%y ; node(i)%oriz=node(i)%z
@@ -15946,7 +16550,7 @@ subroutine epi_hierarchic
     !End distribution of nodes in space
 
     !Setting boundary nodes (they will be subject to an external force keeping them in their initial position)
-    node(:)%hold=0
+    node(:)%fix=0
     !!let's do it for the most external layer of cells
       j=0
       do i=1,radicel-2
@@ -15954,8 +16558,7 @@ subroutine epi_hierarchic
       end do
       j=(6*j+1)*cels(1)%nunodes!nodecel !this is the number of epithelial nodes wich are not external
       do i=j+1,ndepi
-        !node(i)%hold=1 ;node(i)%repcel=1d2
-        node(i)%border=1
+        !node(i)%fix=1 ;node(i)%rec=1d2
       end do
       j=0
       do i=1,mradicel-2
@@ -15968,27 +16571,25 @@ subroutine epi_hierarchic
       end do
       k=(6*k+1)*cels(ncelsepi+1)%nunodes!mradi !this is the number of mesenchymal nodes wich are not external
       do i=ndepi+j+1,ndepi+k  !upper mesenchymal layer
-        !node(i)%hold=1;node(i)%repcel=1d2
-        !node(i)%border=1
-        !node(i)%da=node(i)%req*2.0
+        !node(i)%fix=1;node(i)%rec=1d2
+        !node(i)%add=node(i)%eqd*2.0
         !node(i)%orix=0 ; node(i)%oriy=0
-        !node(i)%rep=1d1;node(i)%repcel=1d1
+        !node(i)%rep=1d1;node(i)%rec=1d1
       end do
       do i=ndepi+k+1,nd
-        !node(i)%hold=1;node(i)%repcel=1d2
-        !node(i)%border=1
+        !node(i)%fix=1;node(i)%rec=1d2
       end do
       !do i=ndepi+k+j+1,ndepi+2*k !middle mesenchymal layer
-      !  node(i)%hold=1
-      !  !node(i)%da=node(i)%req*2.0
+      !  node(i)%fix=1
+      !  !node(i)%add=node(i)%eqd*2.0
       !  !node(i)%orix=0 ; node(i)%oriy=0
-      !  !node(i)%rep=1d1;node(i)%repcel=1d1
+      !  !node(i)%rep=1d1;node(i)%rec=1d1
       !end do
       !do i=ndepi+2*k+1,nd  !lower mesenchymal layer
-      !  node(i)%hold=1
-      !  !node(i)%da=node(i)%req*2.0
+      !  node(i)%fix=1
+      !  !node(i)%add=node(i)%eqd*2.0
       !  !node(i)%orix=0 ; node(i)%oriy=0
-      !  !node(i)%rep=1d1;node(i)%repcel=1d1
+      !  !node(i)%rep=1d1;node(i)%rec=1d1
       !end do
 
     !!end of setting boundary nodes
@@ -15999,7 +16600,7 @@ subroutine epi_hierarchic
     if(radi>0.and.radicel>0)then
       do i=1,ncelsepi
         cels(i)%fase=0d0
-        mmae=node(cels(i)%node(1))%req
+        mmae=node(cels(i)%node(1))%eqd
         cels(i)%minsize_for_div=cels(i)%nunodes*2
         cels(i)%maxsize_for_div=10000 !>>> Is 5-2-14
       end do
@@ -16008,7 +16609,7 @@ subroutine epi_hierarchic
     if(mradi>0.and.mradicel>0.and.layer>0)then
       do i=ncelsepi+1,ncels
         cels(i)%fase=0d0
-        mmae=node(cels(i)%node(1))%req
+        mmae=node(cels(i)%node(1))%eqd
         cels(i)%minsize_for_div=cels(i)%nunodes*2
         cels(i)%maxsize_for_div=10000 !>>> Is 5-2-14
       end do
@@ -16083,128 +16684,128 @@ subroutine epi_hierarchic
     !Gene-behavior interactions
     
 
-       gen(1)%wa(1)=1  !epithelial adhesion molecule
-       gen(14)%wa(5)=-0.05
-       gen(14)%wa(28)=-1d2
+       gen(1)%e(1)=1  !epithelial adhesion molecule
+       gen(14)%e(5)=-0.05
+       gen(14)%e(28)=-1d2
 
-       gen(12)%wa(5)=0.05
-       gen(12)%wa(28)=-1d2
+       gen(12)%e(5)=0.05
+       gen(12)%e(28)=-1d2
 
 
-       !gen(14)%wa(1)=3  !basal lamina
-       !gen(4)%wa(5)=-0.05 !this is req (emulating a migratory behavior)
-       !gen(4)%wa(6)=0.10 !this is da (emulating a migratory behavior)
-       !gen(4)%wa(16)=0.03 !this is dmo (migratory cells)
-       !gen(6)%wa(nparam_per_node+8)=1d0
-       !gen(6)%wa(nparam_per_node+16)=1d-2 !this makes random noise biased towards the gradient of the gene
-       !gen(9)%wa(nparam_per_node+2)=1d-2 !SHH effect on epithelial growth
-       !gen(11)%wa(nparam_per_node+2)=5d-3 !BMP effect on mesenchymal growth
+       !gen(14)%e(1)=3  !basal lamina
+       !gen(4)%e(5)=-0.05 !this is req (emulating a migratory behavior)
+       !gen(4)%e(6)=0.10 !this is da (emulating a migratory behavior)
+       !gen(4)%e(16)=0.03 !this is dmo (migratory cells)
+       !gen(6)%e(nparam_per_node+8)=1d0
+       !gen(6)%e(nparam_per_node+16)=1d-2 !this makes random noise biased towards the gradient of the gene
+       !gen(9)%e(nparam_per_node+2)=1d-2 !SHH effect on epithelial growth
+       !gen(11)%e(nparam_per_node+2)=5d-3 !BMP effect on mesenchymal growth
 
 
 
     !Gene-gene interactions
 
       !gen(11)%nww=2      !BMP activated receptor induces production of BMP
-      !gen(11)%ww(1,1)=6  
-      !gen(11)%ww(1,2)=7
-      !gen(11)%ww(1,3)=1d1
-      !gen(11)%ww(2,1)=4   !BMP activated receptor induces production of SHH
-      !gen(11)%ww(2,2)=5
-      !gen(11)%ww(2,3)=1d1
+      !gen(11)%r(1,1)=6  
+      !gen(11)%r(1,2)=7
+      !gen(11)%r(1,3)=1d1
+      !gen(11)%r(2,1)=4   !BMP activated receptor induces production of SHH
+      !gen(11)%r(2,2)=5
+      !gen(11)%r(2,3)=1d1
       
       !gen(7)%nww=1      !BMP morphogen activates BMP receptor
-      !gen(7)%ww(1,1)=10  
-      !gen(7)%ww(1,2)=11
-      !gen(7)%ww(1,3)=1d0
+      !gen(7)%r(1,1)=10  
+      !gen(7)%r(1,2)=11
+      !gen(7)%r(1,3)=1d0
 
-      gen(13)%w(13)=1d0 !housekeeping central activates itself
-      gen(1)%w(13)=1d0  !activates epi cadherin
-      gen(4)%w(13)=1d0  !activates FC1 transcript
-      gen(8)%w(13)=1d0  !activates ssh receptor
-      gen(10)%w(13)=1d0  !activates ssh receptor
-      !gen(14)%w(13)=1.5d0  !activates FT3
-      gen(12)%w(13)=-1.0d0  !activates FT3
+      gen(13)%t(13)=1d0 !housekeeping central activates itself
+      gen(1)%t(13)=1d0  !activates epi cadherin
+      gen(4)%t(13)=1d0  !activates FC1 transcript
+      gen(8)%t(13)=1d0  !activates ssh receptor
+      gen(10)%t(13)=1d0  !activates ssh receptor
+      !gen(14)%t(13)=1.5d0  !activates FT3
+      gen(12)%t(13)=-1.0d0  !activates FT3
 
-      gen(3)%w(3)=1d0 !housekeeping activates itself
-      gen(1)%w(3)=1d0  !activates epi cadherin
-      gen(8)%w(3)=1d0  !activates ssh receptor
-      gen(10)%w(3)=1d0  !activates ssh receptor
+      gen(3)%t(3)=1d0 !housekeeping activates itself
+      gen(1)%t(3)=1d0  !activates epi cadherin
+      gen(8)%t(3)=1d0  !activates ssh receptor
+      gen(10)%t(3)=1d0  !activates ssh receptor
 
-      gen(6)%w(12)=1d0   !FT2 activates FC2 transcript
-      gen(14)%w(12)=-1.5d0  !FT2 inhibits FT3
+      gen(6)%t(12)=1d0   !FT2 activates FC2 transcript
+      gen(14)%t(12)=-1.5d0  !FT2 inhibits FT3
 
-      gen(12)%w(9)=1d0  !R1* activates FT2
-      gen(14)%w(11)=1d0  !R2* activates FT3
+      gen(12)%t(9)=1d0  !R1* activates FT2
+      gen(14)%t(11)=1d0  !R2* activates FT3
 
 
 
       gen(13)%nww=1    !housekeeping epi mediates secretion of FC1
-      gen(13)%ww(1,1)=4
-      gen(13)%ww(1,2)=5
-      gen(13)%ww(1,3)=1d1
+      gen(13)%r(1,1)=4
+      gen(13)%r(1,2)=5
+      gen(13)%r(1,3)=1d1
 
       gen(3)%nww=1    !housekeeping epi mediates secretion of FC2
-      gen(3)%ww(1,1)=6
-      gen(3)%ww(1,2)=7
-      gen(3)%ww(1,3)=1d1
+      gen(3)%r(1,1)=6
+      gen(3)%r(1,2)=7
+      gen(3)%r(1,3)=1d1
 
       
       gen(9)%nww=4      !FC1 morphogen binds R1
-      gen(9)%ww(1,1)=5  
-      gen(9)%ww(1,2)=9
-      gen(9)%ww(1,3)=1d0
-      gen(9)%ww(2,1)=9  
-      gen(9)%ww(2,2)=5
-      gen(9)%ww(2,3)=1d0
+      gen(9)%r(1,1)=5  
+      gen(9)%r(1,2)=9
+      gen(9)%r(1,3)=1d0
+      gen(9)%r(2,1)=9  
+      gen(9)%r(2,2)=5
+      gen(9)%r(2,3)=1d0
 
-      gen(9)%ww(3,1)=8  
-      gen(9)%ww(3,2)=9
-      gen(9)%ww(3,3)=1d0
-      gen(9)%ww(4,1)=9  
-      gen(9)%ww(4,2)=8
-      gen(9)%ww(4,3)=1d0
+      gen(9)%r(3,1)=8  
+      gen(9)%r(3,2)=9
+      gen(9)%r(3,3)=1d0
+      gen(9)%r(4,1)=9  
+      gen(9)%r(4,2)=8
+      gen(9)%r(4,3)=1d0
 
 
       gen(11)%nww=4      !FC2 morphogen activates R2
-      gen(11)%ww(1,1)=7  
-      gen(11)%ww(1,2)=11
-      gen(11)%ww(1,3)=1d0
-      gen(11)%ww(2,1)=11  
-      gen(11)%ww(2,2)=7
-      gen(11)%ww(2,3)=1d0
+      gen(11)%r(1,1)=7  
+      gen(11)%r(1,2)=11
+      gen(11)%r(1,3)=1d0
+      gen(11)%r(2,1)=11  
+      gen(11)%r(2,2)=7
+      gen(11)%r(2,3)=1d0
 
-      gen(11)%ww(3,1)=10
-      gen(11)%ww(3,2)=11
-      gen(11)%ww(3,3)=1d0
-      gen(11)%ww(4,1)=11  
-      gen(11)%ww(4,2)=10
-      gen(11)%ww(4,3)=1d0
+      gen(11)%r(3,1)=10
+      gen(11)%r(3,2)=11
+      gen(11)%r(3,3)=1d0
+      gen(11)%r(4,1)=11  
+      gen(11)%r(4,2)=10
+      gen(11)%r(4,3)=1d0
 
 
 
                         !SHH morphogen activates BMP receptor
-      !gen(5)%ww(3,1)=5  
-      !gen(5)%ww(3,2)=11
-      !gen(5)%ww(3,3)=1d0
-      !gen(5)%ww(4,1)=11  
-      !gen(5)%ww(4,2)=5
-      !gen(5)%ww(4,3)=1d0
+      !gen(5)%r(3,1)=5  
+      !gen(5)%r(3,2)=11
+      !gen(5)%r(3,3)=1d0
+      !gen(5)%r(4,1)=11  
+      !gen(5)%r(4,2)=5
+      !gen(5)%r(4,3)=1d0
 
       !gen(8)%nww=2      !ssh receptor activates SHH receptor
-      !gen(8)%ww(1,1)=8  
-      !gen(8)%ww(1,2)=9
-      !gen(8)%ww(1,3)=1d0
-      !gen(8)%ww(2,1)=9  
-      !gen(8)%ww(2,2)=8
-      !gen(8)%ww(2,3)=1d0
+      !gen(8)%r(1,1)=8  
+      !gen(8)%r(1,2)=9
+      !gen(8)%r(1,3)=1d0
+      !gen(8)%r(2,1)=9  
+      !gen(8)%r(2,2)=8
+      !gen(8)%r(2,3)=1d0
 
       !gen(10)%nww=2               !bmp receptor activates BMP receptor
-      !gen(10)%ww(1,1)=10  
-      !gen(10)%ww(1,2)=11
-      !gen(10)%ww(1,3)=1d0
-      !gen(10)%ww(2,1)=11  
-      !gen(10)%ww(2,2)=10
-      !gen(10)%ww(2,3)=1d0
+      !gen(10)%r(1,1)=10  
+      !gen(10)%r(1,2)=11
+      !gen(10)%r(1,3)=1d0
+      !gen(10)%r(2,1)=11  
+      !gen(10)%r(2,2)=10
+      !gen(10)%r(2,3)=1d0
 
 
 
@@ -16235,7 +16836,7 @@ subroutine epi_hierarchic
     j=(6*j+1) !;print*,"jota",j
 
     do i=1,nd
-      !if(node(i)%hold==1) gex(i,14)=1d0
+      !if(node(i)%fix==1) gex(i,14)=1d0
       !a=sqrt(node(i)%x**2+node(i)%y**2)
       gex(i,1)=1d0
       if(node(i)%icel<=61)then;
@@ -16288,7 +16889,7 @@ subroutine epi_hierarchic
 
     node(:)%talone=0.0d0
 
-    ramax=maxval(node(:)%da)*3
+    ramax=maxval(node(:)%add)*3
 
     
 end subroutine
@@ -16360,127 +16961,127 @@ call blastula_ensemble
     !Gene-behavior interactions
     
 
-       gen(1)%wa(1)=1  !epithelial adhesion molecule
-       gen(14)%wa(21)=-0.02 !-0.05
-       gen(14)%wa(28)=-1d2
+       gen(1)%e(1)=1  !epithelial adhesion molecule
+       gen(14)%e(21)=-0.02 !-0.05
+       gen(14)%e(28)=-1d2
 
-       gen(12)%wa(21)=0.02 !0.05
-       gen(12)%wa(28)=-1d2
+       gen(12)%e(21)=0.02 !0.05
+       gen(12)%e(28)=-1d2
 
 
-       !gen(14)%wa(1)=3  !basal lamina
-       !gen(4)%wa(5)=-0.05 !this is req (emulating a migratory behavior)
-       !gen(4)%wa(6)=0.10 !this is da (emulating a migratory behavior)
-       !gen(4)%wa(16)=0.03 !this is dmo (migratory cells)
-       !gen(6)%wa(nparam_per_node+8)=1d0
-       !gen(6)%wa(nparam_per_node+16)=1d-2 !this makes random noise biased towards the gradient of the gene
-       !gen(9)%wa(nparam_per_node+2)=1d-2 !SHH effect on epithelial growth
-       !gen(11)%wa(nparam_per_node+2)=5d-3 !BMP effect on mesenchymal growth
+       !gen(14)%e(1)=3  !basal lamina
+       !gen(4)%e(5)=-0.05 !this is req (emulating a migratory behavior)
+       !gen(4)%e(6)=0.10 !this is da (emulating a migratory behavior)
+       !gen(4)%e(16)=0.03 !this is dmo (migratory cells)
+       !gen(6)%e(nparam_per_node+8)=1d0
+       !gen(6)%e(nparam_per_node+16)=1d-2 !this makes random noise biased towards the gradient of the gene
+       !gen(9)%e(nparam_per_node+2)=1d-2 !SHH effect on epithelial growth
+       !gen(11)%e(nparam_per_node+2)=5d-3 !BMP effect on mesenchymal growth
 
     !Gene-gene interactions
 
       !gen(11)%nww=2      !BMP activated receptor induces production of BMP
-      !gen(11)%ww(1,1)=6  
-      !gen(11)%ww(1,2)=7
-      !gen(11)%ww(1,3)=1d1
-      !gen(11)%ww(2,1)=4   !BMP activated receptor induces production of SHH
-      !gen(11)%ww(2,2)=5
-      !gen(11)%ww(2,3)=1d1
+      !gen(11)%r(1,1)=6  
+      !gen(11)%r(1,2)=7
+      !gen(11)%r(1,3)=1d1
+      !gen(11)%r(2,1)=4   !BMP activated receptor induces production of SHH
+      !gen(11)%r(2,2)=5
+      !gen(11)%r(2,3)=1d1
       
       gen(12)%nww=1      !FT2 activates FC2
-      gen(12)%ww(1,1)=6  
-      gen(12)%ww(1,2)=7
-      gen(12)%ww(1,3)=1d3
+      gen(12)%r(1,1)=6  
+      gen(12)%r(1,2)=7
+      gen(12)%r(1,3)=1d3
 
-      gen(13)%w(13)=1d0 !housekeeping central activates itself
-      gen(1)%w(13)=1d0  !activates epi cadherin
-      gen(4)%w(13)=1d0  !activates FC1 transcript
-      gen(8)%w(8)=1d0  !R1 activates its own transcription
-      gen(12)%w(13)=-1d3 !FT1 inhibits FT2
-      gen(10)%w(10)=1d0  ! R2 activates its own trans
-      gen(8)%w(8)=1d0  !R1 activates its own transcription
-      !gen(14)%w(13)=1.5d0  !activates FT3
-      gen(12)%w(13)=-1.0d5  !activates FT3
-!      gen(12)%w(12)=1.500d1  !FT3 activates itself
+      gen(13)%t(13)=1d0 !housekeeping central activates itself
+      gen(1)%t(13)=1d0  !activates epi cadherin
+      gen(4)%t(13)=1d0  !activates FC1 transcript
+      gen(8)%t(8)=1d0  !R1 activates its own transcription
+      gen(12)%t(13)=-1d3 !FT1 inhibits FT2
+      gen(10)%t(10)=1d0  ! R2 activates its own trans
+      gen(8)%t(8)=1d0  !R1 activates its own transcription
+      !gen(14)%t(13)=1.5d0  !activates FT3
+      gen(12)%t(13)=-1.0d5  !activates FT3
+!      gen(12)%t(12)=1.500d1  !FT3 activates itself
 
-      gen(3)%w(3)=1d0 !housekeeping activates itself
-      gen(1)%w(3)=1d0  !activates epi cadherin
-      !gen(8)%w(3)=1d0  !activates FC1 receptor
-      gen(10)%w(12)=1d0  !activates ssh receptor
+      gen(3)%t(3)=1d0 !housekeeping activates itself
+      gen(1)%t(3)=1d0  !activates epi cadherin
+      !gen(8)%t(3)=1d0  !activates FC1 receptor
+      gen(10)%t(12)=1d0  !activates ssh receptor
 
-      gen(6)%w(12)=1d4   !FT2 activates FC2 transcript
-      gen(14)%w(12)=-1.5d0  !FT2 inhibits FT3
-      gen(14)%w(14)=0.50d0  !FT3 activates itself
+      gen(6)%t(12)=1d4   !FT2 activates FC2 transcript
+      gen(14)%t(12)=-1.5d0  !FT2 inhibits FT3
+      gen(14)%t(14)=0.50d0  !FT3 activates itself
 
-      gen(12)%w(9)=1.0d4  !R1* activates FT2
-      gen(14)%w(11)=0.1d0  !R2* activates FT3
+      gen(12)%t(9)=1.0d4  !R1* activates FT2
+      gen(14)%t(11)=0.1d0  !R2* activates FT3
 
       gen(13)%nww=1    !housekeeping epi mediates secretion of FC1
-      gen(13)%ww(1,1)=4
-      gen(13)%ww(1,2)=5
-      gen(13)%ww(1,3)=1d1
+      gen(13)%r(1,1)=4
+      gen(13)%r(1,2)=5
+      gen(13)%r(1,3)=1d1
 
       gen(3)%nww=1    !housekeeping epi mediates secretion of FC2
-      gen(3)%ww(1,1)=6
-      gen(3)%ww(1,2)=7
-      gen(3)%ww(1,3)=1d1
+      gen(3)%r(1,1)=6
+      gen(3)%r(1,2)=7
+      gen(3)%r(1,3)=1d1
 
       gen(9)%nww=4      !FC1 morphogen binds R1
-      gen(9)%ww(1,1)=5  
-      gen(9)%ww(1,2)=9
-      gen(9)%ww(1,3)=1d0
-      gen(9)%ww(2,1)=9  
-      gen(9)%ww(2,2)=5
-      gen(9)%ww(2,3)=1d0
+      gen(9)%r(1,1)=5  
+      gen(9)%r(1,2)=9
+      gen(9)%r(1,3)=1d0
+      gen(9)%r(2,1)=9  
+      gen(9)%r(2,2)=5
+      gen(9)%r(2,3)=1d0
 
-      gen(9)%ww(3,1)=8  
-      gen(9)%ww(3,2)=9
-      gen(9)%ww(3,3)=1d0
-      gen(9)%ww(4,1)=9  
-      gen(9)%ww(4,2)=8
-      gen(9)%ww(4,3)=1d0
+      gen(9)%r(3,1)=8  
+      gen(9)%r(3,2)=9
+      gen(9)%r(3,3)=1d0
+      gen(9)%r(4,1)=9  
+      gen(9)%r(4,2)=8
+      gen(9)%r(4,3)=1d0
 
 
       gen(11)%nww=4      !FC2 morphogen activates R2
-      gen(11)%ww(1,1)=7  
-      gen(11)%ww(1,2)=11
-      gen(11)%ww(1,3)=1d3
-      gen(11)%ww(2,1)=11  
-      gen(11)%ww(2,2)=7
-      gen(11)%ww(2,3)=1d0
+      gen(11)%r(1,1)=7  
+      gen(11)%r(1,2)=11
+      gen(11)%r(1,3)=1d3
+      gen(11)%r(2,1)=11  
+      gen(11)%r(2,2)=7
+      gen(11)%r(2,3)=1d0
 
-      gen(11)%ww(3,1)=10
-      gen(11)%ww(3,2)=11
-      gen(11)%ww(3,3)=1d0
-      gen(11)%ww(4,1)=11  
-      gen(11)%ww(4,2)=10
-      gen(11)%ww(4,3)=1d0
+      gen(11)%r(3,1)=10
+      gen(11)%r(3,2)=11
+      gen(11)%r(3,3)=1d0
+      gen(11)%r(4,1)=11  
+      gen(11)%r(4,2)=10
+      gen(11)%r(4,3)=1d0
 
 
 
                         !SHH morphogen activates BMP receptor
-      !gen(5)%ww(3,1)=5  
-      !gen(5)%ww(3,2)=11
-      !gen(5)%ww(3,3)=1d0
-      !gen(5)%ww(4,1)=11  
-      !gen(5)%ww(4,2)=5
-      !gen(5)%ww(4,3)=1d0
+      !gen(5)%r(3,1)=5  
+      !gen(5)%r(3,2)=11
+      !gen(5)%r(3,3)=1d0
+      !gen(5)%r(4,1)=11  
+      !gen(5)%r(4,2)=5
+      !gen(5)%r(4,3)=1d0
 
       !gen(8)%nww=2      !ssh receptor activates SHH receptor
-      !gen(8)%ww(1,1)=8  
-      !gen(8)%ww(1,2)=9
-      !gen(8)%ww(1,3)=1d0
-      !gen(8)%ww(2,1)=9  
-      !gen(8)%ww(2,2)=8
-      !gen(8)%ww(2,3)=1d0
+      !gen(8)%r(1,1)=8  
+      !gen(8)%r(1,2)=9
+      !gen(8)%r(1,3)=1d0
+      !gen(8)%r(2,1)=9  
+      !gen(8)%r(2,2)=8
+      !gen(8)%r(2,3)=1d0
 
       !gen(10)%nww=2               !bmp receptor activates BMP receptor
-      !gen(10)%ww(1,1)=10  
-      !gen(10)%ww(1,2)=11
-      !gen(10)%ww(1,3)=1d0
-      !gen(10)%ww(2,1)=11  
-      !gen(10)%ww(2,2)=10
-      !gen(10)%ww(2,3)=1d0
+      !gen(10)%r(1,1)=10  
+      !gen(10)%r(1,2)=11
+      !gen(10)%r(1,3)=1d0
+      !gen(10)%r(2,1)=11  
+      !gen(10)%r(2,2)=10
+      !gen(10)%r(2,3)=1d0
 
 
 
@@ -16502,8 +17103,8 @@ call blastula_ensemble
 
     end if
 
-    gen(8)%wa(nparam_per_node+2)=5d-2 !0
-    gen(8)%wa(nparam_per_node+2)=5d-2 !5d-5
+    gen(8)%e(nparam_per_node+2)=5d-2 !0
+    gen(8)%e(nparam_per_node+2)=5d-2 !5d-5
 
     do i=1,cels(1)%nunodes
       ii=cels(1)%node(i)
@@ -16516,10 +17117,10 @@ call blastula_ensemble
 
     node(:)%talone=0.0d0
 
-    ramax=maxval(node(:)%da)*3
+    ramax=maxval(node(:)%add)*3
 
-    ffu(1)=1
-    ffu(18)=1
+    ffu(1)=0
+    ffu(11)=1
 
     dif_req=1.20d2
 
@@ -16534,25 +17135,25 @@ subroutine fig4_pre ! it makes a blastula made of cells made of a single cylinde
     ng=14
     call initiate_gene
 
-    gen(8)%wa(nparam_per_node+2)=4d-3 !0
+    gen(8)%e(nparam_per_node+2)=4d-3 !0
     gex(:,8)=1.0d0
     gex(:,10)=1.0d0
     gen(8)%diffu=1.0d0
     gen(10)%diffu=1.0d0
     gen(8)%mu=1.0d0
     gen(10)%mu=1.0d0
-    gen(8)%w(8)=1.1d0
-    gen(10)%w(10)=1.1d0
+    gen(8)%t(8)=1.1d0
+    gen(10)%t(10)=1.1d0
     gen(8)%kindof=2
     gen(10)%kindof=2
 
     do i=1,ng
-      gen(i)%wa(23)=0.0
+      gen(i)%e(23)=0.0
     end do
 
-    node(:)%da=node(:)%da*1.2
-    node(:)%tor=node(:)%tor!*10.0
-    node(:)%stor=node(:)%stor*1000.0
+    node(:)%add=node(:)%add*1.2
+    node(:)%erp=node(:)%erp!*10.0
+    node(:)%est=node(:)%est*1000.0
     cels(:)%maxsize_for_div=24 !cels(:)%nunodes*2
 
     ncels=nd/2
@@ -16594,10 +17195,10 @@ print *,nd/2,ncels,"nd/2 ncels"
 
     node(:)%talone=0.0d0
 
-    ramax=maxval(node(:)%da)*3
+    ramax=maxval(node(:)%add)*3
 
-    ffu(1)=1
-    ffu(18)=1
+    ffu(1)=0
+    ffu(11)=1
 
     dif_req=1.20d2
 
@@ -16658,18 +17259,18 @@ print *,nda,"nda"
   allocate(fmeanv(nda))                     !>>Miquel23-1-14
   fmeanv=0                                !>>Miquel23-1-14
 
-    gen(5)%wa(25)=1.7d-1
-!    gen(5)%wa(nparam_per_node+2)=4.0d-2
-    gen(5)%wa(nparam_per_node+2)=5.0d-1
-!    gen(1)%wa(nparam_per_node+2)=1.0d-5
-    gen(4)%wa(nparam_per_node+8)=4.0d1
-    gen(5)%wa(nparam_per_node+11)=4.0d50
-    !gen(2)%wa(23)=1.0d-1
+    gen(5)%e(25)=1.7d-1
+!    gen(5)%e(nparam_per_node+2)=4.0d-2
+    gen(5)%e(nparam_per_node+2)=5.0d-1
+!    gen(1)%e(nparam_per_node+2)=1.0d-5
+    gen(4)%e(nparam_per_node+8)=4.0d1
+    gen(5)%e(nparam_per_node+11)=4.0d50
+    !gen(2)%e(23)=1.0d-1
 
-    node(:)%da=node(:)%da*1.2
-!    node(:)%tor=node(:)%stor*1.0d-1
-    node(:)%stor=node(:)%stor*1000.0
-    node(:)%stor=node(:)%tor*1.0d1
+    node(:)%add=node(:)%add*1.2
+!    node(:)%erp=node(:)%est*1.0d-1
+    node(:)%est=node(:)%est*1000.0
+    node(:)%est=node(:)%erp*1.0d1
     cels(:)%maxsize_for_div=24 !cels(:)%nunodes*2
 
     ncels=nd/2
@@ -16704,15 +17305,15 @@ print *,nda,"nda"
 
     node(:)%talone=0.0d0
 
-    ramax=maxval(node(:)%da)*3
+    ramax=maxval(node(:)%add)*3
 
-    ffu(1)=1
-    ffu(18)=1
-    ffu(12)=0
-    ffu(21)=1
-!    ffu(19)=0 !ACHTUNG
+    ffu(1)=0
+    ffu(11)=1
+    ffu(7)=0
+    ffu(14)=1
+!    ffu(12)=0 !ACHTUNG
 
-!    node(:)%kplast=1.0d0
+!    node(:)%pla=1.0d0
 
     deltamin=1d-4
 
@@ -16781,38 +17382,38 @@ print *,nda,"nda"
   allocate(fmeanv(nda))                     !>>Miquel23-1-14
   fmeanv=0                                !>>Miquel23-1-14
 
-    gen(5)%wa(25)=0.0d0 !1.7d-1
-    !gen(5)%wa(nparam_per_node+2)=2.0d-2
-!    gen(5)%wa(nparam_per_node+2)=1.4d0
-    gen(5)%wa(nparam_per_node+2)=2.5d-1
-!    gen(1)%wa(nparam_per_node+2)=1.0d-5
-!    gen(4)%wa(nparam_per_node+8)=1d10 !4.0d1
-    gen(4)%wa(nparam_per_node+8)=4.0d1
-!    gen(5)%wa(nparam_per_node+11)=4.0d50
-    gen(6)%wa(nparam_per_node+1)=5.0d1
-    gen(5)%wa(21)=-4.0d-4
-!!    gen(4)%wa(21)=-9.0d-1  !!!
-    gen(4)%wa(28)=1.0d1
+    gen(5)%e(25)=0.0d0 !1.7d-1
+    !gen(5)%e(nparam_per_node+2)=2.0d-2
+!    gen(5)%e(nparam_per_node+2)=1.4d0
+    gen(5)%e(nparam_per_node+2)=2.5d-1
+!    gen(1)%e(nparam_per_node+2)=1.0d-5
+!    gen(4)%e(nparam_per_node+8)=1d10 !4.0d1
+    gen(4)%e(nparam_per_node+8)=4.0d1
+!    gen(5)%e(nparam_per_node+11)=4.0d50
+    gen(6)%e(nparam_per_node+1)=5.0d1
+    gen(5)%e(21)=-4.0d-4
+!!    gen(4)%e(21)=-9.0d-1  !!!
+    gen(4)%e(28)=1.0d1
     
-    gen(7)%w(7)=1.0d0 !this is to make that kplast is not high from the beginning
+    gen(7)%t(7)=1.0d0 !this is to make that kplast is not high from the beginning
     gen(7)%diffu=1.0d0
     gen(7)%mu=0.1d0
-!    gen(7)%wa(27)=1.0d-1 !bo
-    gen(7)%wa(27)=4.0d-1 !bo
-!    gen(7)%wa(27)=0.0d0
+!    gen(7)%e(27)=1.0d-1 !bo
+    gen(7)%e(27)=4.0d-1 !bo
+!    gen(7)%e(27)=0.0d0
     gen(7)%kindof=1
     gex(:,7)=1.0d-2
 
-    !gen(2)%wa(23)=1.0d-1;
+    !gen(2)%e(23)=1.0d-1;
 
-    node(:)%da=node(:)%da*1.2
-!    node(:)%tor=node(:)%stor*1.0d-1
-!    node(:)%stor=node(:)%stor*1000.0
-    node(:)%stor=node(:)%tor*1.0d3
-!    node(:)%tor=node(:)%tor*5.0d-1
-    node(:)%tor=node(:)%tor*9.0d-1
-!    node(:)%stor=node(:)%tor*1.0d0
-!    node(:)%stor=node(:)%tor!*1.0d-3
+    node(:)%add=node(:)%add*1.2
+!    node(:)%erp=node(:)%est*1.0d-1
+!    node(:)%est=node(:)%est*1000.0
+    node(:)%est=node(:)%erp*1.0d3
+!    node(:)%erp=node(:)%erp*5.0d-1
+    node(:)%erp=node(:)%erp*9.0d-1
+!    node(:)%est=node(:)%erp*1.0d0
+!    node(:)%est=node(:)%erp!*1.0d-3
 !    cels(:)%maxsize_for_div=24 !cels(:)%nunodes*2
 
     ncels=nd/2
@@ -16830,26 +17431,26 @@ print *,nda,"nda"
         cels(k)%node(1)=i
         cels(k)%node(2)=node(i)%altre
         node(i)%marge=1
-        node(i)%req=node(node(i)%altre)%req 
-        node(i)%da=node(node(i)%altre)%da
+        node(i)%eqd=node(node(i)%altre)%eqd 
+        node(i)%add=node(node(i)%altre)%add
         node(i)%x=node(i)%x*1.5d0
         node(i)%y=node(i)%y*1.5d0
         node(i)%z=node(i)%z*1.5d0
-        node(i)%reqcr=node(node(i)%altre)%reqcr*0.7d0
-        node(i)%reqc=node(node(i)%altre)%reqc*0.7d0
+        node(i)%grd=node(node(i)%altre)%grd*0.7d0
+        node(i)%cod=node(node(i)%altre)%cod*0.7d0
       else
         node(i)%x=node(i)%x*1.5d0 
         node(i)%y=node(i)%y*1.5d0
         node(i)%z=node(i)%z*1.5d0
-!        node(i)%reqcr=node(node(i)%altre)%reqcr 
-!        node(i)%reqc=node(node(i)%altre)%reqc
+!        node(i)%grd=node(node(i)%altre)%grd 
+!        node(i)%cod=node(node(i)%altre)%cod
       end if
     end do
     do i=1,nd
       if (node(i)%tipus==2) then
         node(i)%icel=node(node(i)%altre)%icel
         node(i)%marge=0
-        node(i)%kplast=0.0d0
+        node(i)%pla=0.0d0
       end if
     end do
     cels(:)%ctipus=1
@@ -16862,27 +17463,27 @@ print *,nda,"nda"
     gex(:,6)=1.0d0
 
     do i=1,ncels
-      cels(i)%maxsize_for_div=node(cels(i)%node(1))%req*0.8d0
+      cels(i)%maxsize_for_div=node(cels(i)%node(1))%eqd*0.8d0
     end do
 
     call update_npag
 
     node(:)%talone=0.0d0
 
-    ramax=maxval(node(:)%da)*3
+    ramax=maxval(node(:)%add)*3
 
 !    resmax=1d-3
 
 ffu=0
-    ffu(1)=1
-    ffu(3)=1
-    ffu(18)=1
-!    ffu(17)=1 ! volume conservation
-    ffu(21)=1
+    ffu(1)=0
+    ffu(2)=0 !>>> TT no screening
     ffu(11)=1
-    ffu(24)=1
-    ffu(25)=1
-!    node(:)%kplast=1.0d-1
+!    ffu(10)=0 ! volume conservation
+    ffu(14)=1
+    ffu(6)=1
+    ffu(17)=1
+    ffu(18)=0
+!    node(:)%pla=1.0d-1
 
     deltamin=1d-6
 
@@ -17007,7 +17608,7 @@ subroutine test_RD
     call iniarrays
     !End Allocatations
 
-    if(radi==1.or.mradi==1) ffu(1)=1
+    if(radi==1.or.mradi==1) ffu(1)=0
    !******* #2 DEFINING MODEL PARAMETERS *******
 
     !implementation and initializations
@@ -17039,19 +17640,19 @@ subroutine test_RD
     
     ffu=0
      !spring of the ellipse
-   ffu(1)=1
+   ffu(1)=0
     ffu(2)=0 !to quit if there are too many cells
-    ffu(3)=1 !screening
-    ffu(4)=0 !torsion
-    ffu(5)=0 !external signal source
-    ffu(6)=0 !eggshell miguel4-1-13
+    ffu(2)=0 !>>> TT no screening !screening
+    ffu(3)=0 !torsion
+    
+    
 
-    ffu(11)=1 !epithelial node plastic deformation
-    ffu(12)=1 !0 dynamic delta, 1 fixed delta
-    ffu(13)=0 !neighboring by triangulation
-    ffu(14)=1 !physical boundaries (walls)
-    ffu(17)=1 !volume conservation
-    ffu(22)=1 !0 = unbiased random noise / 1 = noise biased by energies
+    ffu(6)=1 !epithelial node plastic deformation
+    ffu(7)=1 !0 dynamic delta, 1 fixed delta
+    ffu(8)=0 !neighboring by triangulation
+    
+    ffu(10)=0 !volume conservation
+    ffu(15)=1 !0 = unbiased random noise / 1 = noise biased by energies
 
 
    !******* #2 DEFINING NODE MECHANIC PARAMETERS *******
@@ -17060,23 +17661,23 @@ subroutine test_RD
       do i=1,ndepi
         if(i<=ndepi/2)then  !basal
           node(i)%you=1d1 ; node(i)%adh=0d0
-          node(i)%rep=1d1 ; node(i)%repcel=1d1
+          node(i)%rep=1d1 ; node(i)%rec=1d1
         else                      !apical
           node(i)%you=1d1 ; node(i)%adh=0d0
-          node(i)%rep=1d1 ; node(i)%repcel=1d1
+          node(i)%rep=1d1 ; node(i)%rec=1d1
         end if
-        node(i)%req=0.25d0 ; node(i)%reqcr=node(i)%req
-        node(i)%reqs=0.25
-        node(i)%da=node(i)%req*1.70; 
-        node(i)%ke=1d1
-        node(i)%tor=5d1
-        node(i)%stor=5d0
-        node(i)%mo=temp
+        node(i)%eqd=0.25d0 ; node(i)%grd=node(i)%eqd
+        node(i)%eqs=0.25
+        node(i)%add=node(i)%eqd*1.70; 
+        node(i)%hoo=1d1
+        node(i)%erp=5d1
+        node(i)%est=5d0
+        node(i)%mov=temp
         node(i)%dmo=0.00
-        node(i)%diffe=0d0
-        node(i)%kplast=1d0
+        node(i)%dif=0d0
+        node(i)%pla=1d0
         node(i)%kvol=1d0
-        node(i)%khold=khold
+        node(i)%kfi=khold
       end do
     end if
 
@@ -17084,30 +17685,30 @@ subroutine test_RD
     if(mradi>0.and.mradicel>0.and.layer>0)then
       do i=ndepi+1,nd
         node(i)%you=0d0 ; node(i)%adh=0d0
-        node(i)%rep=0d0 ; node(i)%repcel=1d1
-        node(i)%req=0.25d0 ; node(i)%reqcr=node(i)%req
-        node(i)%reqs=0d0
-        node(i)%da=node(i)%req*1.70
-        node(i)%ke=0d0   !only for epithelium
-        node(i)%tor=0d0  !only for epithelium
-        node(i)%stor=0d0 !only for epithelium
+        node(i)%rep=0d0 ; node(i)%rec=1d1
+        node(i)%eqd=0.25d0 ; node(i)%grd=node(i)%eqd
+        node(i)%eqs=0d0
+        node(i)%add=node(i)%eqd*1.70
+        node(i)%hoo=0d0   !only for epithelium
+        node(i)%erp=0d0  !only for epithelium
+        node(i)%est=0d0 !only for epithelium
         node(i)%altre=0  !only for epithelium
-        node(i)%mo=temp
+        node(i)%mov=temp
         node(i)%dmo=0.00
-        node(i)%diffe=0d0
-        node(i)%khold=khold
+        node(i)%dif=0d0
+        node(i)%kfi=khold
       end do
     end if
 
     !General parameters that depend on node parameters
-    rv=2*maxval(node(:)%da)
+    rv=2*maxval(node(:)%add)
 
 
     !Distribution of nodes in space
-    if(radi>0.and.radicel>0)               call epiteli(radi,radicel,zepi,node(1)%req,node(1)%reqs)
+    if(radi>0.and.radicel>0)               call epiteli(radi,radicel,zepi,node(1)%eqd,node(1)%eqs)
     if(mradi>0.and.mradicel>0.and.layer>0)then
-                       if(packed==0)then ; call mesenq(mradi,mradicel,layer,zmes,node(ndepi+1)%req)
-                       else  ; call mesenq_packed(mradi,mradicel,layer,zmes,node(ndepi+1)%req) ; end if ; end if
+                       if(packed==0)then ; call mesenq(mradi,mradicel,layer,zmes,node(ndepi+1)%eqd)
+                       else  ; call mesenq_packed(mradi,mradicel,layer,zmes,node(ndepi+1)%eqd) ; end if ; end if
 
 
 
@@ -17127,10 +17728,10 @@ subroutine test_RD
     !End distribution of nodes in space
 
     !Setting boundary nodes (they will be subject to an external force keeping them in their initial position)
-    node(:)%hold=0
+    node(:)%fix=0
 
     do i=1,nd
-     node(i)%hold=2
+     node(i)%fix=2
     end do
 
     !!let's do it for the most external layer of cells
@@ -17140,15 +17741,14 @@ subroutine test_RD
       end do
       j=(6*j+1)*cels(1)%nunodes!nodecel !this is the number of epithelial nodes wich are not external
       do i=j+1,ndepi
-        !node(i)%border=1
-    !    node(i)%hold=1
-    !    !node(i)%da=node(i)%req*2.0
+    !    node(i)%fix=1
+    !    !node(i)%add=node(i)%eqd*2.0
     !    !node(i)%orix=0 ; node(i)%oriy=0
     !    !node(i)%oriz=node(i)%oriz-100
-    !    !node(i)%rep=1d1;node(i)%repcel=1d1
-    !    !node(i)%ke=1d1
-    !    !node(i)%tor=1d1
-    !    !!node(i)%stor=1d1
+    !    !node(i)%rep=1d1;node(i)%rec=1d1
+    !    !node(i)%hoo=1d1
+    !    !node(i)%erp=1d1
+    !    !!node(i)%est=1d1
       end do
       j=0
       do i=1,mradicel-2
@@ -17161,24 +17761,22 @@ subroutine test_RD
       end do
       k=(6*k+1)*cels(ncelsepi+1)%nunodes!mradi !this is the number of mesenchymal nodes wich are not external
       do i=ndepi+j+1,ndepi+k  !upper mesenchymal layer
-        !node(i)%border=1
-        !node(i)%hold=1
-        !node(i)%da=node(i)%req*2.0
+        !node(i)%fix=1
+        !node(i)%add=node(i)%eqd*2.0
         !node(i)%orix=0 ; node(i)%oriy=0
-        !node(i)%rep=1d1;node(i)%repcel=1d1
+        !node(i)%rep=1d1;node(i)%rec=1d1
       end do
       do i=ndepi+k+j+1,ndepi+2*k !middle mesenchymal layer
-        !node(i)%border=1
-        !node(i)%hold=1
-        !node(i)%da=node(i)%req*2.0
+        !node(i)%fix=1
+        !node(i)%add=node(i)%eqd*2.0
         !node(i)%orix=0 ; node(i)%oriy=0
-        !node(i)%rep=1d1;node(i)%repcel=1d1
+        !node(i)%rep=1d1;node(i)%rec=1d1
       end do
       !do i=ndepi+2*k+1,nd  !lower mesenchymal layer
-      !  node(i)%hold=1
-      !  !node(i)%da=node(i)%req*2.0
+      !  node(i)%fix=1
+      !  !node(i)%add=node(i)%eqd*2.0
       !  !node(i)%orix=0 ; node(i)%oriy=0
-      !  !node(i)%rep=1d1;node(i)%repcel=1d1
+      !  !node(i)%rep=1d1;node(i)%rec=1d1
       !end do
 
     !!end of setting boundary nodes
@@ -17189,7 +17787,7 @@ subroutine test_RD
     if(radi>0.and.radicel>0)then
       do i=1,ncelsepi
         cels(i)%fase=0d0
-        mmae=node(cels(i)%node(1))%req
+        mmae=node(cels(i)%node(1))%eqd
         cels(i)%minsize_for_div=cels(i)%nunodes*2
         cels(i)%maxsize_for_div=10000 !>>> Is 5-2-14
       end do
@@ -17198,7 +17796,7 @@ subroutine test_RD
     if(mradi>0.and.mradicel>0.and.layer>0)then
       do i=ncelsepi+1,ncels
         cels(i)%fase=0d0
-        mmae=node(cels(i)%node(1))%req
+        mmae=node(cels(i)%node(1))%eqd
         cels(i)%minsize_for_div=cels(i)%nunodes*2
         cels(i)%maxsize_for_div=10000 !>>> Is 5-2-14
       end do
@@ -17266,89 +17864,89 @@ subroutine test_RD
     !Gene-behavior interactions
     
 
-       gen(1)%wa(1)=1  !epithelial adhesion molecule
-       gen(2)%wa(1)=2  !epithelial-mesenchymal adhesion molecule
-       !gen(3)%wa(1)=3  !basal lamina
-       !gen(4)%wa(5)=-0.05 !this is req (emulating a migratory behavior)
-       !gen(4)%wa(6)=0.10 !this is da (emulating a migratory behavior)
+       gen(1)%e(1)=1  !epithelial adhesion molecule
+       gen(2)%e(1)=2  !epithelial-mesenchymal adhesion molecule
+       !gen(3)%e(1)=3  !basal lamina
+       !gen(4)%e(5)=-0.05 !this is req (emulating a migratory behavior)
+       !gen(4)%e(6)=0.10 !this is da (emulating a migratory behavior)
        
        !migration
-       !gen(4)%wa(16)=2d-1 !this is dmo (migratory cells)
-       !gen(6)%wa(nparam_per_node+8)=1d0
-       !gen(4)%wa(nparam_per_node+16)=1d0 !this makes random noise biased towards the gradient of the gene
+       !gen(4)%e(16)=2d-1 !this is dmo (migratory cells)
+       !gen(6)%e(nparam_per_node+8)=1d0
+       !gen(4)%e(nparam_per_node+16)=1d0 !this makes random noise biased towards the gradient of the gene
 
        !proliferation
-       !gen(4)%wa(nparam_per_node+2)=1d-3 !no division for placodal cells
-       !gen(13)%wa(nparam_per_node+2)=1d-3 !no division for placodal cells
+       !gen(4)%e(nparam_per_node+2)=1d-3 !no division for placodal cells
+       !gen(13)%e(nparam_per_node+2)=1d-3 !no division for placodal cells
 
 
 
     !Gene-gene interactions
 
 
-      gen(3)%w(3)=1d0
-      !gen(1)%w(3)=1d0
+      gen(3)%t(3)=1d0
+      !gen(1)%t(3)=1d0
 
 !!!!!NO RD NETWORK
-      !gen(4)%w(4)=1d1
-      !gen(1)%w(4)=1d0
-      !gen(13)%w(13)=1d-1
-      !gen(2)%w(13)=1d-2
+      !gen(4)%t(4)=1d1
+      !gen(1)%t(4)=1d0
+      !gen(13)%t(13)=1d-1
+      !gen(2)%t(13)=1d-2
 
-      !gen(4)%w(13)=-1d1
+      !gen(4)%t(13)=-1d1
 
 !!!!!RD NETWORK
-      gen(9)%w(3)=1.0d0
-      gen(10)%w(3)=1d0
-      !gen(5)%w(3)=1d-3
+      gen(9)%t(3)=1.0d0
+      gen(10)%t(3)=1d0
+      !gen(5)%t(3)=1d-3
 
 
-      !gen(4)%w(4)=1d-2
-      gen(5)%w(4)=1d-2
-      gen(6)%w(4)=1d-2
+      !gen(4)%t(4)=1d-2
+      gen(5)%t(4)=1d-2
+      gen(6)%t(4)=1d-2
 
-      gen(13)%w(12)=1d4
+      gen(13)%t(12)=1d4
 
-      gen(4)%w(11)=1.3d0
-      gen(4)%w(12)=-1.0d0
+      gen(4)%t(11)=1.3d0
+      gen(4)%t(12)=-1.0d0
 
-      !gen(4)%w(13)=-1d0
+      !gen(4)%t(13)=-1d0
 
       gen(3)%nww=2
-      gen(3)%ww(1,1)=5
-      gen(3)%ww(1,2)=7
-      gen(3)%ww(1,3)=1d0
-      gen(3)%ww(2,1)=6
-      gen(3)%ww(2,2)=8
-      gen(3)%ww(2,3)=1d0
+      gen(3)%r(1,1)=5
+      gen(3)%r(1,2)=7
+      gen(3)%r(1,3)=1d0
+      gen(3)%r(2,1)=6
+      gen(3)%r(2,2)=8
+      gen(3)%r(2,3)=1d0
 
       gen(11)%nww=4
-      gen(11)%ww(1,1)=7
-      gen(11)%ww(1,2)=11
-      gen(11)%ww(1,3)=1d0
-      gen(11)%ww(2,1)=11
-      gen(11)%ww(2,2)=7
-      gen(11)%ww(2,3)=1d0
-      gen(11)%ww(3,1)=9
-      gen(11)%ww(3,2)=11
-      gen(11)%ww(3,3)=1d0
-      gen(11)%ww(4,1)=11
-      gen(11)%ww(4,2)=9
-      gen(11)%ww(4,3)=1d0
+      gen(11)%r(1,1)=7
+      gen(11)%r(1,2)=11
+      gen(11)%r(1,3)=1d0
+      gen(11)%r(2,1)=11
+      gen(11)%r(2,2)=7
+      gen(11)%r(2,3)=1d0
+      gen(11)%r(3,1)=9
+      gen(11)%r(3,2)=11
+      gen(11)%r(3,3)=1d0
+      gen(11)%r(4,1)=11
+      gen(11)%r(4,2)=9
+      gen(11)%r(4,3)=1d0
 
       gen(12)%nww=4
-      gen(12)%ww(1,1)=8
-      gen(12)%ww(1,2)=12
-      gen(12)%ww(1,3)=1d0
-      gen(12)%ww(2,1)=12
-      gen(12)%ww(2,2)=8
-      gen(12)%ww(2,3)=1d0
-      gen(12)%ww(3,1)=10
-      gen(12)%ww(3,2)=12
-      gen(12)%ww(3,3)=1d0
-      gen(12)%ww(4,1)=12
-      gen(12)%ww(4,2)=10
-      gen(12)%ww(4,3)=1d0
+      gen(12)%r(1,1)=8
+      gen(12)%r(1,2)=12
+      gen(12)%r(1,3)=1d0
+      gen(12)%r(2,1)=12
+      gen(12)%r(2,2)=8
+      gen(12)%r(2,3)=1d0
+      gen(12)%r(3,1)=10
+      gen(12)%r(3,2)=12
+      gen(12)%r(3,3)=1d0
+      gen(12)%r(4,1)=12
+      gen(12)%r(4,2)=10
+      gen(12)%r(4,3)=1d0
 !!!!!!!!!!!!!!!!!!
 
     !Adhesion molecules
@@ -17467,7 +18065,7 @@ subroutine test_RD
 
     node(:)%talone=0.0d0
 
-    ramax=maxval(node(:)%da)*3
+    ramax=maxval(node(:)%add)*3
    
 end subroutine
 
@@ -17542,7 +18140,7 @@ integer, allocatable::cell_grid_epi(:,:),cell_grid_mes(:,:,:)
     if (allocated(cels)) deallocate(cels)
     allocate(node(nda),cels(ncals)) 
     call iniarrays
-    if(radi==1.or.mradi==1) ffu(1)=1
+    if(radi==1.or.mradi==1) ffu(1)=0
     !End Allocatations
 
 
@@ -17581,20 +18179,19 @@ integer, allocatable::cell_grid_epi(:,:),cell_grid_mes(:,:,:)
     
     ffu=0
      !spring of the ellipse
-    ffu(1)=1
+    ffu(1)=0
     ffu(2)=0 !to quit if there are too many cells
-    ffu(3)=1 !screening
-    ffu(4)=0 !torsion
-    ffu(5)=0 !external signal source
-    ffu(6)=0 !buoyancy
+    ffu(2)=0 !>>> TT no screening !screening
+    ffu(3)=0 !torsion
+    
 
-    ffu(11)=1 !epithelial node plastic deformation
-    ffu(12)=1 !0 dynamic delta, 1 fixed delta
-    ffu(13)=0 !neighboring by triangulation
-    ffu(14)=0 !physical boundaries (walls)
-    ffu(17)=1 !volume conservation (epithelial)
-    ffu(22)=1 !0 = noise biased by energies , 1 = unbiased noise
-    ffu(24)=0
+    ffu(6)=1 !epithelial node plastic deformation
+    ffu(7)=1 !0 dynamic delta, 1 fixed delta
+    ffu(8)=0 !neighboring by triangulation
+    
+    ffu(10)=0 !volume conservation (epithelial)
+    ffu(15)=1 !1 = noise biased by energies , 0 = unbiased noise
+    ffu(17)=0
 
 
  
@@ -17605,29 +18202,29 @@ integer, allocatable::cell_grid_epi(:,:),cell_grid_mes(:,:,:)
       do i=1,ndepi
         if(mod(i,2)/=0)then  !basal
           node(i)%you=0d0 ; node(i)%adh=0d0
-          node(i)%rep=0d0 ; node(i)%repcel=5d0
-          !node(i)%reqp=-0.05d0
-          !node(i)%req=0.20d0
-        !node(i)%kplast=1d0
+          node(i)%rep=0d0 ; node(i)%rec=5d0
+          !node(i)%pld=-0.05d0
+          !node(i)%eqd=0.20d0
+        !node(i)%pla=1d0
         else                      !apical
           node(i)%you=0d0 ; node(i)%adh=0d0
-          node(i)%rep=0d0 ; node(i)%repcel=5d0
-        !node(i)%kplast=1d1
-        !  !node(i)%reqp=0.05d0
-        !  !node(i)%req=0.30d0
+          node(i)%rep=0d0 ; node(i)%rec=5d0
+        !node(i)%pla=1d1
+        !  !node(i)%pld=0.05d0
+        !  !node(i)%eqd=0.30d0
         end if
-        node(i)%req=0.25d0
-        node(i)%reqcr=0.25d0 !; node(i)%reqcr=node(i)%req
-        node(i)%reqs=0.25
-        node(i)%da=node(i)%req*1.60; 
-        node(i)%ke=5d0
-        node(i)%tor=3d1
-        node(i)%stor=1d1
-        node(i)%mo=temp
+        node(i)%eqd=0.25d0
+        node(i)%grd=0.25d0 !; node(i)%grd=node(i)%eqd
+        node(i)%eqs=0.25
+        node(i)%add=node(i)%eqd*1.60; 
+        node(i)%hoo=5d0
+        node(i)%erp=3d1
+        node(i)%est=1d1
+        node(i)%mov=temp
         node(i)%dmo=0
-        node(i)%diffe=0d0
-        node(i)%khold=khold
-        node(i)%kplast=1d1
+        node(i)%dif=0d0
+        node(i)%kfi=khold
+        node(i)%pla=1d1
         node(i)%kvol=1d1
       end do
     !end if
@@ -17636,25 +18233,25 @@ integer, allocatable::cell_grid_epi(:,:),cell_grid_mes(:,:,:)
     if(layer>0)then
       do i=ndepi+1,nd
         node(i)%you=0d0 ; node(i)%adh=0d0
-        node(i)%rep=5d0 ; node(i)%repcel=5d0
-        node(i)%req=0.25d0 ; node(i)%reqcr=node(i)%req
-        node(i)%reqs=0d0
-        node(i)%da=node(i)%req*1.60
-        node(i)%ke=0d0   !only for epithelium
-        node(i)%tor=0d0  !only for epithelium
-        node(i)%stor=0d0 !only for epithelium
+        node(i)%rep=5d0 ; node(i)%rec=5d0
+        node(i)%eqd=0.25d0 ; node(i)%grd=node(i)%eqd
+        node(i)%eqs=0d0
+        node(i)%add=node(i)%eqd*1.60
+        node(i)%hoo=0d0   !only for epithelium
+        node(i)%erp=0d0  !only for epithelium
+        node(i)%est=0d0 !only for epithelium
         node(i)%altre=0  !only for epithelium
-        node(i)%mo=temp
+        node(i)%mov=temp
         node(i)%dmo=0.0
-        node(i)%diffe=0d0
-        node(i)%khold=khold
+        node(i)%dif=0d0
+        node(i)%kfi=khold
       end do
     end if
 
     !General parameters that depend on node parameters
-    rv=2*maxval(node(:)%da)
+    rv=2*maxval(node(:)%add)
 
-    node(:)%hold=0
+    node(:)%fix=0
 
 	do i=1,ncels
 		cels(i)%nunodes=0
@@ -17664,7 +18261,7 @@ integer, allocatable::cell_grid_epi(:,:),cell_grid_mes(:,:,:)
 
     !epithelial cells
     !origin of rectangle
-    aa=node(1)%req*2
+    aa=node(1)%eqd*2
     bb=sqrt(aa**2-(aa*0.5)**2)
     a=-real(lx)*0.5*aa ; b=-real(ly)*0.5*bb
     !print*,"a",a,"b",b,"aa",aa,"bb",bb,"lx",lx,"ly",ly
@@ -17680,22 +18277,15 @@ integer, allocatable::cell_grid_epi(:,:),cell_grid_mes(:,:,:)
         node(ii)%icel=jj ; node(ii)%altre=ii+1 ;node(ii)%tipus=2
         ii=ii+1
         if(mod(i,2)==0)then
-          node(ii)%x=a+(j-1)*aa ; node(ii)%y=b+(i-1)*bb ; node(ii)%z=zepi+2*node(ii)%reqs
+          node(ii)%x=a+(j-1)*aa ; node(ii)%y=b+(i-1)*bb ; node(ii)%z=zepi+2*node(ii)%eqs
         else
-          node(ii)%x=0.5*aa+a+(j-1)*aa ; node(ii)%y=b+(i-1)*bb ; node(ii)%z=zepi+2*node(ii)%reqs
+          node(ii)%x=0.5*aa+a+(j-1)*aa ; node(ii)%y=b+(i-1)*bb ; node(ii)%z=zepi+2*node(ii)%eqs
         end if
         node(ii)%icel=jj ; node(ii)%altre=ii-1 ;node(ii)%tipus=1
         cels(jj)%node(1)=ii-1 ; cels(jj)%node(2)=ii ;cels(jj)%nunodes=2; cels(jj)%ctipus=1
         if(i==1.or.i==ly.or.j==1.or.j==lx)then
-          node(ii)%hold=1;node(ii-1)%hold=1 ;
-          node(ii)%repcel=1d2;node(ii-1)%repcel=1d2;
-          !node(ii)%border=1;node(ii-1)%border=1;
-          !if(ffu(24)==1)then
-          !  nborders=nborders+1
-          !  node(ii-1)%border=nborders
-          !  nborders=nborders+1
-          !  node(ii)%border=nborders
-          !end if
+          node(ii)%fix=1;node(ii-1)%fix=1 ;
+          node(ii)%rec=1d2;node(ii-1)%rec=1d2;
         end if
       end do
     end do
@@ -17715,14 +18305,10 @@ integer, allocatable::cell_grid_epi(:,:),cell_grid_mes(:,:,:)
           node(ii)%icel=jj ; node(ii)%altre=0 ;node(ii)%tipus=3
           cels(jj)%node(1)=ii ;cels(jj)%nunodes=1 ; cels(jj)%ctipus=3
           if(i==1 .or. i==ly .or. j==1 .or. j==lx)then
-            node(ii)%hold=2 ;node(ii)%repcel=1d2 ; !node(ii)%border=2 ;
-            if(ffu(24)==1)then
-              nborders=nborders+1
-              node(ii)%border=nborders
-            end if
+            node(ii)%fix=2 ;node(ii)%rec=1d2 ; 
           end if
-          !if(i==1 .or. i==ly .or. j==1 .or. j==lx)then ;node(ii)%hold=1 ;node(ii)%repcel=1d2 ;end if
-          !if(j==1 .or. j==lx)then ;node(ii)%hold=1 ;node(ii)%repcel=1d2 ;end if
+          !if(i==1 .or. i==ly .or. j==1 .or. j==lx)then ;node(ii)%fix=1 ;node(ii)%rec=1d2 ;end if
+          !if(j==1 .or. j==lx)then ;node(ii)%fix=1 ;node(ii)%rec=1d2 ;end if
         end do
       end do
     end do
@@ -17739,8 +18325,8 @@ integer, allocatable::cell_grid_epi(:,:),cell_grid_mes(:,:,:)
       node(i)%orix=node(i)%x ; node(i)%oriy=node(i)%y ; node(i)%oriz=node(i)%z
     end do
     
-  !node(:)%hold=2
-  !node(:)%hold=0  
+  !node(:)%fix=2
+  !node(:)%fix=0  
 
     !!end of setting boundary nodes
 
@@ -17750,7 +18336,7 @@ integer, allocatable::cell_grid_epi(:,:),cell_grid_mes(:,:,:)
     !if(radi>0.and.radicel>0)then
       do i=1,ncelsepi
         cels(i)%fase=0d0
-        mmae=node(cels(i)%node(1))%req
+        mmae=node(cels(i)%node(1))%eqd
         cels(i)%minsize_for_div=cels(i)%nunodes*2
         cels(i)%maxsize_for_div=10000 !>>> Is 5-2-14
       end do
@@ -17759,7 +18345,7 @@ integer, allocatable::cell_grid_epi(:,:),cell_grid_mes(:,:,:)
     if(layer>0)then
       do i=ncelsepi+1,ncels
         cels(i)%fase=0d0
-        mmae=node(cels(i)%node(1))%req
+        mmae=node(cels(i)%node(1))%eqd
         cels(i)%minsize_for_div=cels(i)%nunodes*2
         cels(i)%maxsize_for_div=10000 !>>> Is 5-2-14
       end do
@@ -17835,98 +18421,98 @@ integer, allocatable::cell_grid_epi(:,:),cell_grid_mes(:,:,:)
     !Gene-behavior interactions
     
 
-      !gen(7)%wa(1)=1
-      !gen(8)%wa(1)=2
-      gen(12)%wa(1)=1
-      gen(13)%wa(1)=2
+      !gen(7)%e(1)=1
+      !gen(8)%e(1)=2
+      gen(12)%e(1)=1
+      gen(13)%e(1)=2
 
-      gen(12)%wa(nparam_per_node+2)=1d-1
+      gen(12)%e(nparam_per_node+2)=1d-1
 
     !Gene-gene interactions
 
      !wavefront setting
-      !gen(2)%w(1)=1d2  !this will spontaneously generate activator
-      !gen(15)%w(1)=-1d1  !this will spontaneously generate activator
-      !gen(1)%w(14)=1d0  !this will produce a ware
-      !!gen(1)%w(15)=-1d0  !this is everywhere, inhibiting production of activator (in a threshold manner)
-      !gen(14)%w(14)=1d0  !this is everywhere, inhibiting production of activator (in a threshold manner)
-      !gen(15)%w(15)=1d0  !this is everywhere, inhibiting production of activator (in a threshold manner)
-      !gen(2)%w(15)=-1d5  !this is everywhere, inhibiting production of activator (in a threshold manner)
+      !gen(2)%t(1)=1d2  !this will spontaneously generate activator
+      !gen(15)%t(1)=-1d1  !this will spontaneously generate activator
+      !gen(1)%t(14)=1d0  !this will produce a ware
+      !!gen(1)%t(15)=-1d0  !this is everywhere, inhibiting production of activator (in a threshold manner)
+      !gen(14)%t(14)=1d0  !this is everywhere, inhibiting production of activator (in a threshold manner)
+      !gen(15)%t(15)=1d0  !this is everywhere, inhibiting production of activator (in a threshold manner)
+      !gen(2)%t(15)=-1d5  !this is everywhere, inhibiting production of activator (in a threshold manner)
 
 
 
-      !gen(2)%w(1)=-1d5
-      !gen(2)%w(1)=-1d5
+      !gen(2)%t(1)=-1d5
+      !gen(2)%t(1)=-1d5
 
-      !gen(2)%w(2)=1d0  !the activated receptor directly transcripts signal
-      !gen(9)%w(2)=1d0
+      !gen(2)%t(2)=1d0  !the activated receptor directly transcripts signal
+      !gen(9)%t(2)=1d0
 
-      !gen(7)%w(2)=1d0
-      !gen(8)%w(2)=1d0
-      !gen(7)%w(3)=-6d-2
-      !gen(8)%w(3)=-1d3
-      !gen(7)%w(5)=-1d3
-      !gen(8)%w(5)=-6d-2
-      !gen(14)%w(7)=-1d2
-      !gen(15)%w(8)=-1d2
+      !gen(7)%t(2)=1d0
+      !gen(8)%t(2)=1d0
+      !gen(7)%t(3)=-6d-2
+      !gen(8)%t(3)=-1d3
+      !gen(7)%t(5)=-1d3
+      !gen(8)%t(5)=-6d-2
+      !gen(14)%t(7)=-1d2
+      !gen(15)%t(8)=-1d2
       
-      !gen(2)%w(9)=-1d0
+      !gen(2)%t(9)=-1d0
       
-      gen(3)%w(3)=1d0  !autoactivation of receptors
-      gen(5)%w(5)=1d0
-      gen(10)%w(10)=1d0
+      gen(3)%t(3)=1d0  !autoactivation of receptors
+      gen(5)%t(5)=1d0
+      gen(10)%t(10)=1d0
       
-      gen(12)%w(12)=1d0 !autoactivation of adhesion molecules
-      gen(13)%w(13)=1d0
-      !gen(14)%w(3)=1d0
-      !gen(15)%w(5)=1d0
+      gen(12)%t(12)=1d0 !autoactivation of adhesion molecules
+      gen(13)%t(13)=1d0
+      !gen(14)%t(3)=1d0
+      !gen(15)%t(5)=1d0
 
       
       !gen(4)%nww=4      !activator signal activates activator receptor epi
-      !gen(4)%ww(1,1)=2  
-      !gen(4)%ww(1,2)=4
-      !gen(4)%ww(1,3)=1d0
-      !gen(4)%ww(2,1)=4  
-      !gen(4)%ww(2,2)=2
-      !gen(4)%ww(2,3)=1d0
+      !gen(4)%r(1,1)=2  
+      !gen(4)%r(1,2)=4
+      !gen(4)%r(1,3)=1d0
+      !gen(4)%r(2,1)=4  
+      !gen(4)%r(2,2)=2
+      !gen(4)%r(2,3)=1d0
       !
-      !gen(4)%ww(3,1)=3  
-      !gen(4)%ww(3,2)=4
-      !gen(4)%ww(3,3)=1d0
-      !gen(4)%ww(4,1)=4  
-      !gen(4)%ww(4,2)=3
-      !gen(4)%ww(4,3)=1d0
+      !gen(4)%r(3,1)=3  
+      !gen(4)%r(3,2)=4
+      !gen(4)%r(3,3)=1d0
+      !gen(4)%r(4,1)=4  
+      !gen(4)%r(4,2)=3
+      !gen(4)%r(4,3)=1d0
       !
       !
       !gen(6)%nww=4      !activator morphogen activates activator receptor mesench
-      !gen(6)%ww(1,1)=2  
-      !gen(6)%ww(1,2)=6
-      !gen(6)%ww(1,3)=1d0
-      !gen(6)%ww(2,1)=6  
-      !gen(6)%ww(2,2)=2
-      !gen(6)%ww(2,3)=1d0
+      !gen(6)%r(1,1)=2  
+      !gen(6)%r(1,2)=6
+      !gen(6)%r(1,3)=1d0
+      !gen(6)%r(2,1)=6  
+      !gen(6)%r(2,2)=2
+      !gen(6)%r(2,3)=1d0
       !
-      !gen(6)%ww(3,1)=5
-      !gen(6)%ww(3,2)=6
-      !gen(6)%ww(3,3)=1d0
-      !gen(6)%ww(4,1)=6  
-      !gen(6)%ww(4,2)=5
-      !gen(6)%ww(4,3)=1d0
+      !gen(6)%r(3,1)=5
+      !gen(6)%r(3,2)=6
+      !gen(6)%r(3,3)=1d0
+      !gen(6)%r(4,1)=6  
+      !gen(6)%r(4,2)=5
+      !gen(6)%r(4,3)=1d0
       !
       !gen(11)%nww=4      !inhibitor signal activates inhibitor receptor epi
-      !gen(11)%ww(1,1)=9  
-      !gen(11)%ww(1,2)=11
-      !gen(11)%ww(1,3)=1d0
-      !gen(11)%ww(2,1)=11  
-      !gen(11)%ww(2,2)=9
-      !gen(11)%ww(2,3)=1d0
+      !gen(11)%r(1,1)=9  
+      !gen(11)%r(1,2)=11
+      !gen(11)%r(1,3)=1d0
+      !gen(11)%r(2,1)=11  
+      !gen(11)%r(2,2)=9
+      !gen(11)%r(2,3)=1d0
       !
-      !gen(11)%ww(3,1)=10  
-      !gen(11)%ww(3,2)=11
-      !gen(11)%ww(3,3)=1d0
-      !gen(11)%ww(4,1)=11  
-      !gen(11)%ww(4,2)=10
-      !gen(11)%ww(4,3)=1d0
+      !gen(11)%r(3,1)=10  
+      !gen(11)%r(3,2)=11
+      !gen(11)%r(3,3)=1d0
+      !gen(11)%r(4,1)=11  
+      !gen(11)%r(4,2)=10
+      !gen(11)%r(4,3)=1d0
 
 
     !Adhesion molecules
@@ -17959,15 +18545,15 @@ integer, allocatable::cell_grid_epi(:,:),cell_grid_mes(:,:,:)
         k=cels(cell_grid_epi(i,j))%node(1)
         if(i<=2.or.i>=lx-1.or.j<=2.or.j>=ly-1)then
           gex(k,1)=1d0
-          !node(k)%hold=3
-          !node(node(k)%altre)%hold=3
+          !node(k)%fix=3
+          !node(node(k)%altre)%fix=3
           !gex(k,2)=0d0 ; gex(k,9)=0d0
         end if
         do ii=1,layer
           k=cels(cell_grid_mes(i,j,ii))%node(1)
           if(i<=2.or.i>=lx-1.or.j<=2.or.j>=ly-1)then
             gex(k,1)=1d0
-            node(k)%hold=3
+            node(k)%fix=3
             !gex(k,2)=0d0 ; gex(k,9)=0d0
           end if
         end do
@@ -17998,7 +18584,7 @@ integer, allocatable::cell_grid_epi(:,:),cell_grid_mes(:,:,:)
         gex(i,13)=1d0
         gex(i,15)=1d0
       end if
-      !if(node(i)%hold>0)then
+      !if(node(i)%fix>0)then
       !  gex(i,:)=0d0 !clear the hold nodes
       !  if(node(i)%tipus<3)then
       !    gex(i,12)=1d0
@@ -18015,7 +18601,7 @@ integer, allocatable::cell_grid_epi(:,:),cell_grid_mes(:,:,:)
 
     node(:)%talone=0.0d0
 
-    !ramax=maxval(node(:)%da)*3
+    !ramax=maxval(node(:)%add)*3
 
     
 end subroutine
