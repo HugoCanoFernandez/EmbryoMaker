@@ -1,7 +1,7 @@
 program copy_network
 
 
-! gfortran -g general.mod.f90 genetic.mod.f90 io.mod.f90 geompack3.f90 make_ics_dynamic.f90 -o mkics_dyn.e; rm *.mod
+! gfortran -g general.mod.f90 genetic.mod.f90 io.mod.f90 geompack3.f90 make_ics_dynamic2.f90 -o mkics_dyn.e; rm *.mod
 
   use general
   use genetic
@@ -186,112 +186,11 @@ do ich=1, npattern
 end do
 
 
-! GET MEAN MAX EXPRESSION
-do ich=1, npattern
-  write( ithc, "(I5.5)" ) networks(ich)
-  do jch=1,10
-    if (newics(ich) .eq. 0) then
-      jich=2*jch
-      print*,"checking network",ich,"at time",jich
-      ! Making ICs name
-      if(jich .ge. 10)then
-        write(jthc, "(I2)") jich
-        if(prugenes(ich,1) < 10 .and. prugenes(ich,2) < 10)then
-          write(ggg1, "(I1)")prugenes(ich,1)
-          write(ggg2, "(I1)")prugenes(ich,2)
-          pinput="ics/icoepi_nuclei.datmod"//ithc//".dat_prune_"//trim(ggg1)//"_"//trim(ggg2)//".dat"//trim(jthc)//"000.dat"
-        else if(prugenes(ich,1) .ge. 10 .and. prugenes(ich,2) < 10)then
-          write(gggg1, "(I2)")prugenes(ich,1)
-          write(ggg2, "(I1)")prugenes(ich,2)
-          pinput="ics/icoepi_nuclei.datmod"//ithc//".dat_prune_"//trim(gggg1)//"_"//trim(ggg2)//".dat"//trim(jthc)//"000.dat"
-        else if(prugenes(ich,1) < 10 .and. prugenes(ich,2) .ge. 10)then
-          write(ggg1, "(I1)")prugenes(ich,1)
-          write(gggg2, "(I2)")prugenes(ich,2)
-          pinput="ics/icoepi_nuclei.datmod"//ithc//".dat_prune_"//trim(ggg1)//"_"//trim(gggg2)//".dat"//trim(jthc)//"000.dat"
-        else
-          write(gggg1, "(I2)")prugenes(ich,1)
-          write(gggg2, "(I2)")prugenes(ich,2)
-          pinput="ics/icoepi_nuclei.datmod"//ithc//".dat_prune_"//trim(gggg1)//"_"//trim(gggg2)//".dat"//trim(jthc)//"000.dat"
-        end if
-      else
-        write(kthc,"(I1)") jich
-        if(prugenes(ich,1) < 10 .and. prugenes(ich,2) < 10)then
-          write(ggg1, "(I1)")prugenes(ich,1)
-          write(ggg2, "(I1)")prugenes(ich,2)
-          pinput="ics/icoepi_nuclei.datmod"//ithc//".dat_prune_"//ggg1//"_"//ggg2//".dat"//trim(kthc)//"000.dat"
-        else if(prugenes(ich,1) .ge. 10 .and. prugenes(ich,2) < 10)then
-          write(gggg1, "(I2)")prugenes(ich,1)
-          write(ggg2, "(I1)")prugenes(ich,2)
-          pinput="ics/icoepi_nuclei.datmod"//ithc//".dat_prune_"//gggg1//"_"//ggg2//".dat"//trim(kthc)//"000.dat"
-        else if(prugenes(ich,1) < 10 .and. prugenes(ich,2) .ge. 10)then
-          write(ggg1, "(I1)")prugenes(ich,1)
-          write(gggg2, "(I2)")prugenes(ich,2)
-          pinput="ics/icoepi_nuclei.datmod"//ithc//".dat_prune_"//ggg1//"_"//gggg2//".dat"//trim(kthc)//"000.dat"
-        else
-          write(gggg1, "(I2)")prugenes(ich,1)
-          write(gggg2, "(I2)")prugenes(ich,2)
-          pinput="ics/icoepi_nuclei.datmod"//ithc//".dat_prune_"//gggg1//"_"//gggg2//".dat"//trim(kthc)//"000.dat"
-        end if
-      end if
-    else
-      jich=332*jch
-      print*,"checking network",ich,"at time",jich
-      ! Making ICs name
-      if(jich .ge. 1000)then
-        write(jithc, "(I4)") jich
-        if(prugenes(ich,1) < 10 .and. prugenes(ich,2) < 10)then
-          write(ggg1, "(I1)")prugenes(ich,1)
-          write(ggg2, "(I1)")prugenes(ich,2)
-          pinput="new_ics/icoepi_nuclei.datmod"//ithc//".dat_prune_"//ggg1//"_"//ggg2//".dat"//trim(jithc)//".dat"
-        else if(prugenes(ich,1) .ge. 10 .and. prugenes(ich,2) < 10)then
-          write(gggg1, "(I2)")prugenes(ich,1)
-          write(ggg2, "(I1)")prugenes(ich,2)
-          pinput="new_ics/icoepi_nuclei.datmod"//ithc//".dat_prune_"//gggg1//"_"//ggg2//".dat"//trim(jithc)//".dat"
-        else if(prugenes(ich,1) < 10 .and. prugenes(ich,2) .ge. 10)then
-          write(ggg1, "(I1)")prugenes(ich,1)
-          write(gggg2, "(I2)")prugenes(ich,2)
-          pinput="new_ics/icoepi_nuclei.datmod"//ithc//".dat_prune_"//ggg1//"_"//gggg2//".dat"//trim(jithc)//".dat"
-        else
-          write(gggg1, "(I2)")prugenes(ich,1)
-          write(gggg2, "(I2)")prugenes(ich,2)
-          pinput="new_ics/icoepi_nuclei.datmod"//ithc//".dat_prune_"//gggg1//"_"//gggg2//".dat"//trim(jithc)//".dat"
-        end if
-      else
-        write(kithc,"(I3)") jich
-        if(prugenes(ich,1) < 10 .and. prugenes(ich,2) < 10)then
-          write(ggg1, "(I1)")prugenes(ich,1)
-          write(ggg2, "(I1)")prugenes(ich,2)
-          pinput="new_ics/icoepi_nuclei.datmod"//ithc//".dat_prune_"//ggg1//"_"//ggg2//".dat"//trim(kithc)//".dat"
-        else if(prugenes(ich,1) .ge. 10 .and. prugenes(ich,2) < 10)then
-          write(gggg1, "(I2)")prugenes(ich,1)
-          write(ggg2, "(I1)")prugenes(ich,2)
-          pinput="new_ics/icoepi_nuclei.datmod"//ithc//".dat_prune_"//gggg1//"_"//ggg2//".dat"//trim(kithc)//".dat"
-        else if(prugenes(ich,1) < 10 .and. prugenes(ich,2) .ge. 10)then
-          write(ggg1, "(I1)")prugenes(ich,1)
-          write(gggg2, "(I2)")prugenes(ich,2)
-          pinput="new_ics/icoepi_nuclei.datmod"//ithc//".dat_prune_"//ggg1//"_"//gggg2//".dat"//trim(kithc)//".dat"
-        else
-          write(gggg1, "(I2)")prugenes(ich,1)
-          write(gggg2, "(I2)")prugenes(ich,2)
-          pinput="new_ics/icoepi_nuclei.datmod"//ithc//".dat_prune_"//gggg1//"_"//gggg2//".dat"//trim(kithc)//".dat"
-        end if
-      end if
-    end if
-    ! Importing network and reading max gene expression
-    call iniread
-    call readsnap(pinput)
-    do kch=1,myngs(ich)
-      !maxexp(ich,kch) = maxexp(ich,kch) + maxval(gex(:,kch))
-      if(maxval(gex(:,kch)) > maxexp(ich,kch))then
-        maxexp(ich,kch) = maxval(gex(:,kch))
-      end if
-    end do
-  end do
-  !do kch=1,myngs(ich)
-  !  maxexp(ich,kch) = maxexp(ich,kch)/11
-  !end do
-end do
-
+open(666,file="maximum_gene_expression.dat")
+do ich=1,npattern
+   read(666,*) maxexp(ich,:)
+enddo
+ close(666)
 
 ! LIST NUMBER OF ICS
 ntot=0
